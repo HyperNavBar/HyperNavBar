@@ -18,8 +18,6 @@
     <string name="floating_navbar_summary">使用悬浮样式的底部导航栏</string>
     <string name="liquid_glass">液态玻璃效果</string>
     <string name="liquid_glass_summary">iOS 风格的液态玻璃模糊效果</string>
-    <string name="auto_apply_boot">开机自动应用沉浸规则</string>
-    <string name="auto_apply_boot_summary">设备启动后自动获取并应用沉浸规则</string>
     <string name="language_default">默认</string>
     <string name="language_zh_cn">简体中文</string>
     <string name="language_en">English</string>
@@ -29,7 +27,10 @@
     <string name="rules_add_url">输入配置 URL</string>
     <string name="rules_add_url_hint">https://example.com/rules.json</string>
     <string name="rules_add_interval">定时更新间隔（分钟，0=不自动）</string>
-    <string name="rules_apply_interval">定时应用间隔（分钟，0=不自动）</string>
+    <string name="rules_apply_interval">定时应用间隔</string>
+    <string name="rules_apply_interval_summary">设置自动应用规则的间隔时间（分钟，0=不自动）</string>
+    <string name="rules_apply_interval_value">%d 分钟</string>
+    <string name="rules_apply_interval_off">关闭</string>
     <string name="rules_confirm">确认</string>
     <string name="rules_delete">删除</string>
     <string name="rules_delete_confirm">确定删除此订阅？</string>
@@ -40,11 +41,8 @@
     <string name="rules_refreshing">刷新中…</string>
     <string name="rules_refresh_manual">手动刷新</string>
     <string name="rules_apply">应用规则</string>
+    <string name="rules_apply_now">立刻生效</string>
     <string name="rules_apply_summary">获取云端配置并合并写入系统</string>
-    <string name="rules_restore">恢复官方规则</string>
-    <string name="rules_restore_summary">移除自定义规则，恢复系统默认配置</string>
-    <string name="rules_status_custom">当前状态：自定义规则</string>
-    <string name="rules_status_official">当前状态：官方规则</string>
     <string name="rules_merged_count">%d 个应用</string>
     <string name="rules_app_count">%d 个应用</string>
     <string name="rules_config_count">配置订阅 (%d)</string>
@@ -58,6 +56,9 @@
     <string name="rules_root_required">需要 Root 权限才能应用规则</string>
     <string name="rules_config_name">配置名称</string>
     <string name="rules_note">备注</string>
+    <string name="rules_preset">预设配置</string>
+    <string name="rules_preset_added">已添加预设：%s</string>
+    <string name="rules_preset_failed">预设加载失败</string>
     <string name="home_status_active">模块已激活</string>
     <string name="home_status_active_summary">所有功能正常运行中</string>
     <string name="home_status_root_ok">已获取 Root 权限</string>

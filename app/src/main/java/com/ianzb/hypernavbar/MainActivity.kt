@@ -92,7 +92,6 @@ class MainActivity : ComponentActivity() {
             }
             var isFloatingNavbar by remember { mutableStateOf(savedSettings.isFloatingNavbar) }
             var isLiquidGlass by remember { mutableStateOf(savedSettings.isLiquidGlass) }
-            var autoApplyOnBoot by remember { mutableStateOf(savedSettings.autoApplyOnBoot) }
             var applyIntervalMinutes by remember { mutableIntStateOf(savedSettings.applyIntervalMinutes) }
 
             var hasRoot by remember { mutableStateOf(false) }
@@ -113,7 +112,6 @@ class MainActivity : ComponentActivity() {
                         themeMode = themeMode.name,
                         isFloatingNavbar = isFloatingNavbar,
                         isLiquidGlass = isLiquidGlass,
-                        autoApplyOnBoot = autoApplyOnBoot,
                         applyIntervalMinutes = applyIntervalMinutes,
                     )
                 )
@@ -126,7 +124,6 @@ class MainActivity : ComponentActivity() {
                     themeMode = themeMode,
                     isFloatingNavbar = isFloatingNavbar,
                     isLiquidGlass = isLiquidGlass,
-                    autoApplyOnBoot = autoApplyOnBoot,
                     applyIntervalMinutes = applyIntervalMinutes,
                     onRetryRootCheck = {
                         scope.launch {
@@ -140,7 +137,6 @@ class MainActivity : ComponentActivity() {
                     onThemeModeChange = { themeMode = it; persistState() },
                     onFloatingNavbarChange = { isFloatingNavbar = it; persistState() },
                     onLiquidGlassChange = { isLiquidGlass = it; persistState() },
-                    onAutoApplyChange = { autoApplyOnBoot = it; persistState() },
                     onApplyIntervalChange = { applyIntervalMinutes = it; persistState() },
                 )
             }
@@ -155,13 +151,11 @@ private fun MainScreen(
     themeMode: ColorSchemeMode,
     isFloatingNavbar: Boolean,
     isLiquidGlass: Boolean,
-    autoApplyOnBoot: Boolean,
     applyIntervalMinutes: Int,
     onRetryRootCheck: () -> Unit,
     onThemeModeChange: (ColorSchemeMode) -> Unit,
     onFloatingNavbarChange: (Boolean) -> Unit,
     onLiquidGlassChange: (Boolean) -> Unit,
-    onAutoApplyChange: (Boolean) -> Unit,
     onApplyIntervalChange: (Int) -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -282,8 +276,6 @@ private fun MainScreen(
                         onFloatingNavbarChange = onFloatingNavbarChange,
                         isLiquidGlass = isLiquidGlass,
                         onLiquidGlassChange = onLiquidGlassChange,
-                        autoApplyOnBoot = autoApplyOnBoot,
-                        onAutoApplyChange = onAutoApplyChange,
                         applyIntervalMinutes = applyIntervalMinutes,
                         onApplyIntervalChange = onApplyIntervalChange,
                         extraBottomPadding = navBarHeight,

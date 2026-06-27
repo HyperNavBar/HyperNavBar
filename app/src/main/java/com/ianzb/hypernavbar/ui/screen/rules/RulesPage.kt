@@ -5,7 +5,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,9 +20,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -57,19 +58,23 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.icon.extended.Refresh
@@ -89,6 +94,13 @@ private const val EMPTY_JSON_TEMPLATE = """{
     "NBIRules": {}
 }"""
 
+private data class PresetSource(val name: String, val summary: String, val url: String)
+
+private val PRESET_SOURCES = listOf(
+    PresetSource("官方配置", "由小米官方维护的沉浸规则", "https://drive.ianzb.cn/code/MiNavBarImmerse/official.json"),
+    PresetSource("社区配置", "由本项目社区维护的沉浸规则", "https://drive.ianzb.cn/code/MiNavBarImmerse/custom.json"),
+)
+
 @Composable
 fun RulesPageView(
     applyIntervalMinutes: Int = 0,
@@ -101,8 +113,7 @@ fun RulesPageView(
 
     val configs = remember { mutableStateListOf<RuleConfigSource>() }
     var isApplying by remember { mutableStateOf(false) }
-    var isUpdating by remember { mutableStateOf(false) }
-    var isRestoring by remember { mutableStateOf(false) }
+    var updatingIds by remember { mutableStateOf(emptySet<String>()) }
     var mergedAppCount by remember { mutableIntStateOf(0) }
     var lastApplyTime by remember { mutableStateOf(0L) }
     var tick by remember { mutableStateOf(0) }
@@ -121,6 +132,7 @@ fun RulesPageView(
     var jsonInput by remember { mutableStateOf("") }
     var noteInput by remember { mutableStateOf("") }
     var intervalInput by remember { mutableStateOf("0") }
+    var showPresetSheet by remember { mutableStateOf(false) }
 
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
@@ -139,16 +151,19 @@ fun RulesPageView(
         val seconds = (diff / 1000).toInt()
         val minutes = seconds / 60
         val hours = minutes / 60
+        val days = hours / 24
         return when {
-            minutes < 1 -> "${seconds}s"
-            hours < 1 -> "${minutes}m${seconds % 60}s"
-            else -> "${hours}h${minutes % 60}m"
+            days > 0 -> "${days}天"
+            hours > 0 -> "${hours}小时"
+            minutes > 0 -> "${minutes}分钟"
+            else -> "${seconds}秒"
         }
     }
 
     suspend fun fetchAndParseConfigs(): MutableMap<String, RuleFetcher.FetchResult> {
         val results = mutableMapOf<String, RuleFetcher.FetchResult>()
         for (config in configs) {
+            if (!config.enabled) continue
             val content = when {
                 config.type == RuleType.LOCAL -> config.jsonContent
                 config.cachedContent.isNotEmpty() -> config.cachedContent
@@ -188,30 +203,29 @@ fun RulesPageView(
         val applyIntervalMs = intervalMinutes * 60_000L
 
         while (true) {
-            delay(1000L)
+            delay(1000.milliseconds)
             tick++
 
-            if (isApplying || isUpdating || isRestoring) continue
+            if (isApplying || updatingIds.isNotEmpty()) continue
 
             // Auto-update subscriptions
             val current = configs.toList()
-            val needsUpdate = current.any {
-                it.type == RuleType.CLOUD && it.refreshIntervalMs > 0 &&
+            val toUpdate = current.filter {
+                it.enabled && it.type == RuleType.CLOUD && it.refreshIntervalMs > 0 &&
                     System.currentTimeMillis() - it.lastRefreshTime >= it.refreshIntervalMs
             }
-            if (needsUpdate) {
-                isUpdating = true
+            if (toUpdate.isNotEmpty()) {
+                val ids = toUpdate.map { it.id }.toSet()
+                updatingIds = updatingIds + ids
                 var anyUpdated = false
-                for (cfg in current) {
-                    if (cfg.type != RuleType.CLOUD || cfg.refreshIntervalMs <= 0) continue
-                    if (System.currentTimeMillis() - cfg.lastRefreshTime < cfg.refreshIntervalMs) continue
+                for (cfg in toUpdate) {
                     RuleFetcher.fetch(cfg).onSuccess { result ->
                         RulesManager.updateRefreshTime(context, cfg.id, System.currentTimeMillis(), result.appCount, result.configName, result.rawJson)
                         anyUpdated = true
                     }
                 }
+                updatingIds = updatingIds - ids
                 if (anyUpdated) reloadConfigs()
-                isUpdating = false
                 continue
             }
 
@@ -365,22 +379,6 @@ fun RulesPageView(
         }
     }
 
-    fun restoreOfficialRules() {
-        isRestoring = true
-        scope.launch {
-            val targetPath = RuleConverter.getTargetPath(RuleConverter.detectOsMode())
-            if (hasRoot) {
-                RootApplier.restoreBackup(targetPath)
-                isCustomApplied = RootApplier.isCustomRulesApplied(targetPath)
-            }
-            isCustomApplied = false
-            RulesManager.saveApplyState(context, 0L, 0, false)
-            mergedAppCount = 0
-            lastApplyTime = 0L
-            isRestoring = false
-        }
-    }
-
     LaunchedEffect(ruleType) {
         if (ruleType == RuleType.LOCAL && jsonInput.isEmpty()) {
             jsonInput = EMPTY_JSON_TEMPLATE
@@ -427,6 +425,13 @@ fun RulesPageView(
                     color = barColor,
                     scrollBehavior = scrollBehavior,
                     actions = {
+                        IconButton(onClick = { showPresetSheet = true }) {
+                            Icon(
+                                imageVector = MiuixIcons.Backup,
+                                contentDescription = stringResource(R.string.rules_preset),
+                                tint = MiuixTheme.colorScheme.onSurface
+                            )
+                        }
                         IconButton(onClick = {
                             resetAddState()
                             showAddSheet = true
@@ -443,6 +448,54 @@ fun RulesPageView(
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
+
+        // Preset sources sheet
+        WindowBottomSheet(
+            title = stringResource(R.string.rules_preset),
+            show = showPresetSheet,
+            onDismissRequest = { showPresetSheet = false },
+            startAction = {
+                IconButton(onClick = { showPresetSheet = false }) {
+                    Icon(MiuixIcons.Close, stringResource(R.string.rules_cancel), tint = MiuixTheme.colorScheme.onBackground)
+                }
+            },
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().scrollEndHaptic().overScrollVertical(),
+            ) {
+                items(PRESET_SOURCES) { preset ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        onClick = {
+                            showPresetSheet = false
+                            scope.launch {
+                                val result = RuleFetcher.fetch(RuleConfigSource(id = "", url = preset.url, type = RuleType.CLOUD)).getOrNull()
+                                if (result != null) {
+                                    val newConfig = RulesManager.add(context, RuleType.CLOUD, preset.url, name = result.configName, appCount = result.appCount)
+                                    RulesManager.updateRefreshTime(context, newConfig.id, System.currentTimeMillis(), result.appCount, result.configName, result.rawJson)
+                                    reloadConfigs()
+                                    Toast.makeText(context, context.getString(R.string.rules_preset_added, result.configName), Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, context.getString(R.string.rules_preset_failed), Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        showIndication = true,
+                    ) {
+                        BasicComponent(
+                            title = preset.name,
+                            summary = preset.summary,
+                        )
+                    }
+                }
+                item {
+                    Spacer(Modifier.padding(
+                        bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                            WindowInsets.captionBar.asPaddingValues().calculateBottomPadding(),
+                    ))
+                }
+            }
+        }
 
         // Add subscription sheet
         WindowBottomSheet(
@@ -540,7 +593,7 @@ fun RulesPageView(
                 if (cfg?.type == RuleType.CLOUD) {
                     IconButton(onClick = {
                         scope.launch {
-                            isUpdating = true
+                            updatingIds = updatingIds + cfg.id
                             RuleFetcher.fetch(cfg).fold(
                                 onSuccess = { result ->
                                     RulesManager.updateRefreshTime(context, cfg.id, System.currentTimeMillis(), result.appCount, result.configName, result.rawJson)
@@ -554,12 +607,12 @@ fun RulesPageView(
                                 },
                                 onFailure = { }
                             )
-                            isUpdating = false
+                            updatingIds = updatingIds - cfg.id
                         }
                     }) {
                         Icon(
                             imageVector = MiuixIcons.Refresh,
-                            contentDescription = if (isUpdating) stringResource(R.string.rules_refreshing) else stringResource(R.string.rules_refresh_manual),
+                            contentDescription = if (cfg.id in updatingIds) stringResource(R.string.rules_refreshing) else stringResource(R.string.rules_refresh_manual),
                             tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
@@ -572,7 +625,7 @@ fun RulesPageView(
                     modifier = Modifier.fillMaxWidth().scrollEndHaptic().overScrollVertical(),
                 ) {
                     item {
-                        Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                        Card(modifier = Modifier.padding(vertical = 6.dp)) {
                             ArrowPreference(title = stringResource(R.string.rules_edit), onClick = { pendingEditConfig = cfg })
                             ArrowPreference(title = stringResource(R.string.rules_move_up), onClick = { moveUp(cfg) })
                             ArrowPreference(title = stringResource(R.string.rules_move_down), onClick = { moveDown(cfg) })
@@ -598,8 +651,22 @@ fun RulesPageView(
                     bottom = innerPadding.calculateBottomPadding() + extraBottomPadding
                 )
             ) {
+                // Apply section - always at top
                 item {
-                    SmallTitle(text = stringResource(R.string.rules_config_count, configs.size), modifier = Modifier.padding(top = 6.dp))
+                    SmallTitle(text = stringResource(R.string.rules_apply), modifier = Modifier.padding(top = 6.dp))
+                    Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 6.dp)) {
+                        ArrowPreference(
+                            title = stringResource(R.string.rules_apply_now),
+                            summary = stringResource(R.string.rules_merged_count, mergedAppCount) +
+                                " · " + if (isApplying) stringResource(R.string.rules_refreshing) else formatElapsedTime(lastApplyTime, tick),
+                            onClick = if (isApplying) null else ({ applyRules() }),
+                        )
+                    }
+                }
+
+                // Subscriptions section
+                item {
+                    SmallTitle(text = stringResource(R.string.rules_config_count, configs.size), modifier = Modifier.padding(top = 12.dp))
                 }
 
                 if (configs.isEmpty()) {
@@ -619,35 +686,32 @@ fun RulesPageView(
                         onClick = { actionsTarget = config; showActionsSheet = true },
                         showIndication = true,
                     ) {
-                        ArrowPreference(
-                            title = config.name.ifEmpty { config.url.ifEmpty { "本地规则" } },
-                            summary = buildString {
-                                append(if (config.type == RuleType.LOCAL) "本地 · " else "云端 · ")
-                                append(stringResource(R.string.rules_app_count, config.appCount))
-                                if (config.note.isNotEmpty()) append(" · ${config.note}")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        ) {
+                            BasicComponent(
+                                title = config.name.ifEmpty { config.url.ifEmpty { "本地规则" } },
+                                summary = buildString {
+                                    append(if (config.type == RuleType.LOCAL) "本地 · " else "云端 · ")
+                                    append(stringResource(R.string.rules_app_count, config.appCount))
+                                    if (config.note.isNotEmpty()) append(" · ${config.note}")
                                 if (config.type == RuleType.CLOUD) {
                                     append(" · ")
-                                    append(if (isUpdating) stringResource(R.string.rules_refreshing) else formatElapsedTime(config.lastRefreshTime, tick))
+                                    append(if (config.id in updatingIds) stringResource(R.string.rules_refreshing) else formatElapsedTime(config.lastRefreshTime, tick))
                                 }
-                            },
-                        )
-                    }
-                }
-
-                if (configs.isNotEmpty()) {
-                    item {
-                        SmallTitle(text = stringResource(R.string.rules_apply), modifier = Modifier.padding(top = 12.dp))
-                        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 6.dp)) {
-                            ArrowPreference(
-                                title = stringResource(R.string.rules_apply),
-                                summary = stringResource(R.string.rules_merged_count, mergedAppCount) +
-                                    " · " + if (isApplying) stringResource(R.string.rules_refreshing) else formatElapsedTime(lastApplyTime, tick),
-                                onClick = if (isApplying || isRestoring) null else ({ applyRules() }),
+                                },
+                                modifier = Modifier.weight(1f),
                             )
-                            ArrowPreference(
-                                title = stringResource(R.string.rules_restore),
-                                summary = if (isCustomApplied) stringResource(R.string.rules_status_custom) else stringResource(R.string.rules_status_official),
-                                onClick = if (isApplying || isRestoring) null else ({ restoreOfficialRules() }),
+                            Switch(
+                                checked = config.enabled,
+                                onCheckedChange = { enabled ->
+                                    val updated = config.copy(enabled = enabled)
+                                    RulesManager.update(context, updated)
+                                    val idx = configs.indexOfFirst { it.id == config.id }
+                                    if (idx >= 0) configs[idx] = updated
+                                },
+                                modifier = Modifier.padding(end = 12.dp).size(52.dp, 32.dp),
                             )
                         }
                     }
@@ -679,7 +743,7 @@ private fun SubscriptionForm(
     ) {
         item {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 TextButton(
@@ -699,7 +763,7 @@ private fun SubscriptionForm(
         item {
             if (ruleType == RuleType.CLOUD) {
                 TextField(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(vertical = 4.dp),
                     value = urlInput,
                     onValueChange = onUrlChange,
                     label = stringResource(R.string.rules_add_url),
@@ -707,7 +771,7 @@ private fun SubscriptionForm(
                 )
             } else {
                 TextField(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).height(180.dp),
+                    modifier = Modifier.padding(vertical = 4.dp).height(180.dp),
                     value = jsonInput,
                     onValueChange = onJsonChange,
                     label = "JSON 配置内容",
@@ -716,13 +780,12 @@ private fun SubscriptionForm(
                 TextButton(
                     text = "从文件导入",
                     onClick = { jsonFilePicker.launch("application/json") },
-                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
         }
         item {
             TextField(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.padding(vertical = 4.dp),
                 value = noteInput,
                 onValueChange = onNoteChange,
                 label = stringResource(R.string.rules_note),
@@ -732,7 +795,7 @@ private fun SubscriptionForm(
         if (showInterval) {
             item {
                 TextField(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(vertical = 4.dp),
                     value = intervalInput,
                     onValueChange = onIntervalChange,
                     label = stringResource(R.string.rules_add_interval),

@@ -16,6 +16,7 @@ data class RuleConfigSource(
     val lastRefreshTime: Long = 0L,
     val refreshIntervalMs: Long = 0L,
     val appCount: Int = 0,
+    val enabled: Boolean = true,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
@@ -29,6 +30,7 @@ data class RuleConfigSource(
         put("lastRefreshTime", lastRefreshTime)
         put("refreshIntervalMs", refreshIntervalMs)
         put("appCount", appCount)
+        put("enabled", enabled)
     }
 
     companion object {
@@ -44,6 +46,7 @@ data class RuleConfigSource(
             lastRefreshTime = obj.optLong("lastRefreshTime", 0L),
             refreshIntervalMs = obj.optLong("refreshIntervalMs", 0L),
             appCount = obj.optInt("appCount", 0),
+            enabled = obj.optBoolean("enabled", true),
         )
     }
 }

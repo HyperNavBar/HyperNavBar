@@ -11,6 +11,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -39,10 +42,12 @@ import com.ianzb.hypernavbar.R
 import com.ianzb.hypernavbar.ui.util.BlurredBar
 import com.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import com.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -51,6 +56,7 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.window.WindowDialog
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -63,8 +69,6 @@ fun SettingsPageView(
     onFloatingNavbarChange: (Boolean) -> Unit,
     isLiquidGlass: Boolean,
     onLiquidGlassChange: (Boolean) -> Unit,
-    autoApplyOnBoot: Boolean,
-    onAutoApplyChange: (Boolean) -> Unit,
     applyIntervalMinutes: Int,
     onApplyIntervalChange: (Int) -> Unit,
     extraBottomPadding: Dp = 0.dp,
@@ -77,6 +81,9 @@ fun SettingsPageView(
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
+
+    var showIntervalDialog by remember { mutableStateOf(false) }
+    var intervalInput by remember { mutableStateOf(applyIntervalMinutes.toString()) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -116,6 +123,41 @@ fun SettingsPageView(
         }
     }
 
+    // Interval dialog
+    WindowDialog(
+        title = stringResource(R.string.rules_apply_interval),
+        summary = stringResource(R.string.rules_apply_interval_summary),
+        show = showIntervalDialog,
+        onDismissRequest = { showIntervalDialog = false }
+    ) {
+        TextField(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            value = intervalInput,
+            onValueChange = { intervalInput = it.filter(Char::isDigit) },
+            label = stringResource(R.string.rules_apply_interval),
+            singleLine = true,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        ) {
+            TextButton(
+                text = stringResource(R.string.rules_cancel),
+                onClick = { showIntervalDialog = false; intervalInput = applyIntervalMinutes.toString() },
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(12.dp))
+            TextButton(
+                text = stringResource(R.string.rules_confirm),
+                onClick = {
+                    onApplyIntervalChange(intervalInput.toIntOrNull() ?: 0)
+                    showIntervalDialog = false
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+            )
+        }
+    }
+
     Scaffold(
         topBar = {
             BlurredBar(backdrop, blurActive) {
@@ -149,21 +191,14 @@ fun SettingsPageView(
                         Card(
                             modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)
                         ) {
-                            Column {
-                                SwitchPreference(
-                                    title = stringResource(R.string.auto_apply_boot),
-                                    summary = stringResource(R.string.auto_apply_boot_summary),
-                                    checked = autoApplyOnBoot,
-                                    onCheckedChange = onAutoApplyChange
-                                )
-                                TextField(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                                    value = applyIntervalMinutes.toString(),
-                                    onValueChange = { s -> onApplyIntervalChange(s.filter(Char::isDigit).toIntOrNull() ?: 0) },
-                                    label = stringResource(R.string.rules_apply_interval),
-                                    singleLine = true,
-                                )
-                            }
+                            ArrowPreference(
+                                title = stringResource(R.string.rules_apply_interval),
+                                summary = if (applyIntervalMinutes > 0) stringResource(R.string.rules_apply_interval_value, applyIntervalMinutes) else stringResource(R.string.rules_apply_interval_off),
+                                onClick = {
+                                    intervalInput = applyIntervalMinutes.toString()
+                                    showIntervalDialog = true
+                                }
+                            )
                         }
 
                         SmallTitle(text = stringResource(R.string.settings_interface))

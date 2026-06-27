@@ -18,8 +18,6 @@
     <string name="floating_navbar_summary">Use floating style bottom navigation bar</string>
     <string name="liquid_glass">Liquid Glass</string>
     <string name="liquid_glass_summary">iOS-style liquid glass blur effect</string>
-    <string name="auto_apply_boot">Auto apply immersion rules on boot</string>
-    <string name="auto_apply_boot_summary">Fetch and apply immersion rules on device startup</string>
     <string name="language_default">Default</string>
     <string name="language_zh_cn">简体中文</string>
     <string name="language_en">English</string>
@@ -29,7 +27,10 @@
     <string name="rules_add_url">Enter Config URL</string>
     <string name="rules_add_url_hint">https://example.com/rules.json</string>
     <string name="rules_add_interval">Auto update interval (minutes, 0=off)</string>
-    <string name="rules_apply_interval">Auto apply interval (minutes, 0=off)</string>
+    <string name="rules_apply_interval">Auto Apply Interval</string>
+    <string name="rules_apply_interval_summary">Set the interval for automatic rule application (minutes, 0=off)</string>
+    <string name="rules_apply_interval_value">%d min</string>
+    <string name="rules_apply_interval_off">Off</string>
     <string name="rules_confirm">Confirm</string>
     <string name="rules_delete">Delete</string>
     <string name="rules_delete_confirm">Delete this subscription?</string>
@@ -40,11 +41,8 @@
     <string name="rules_refreshing">Refreshing…</string>
     <string name="rules_refresh_manual">Manual Refresh</string>
     <string name="rules_apply">Apply Rules</string>
+    <string name="rules_apply_now">Apply Now</string>
     <string name="rules_apply_summary">Fetch cloud configs and merge into system</string>
-    <string name="rules_restore">Restore Official Rules</string>
-    <string name="rules_restore_summary">Remove custom rules, restore system default</string>
-    <string name="rules_status_custom">Status: Custom Rules</string>
-    <string name="rules_status_official">Status: Official Rules</string>
     <string name="rules_merged_count">%d apps</string>
     <string name="rules_app_count">%d apps</string>
     <string name="rules_config_count">Subscriptions (%d)</string>
@@ -58,6 +56,9 @@
     <string name="rules_root_required">Root permission required to apply rules</string>
     <string name="rules_config_name">Config Name</string>
     <string name="rules_note">Note</string>
+    <string name="rules_preset">Presets</string>
+    <string name="rules_preset_added">Added preset: %s</string>
+    <string name="rules_preset_failed">Failed to load preset</string>
     <string name="home_status_active">Module Active</string>
     <string name="home_status_active_summary">All features working normally</string>
     <string name="home_status_root_ok">Root Permission Granted</string>

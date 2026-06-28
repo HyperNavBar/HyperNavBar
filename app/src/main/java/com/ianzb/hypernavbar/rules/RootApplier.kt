@@ -22,12 +22,16 @@ object RootApplier {
             val stream = DataOutputStream(process.outputStream)
 
             val bakPath = "$targetPath.bak"
-            stream.writeBytes("if [ ! -f $MARKER_PATH ]; then cp -f $targetPath $bakPath 2>/dev/null; touch $MARKER_PATH; fi\n")
+            val marker = shellQuote(MARKER_PATH)
+            val target = shellQuote(targetPath)
+            val backup = shellQuote(bakPath)
+            val temp = shellQuote(tempFile.absolutePath)
 
-            stream.writeBytes("cp -f ${tempFile.absolutePath} $targetPath\n")
-            stream.writeBytes("chmod 600 $targetPath\n")
-            stream.writeBytes("chown system:system $targetPath\n")
-            stream.writeBytes("rm -f ${tempFile.absolutePath}\n")
+            stream.writeBytes("if [ ! -f $marker ]; then cp -f $target $backup 2>/dev/null; touch $marker; fi\n")
+            stream.writeBytes("cp -f $temp $target\n")
+            stream.writeBytes("chmod 600 $target\n")
+            stream.writeBytes("chown system:system $target\n")
+            stream.writeBytes("rm -f $temp\n")
             stream.flush()
 
             stream.writeBytes("cmd miui_navigation_bar_immersive update\n")
@@ -48,12 +52,16 @@ object RootApplier {
     suspend fun restoreBackup(targetPath: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val bakPath = "$targetPath.bak"
+            val marker = shellQuote(MARKER_PATH)
+            val target = shellQuote(targetPath)
+            val backup = shellQuote(bakPath)
+
             val process = Runtime.getRuntime().exec("su")
             val stream = DataOutputStream(process.outputStream)
 
-            stream.writeBytes("if [ -f $bakPath ]; then cp -f $bakPath $targetPath && rm -f $bakPath && rm -f $MARKER_PATH; fi\n")
-            stream.writeBytes("chmod 600 $targetPath\n")
-            stream.writeBytes("chown system:system $targetPath\n")
+            stream.writeBytes("if [ -f $backup ]; then cp -f $backup $target && rm -f $backup && rm -f $marker; fi\n")
+            stream.writeBytes("chmod 600 $target\n")
+            stream.writeBytes("chown system:system $target\n")
             stream.flush()
 
             stream.writeBytes("cmd miui_navigation_bar_immersive update\n")
@@ -76,12 +84,12 @@ object RootApplier {
         return try {
             val process = Runtime.getRuntime().exec("su")
             val stream = DataOutputStream(process.outputStream)
-            stream.writeBytes("test -f $bakPath && echo YES || echo NO\n")
+            stream.writeBytes("test -f ${shellQuote(bakPath)} && echo YES || echo NO\n")
             stream.writeBytes("exit\n")
             stream.flush()
             process.waitFor()
             val reader = process.inputStream.bufferedReader()
-            reader.readLine()?.trim() == "YES"
+            reader.use { it.readLine()?.trim() == "YES" }
         } catch (_: Exception) {
             false
         }
@@ -92,14 +100,18 @@ object RootApplier {
             val targetPath = RuleConverter.getTargetPath(RuleConverter.detectOsMode())
             val process = Runtime.getRuntime().exec("su")
             val stream = DataOutputStream(process.outputStream)
-            stream.writeBytes("cat $targetPath 2>/dev/null | grep -c '\"name\"'\n")
+            stream.writeBytes("cat ${shellQuote(targetPath)} 2>/dev/null | grep -c '\"name\"'\n")
             stream.writeBytes("exit\n")
             stream.flush()
             process.waitFor()
             val reader = process.inputStream.bufferedReader()
-            reader.readLine()?.trim()?.toIntOrNull() ?: 0
+            reader.use { it.readLine()?.trim()?.toIntOrNull() ?: 0 }
         } catch (_: Exception) {
             0
         }
+    }
+
+    private fun shellQuote(path: String): String {
+        return "'${path.replace("'", "'\\''")}'"
     }
 }

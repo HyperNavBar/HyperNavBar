@@ -14,4 +14,4 @@
 .cxx
 /.idea
 local.properties
-/app/.gitignore
+/app/build

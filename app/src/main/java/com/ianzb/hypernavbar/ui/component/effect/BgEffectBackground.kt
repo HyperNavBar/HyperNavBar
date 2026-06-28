@@ -13,12 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import com.ianzb.hypernavbar.ui.util.isInDarkTheme
+import com.ianzb.hypernavbar.ui.util.shouldShowSplitPane
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import com.ianzb.hypernavbar.ui.util.isInDarkTheme
-import com.ianzb.hypernavbar.ui.util.shouldShowSplitPane
 import kotlin.math.floor
 
 @Composable

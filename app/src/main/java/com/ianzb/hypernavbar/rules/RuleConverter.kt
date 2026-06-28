@@ -1,7 +1,5 @@
 package com.ianzb.hypernavbar.rules
 
-import android.os.Build
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
@@ -139,15 +137,15 @@ object RuleConverter {
         sb.append("<?xml version='1.0' encoding='utf-8' standalone='yes' ?>\n")
         sb.append("<map>\n")
         sb.append("    <int name=\"dataVersion\" value=\"${json.optString("dataVersion", "999999")}\" />\n")
-        sb.append("    <string name=\"modules\">${json.optString("modules", "navigation_bar_immersive_application_config_new")}</string>\n")
-        sb.append("    <string name=\"modifyApps\">${json.optString("modifyApps", "modifyApps")}</string>\n")
+        sb.append("    <string name=\"modules\">${xmlEscape(json.optString("modules", "navigation_bar_immersive_application_config_new"))}</string>\n")
+        sb.append("    <string name=\"modifyApps\">${xmlEscape(json.optString("modifyApps", "modifyApps"))}</string>\n")
 
         val keys = nbiRules.keys()
         while (keys.hasNext()) {
             val pkg = keys.next()
             val appRule = nbiRules.getJSONObject(pkg)
-            sb.append("    <string name=\"$pkg\">\n")
-            sb.append("        <string name=\"name\">${appRule.optString("name", "")}</string>\n")
+            sb.append("    <string name=\"${xmlEscape(pkg)}\">\n")
+            sb.append("        <string name=\"name\">${xmlEscape(appRule.optString("name", ""))}</string>\n")
             sb.append("        <boolean name=\"enable\" value=\"${appRule.optBoolean("enable", true)}\" />\n")
 
             val activityRules = appRule.optJSONObject("activityRules") ?: JSONObject()
@@ -159,11 +157,19 @@ object RuleConverter {
                 val color = if (rule.has("color") && !rule.isNull("color")) {
                     ":${rule.opt("color")}"
                 } else ""
-                sb.append("        <string name=\"$actName\">$mode$color</string>\n")
+                sb.append("        <string name=\"${xmlEscape(actName)}\">${xmlEscape("$mode$color")}</string>\n")
             }
             sb.append("    </string>\n")
         }
         sb.append("</map>")
         return sb.toString()
+    }
+
+    private fun xmlEscape(text: String): String {
+        return text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+            .replace("'", "&apos;")
     }
 }

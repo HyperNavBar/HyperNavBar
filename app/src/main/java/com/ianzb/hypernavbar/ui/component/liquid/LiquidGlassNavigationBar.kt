@@ -7,7 +7,6 @@ package com.ianzb.hypernavbar.ui.component.liquid
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -70,10 +69,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import com.ianzb.hypernavbar.ui.component.animation.DampedDragAnimation
 import com.ianzb.hypernavbar.ui.component.animation.InteractiveHighlight
+import com.ianzb.hypernavbar.ui.util.isInDarkTheme
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Text as LazyText
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.NavigationItem
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
@@ -90,7 +89,6 @@ import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.Platform
 import top.yukonga.miuix.kmp.utils.platform
-import com.ianzb.hypernavbar.ui.util.isInDarkTheme
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -98,6 +96,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sign
 import kotlin.math.sin
 import kotlin.math.sqrt
+import top.yukonga.miuix.kmp.basic.Text as LazyText
 
 private val LocalIosTabScale = staticCompositionLocalOf { { 1f } }
 

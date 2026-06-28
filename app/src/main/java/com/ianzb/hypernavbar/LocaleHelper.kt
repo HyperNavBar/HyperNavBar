@@ -1,9 +1,7 @@
 package com.ianzb.hypernavbar
 
 import android.content.Context
-import android.content.ContextWrapper
 import android.content.res.Configuration
-import android.content.res.Resources
 import java.util.Locale
 
 object LocaleHelper {

@@ -3,9 +3,6 @@ package com.ianzb.hypernavbar.ui.screen.home
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
-import com.ianzb.hypernavbar.ui.util.isInDarkTheme
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import com.ianzb.hypernavbar.R
 import com.ianzb.hypernavbar.rules.RulesManager
 import com.ianzb.hypernavbar.ui.util.BlurredBar
+import com.ianzb.hypernavbar.ui.util.isInDarkTheme
 import com.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import com.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -61,6 +59,8 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 @Composable

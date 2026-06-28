@@ -3,8 +3,6 @@ package com.ianzb.hypernavbar.rules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -42,9 +40,12 @@ object RuleFetcher {
     }
 
     private suspend fun fetchUrl(urlString: String): Result<FetchResult> = withContext(Dispatchers.IO) {
+        val conn = try {
+            URL(urlString).openConnection() as HttpURLConnection
+        } catch (e: Exception) {
+            return@withContext Result.failure(e)
+        }
         try {
-            val url = URL(urlString)
-            val conn = url.openConnection() as HttpURLConnection
             conn.connectTimeout = 15000
             conn.readTimeout = 15000
             conn.requestMethod = "GET"
@@ -55,10 +56,7 @@ object RuleFetcher {
                 return@withContext Result.failure(Exception("HTTP $code"))
             }
 
-            val reader = BufferedReader(InputStreamReader(conn.inputStream))
-            val rawJson = reader.readText()
-            reader.close()
-            conn.disconnect()
+            val rawJson = conn.inputStream.bufferedReader().use { it.readText() }
 
             val root = JSONObject(rawJson)
             val nbiRules = root.optJSONObject("NBIRules") ?: return@withContext Result.failure(Exception("Missing NBIRules"))
@@ -73,6 +71,8 @@ object RuleFetcher {
             ))
         } catch (e: Exception) {
             Result.failure(e)
+        } finally {
+            conn.disconnect()
         }
     }
 }

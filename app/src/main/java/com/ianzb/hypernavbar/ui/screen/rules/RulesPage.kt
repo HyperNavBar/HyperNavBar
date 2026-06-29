@@ -1,5 +1,6 @@
 package com.ianzb.hypernavbar.ui.screen.rules
 
+import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -52,6 +53,7 @@ import com.ianzb.hypernavbar.rules.RuleConverter
 import com.ianzb.hypernavbar.rules.RuleFetcher
 import com.ianzb.hypernavbar.rules.RuleType
 import com.ianzb.hypernavbar.rules.RulesManager
+import com.ianzb.hypernavbar.rules.SystemVersionDetector
 import com.ianzb.hypernavbar.ui.util.BlurredBar
 import com.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import com.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
@@ -90,21 +92,41 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 import kotlin.time.Duration.Companion.milliseconds
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
-private const val EMPTY_JSON_TEMPLATE = """{
-    "dataVersion": "999999",
+private fun getEmptyJsonTemplate(): String {
+    val date = java.text.SimpleDateFormat("yyMMdd", java.util.Locale.US).format(java.util.Date())
+    return """{
     "name": "沉浸规则",
+    "dataVersion": "$date",
     "modules": "navigation_bar_immersive_application_config_new",
     "modifyApps": "modifyApps",
     "NBIRules": {}
 }"""
+}
 
 private data class PresetSource(val name: String, val summary: String, val url: String)
 
 private val PRESET_SOURCES = listOf(
-    PresetSource("官方配置", "由小米官方维护的沉浸规则", "https://drive.ianzb.cn/code/MiNavBarImmerse/official.json"),
-    PresetSource("社区配置", "由本项目社区维护的沉浸规则", "https://drive.ianzb.cn/code/MiNavBarImmerse/custom.json"),
+    PresetSource("官方规则源", "由小米官方维护的沉浸规则", "https://drive.ianzb.cn/code/HyperNavBarRules/official.json"),
+    PresetSource("社区规则源", "由本项目社区维护的沉浸规则", "https://drive.ianzb.cn/code/HyperNavBarRules/custom.json"),
 )
 
+private fun formatElapsedTime(context: android.content.Context, timestamp: Long, @Suppress("UNUSED_PARAMETER") tick: Int): String {
+    if (timestamp == 0L) return "—"
+    val diff = System.currentTimeMillis() - timestamp
+    if (diff < 1000) return context.getString(R.string.rules_just_now)
+    val seconds = (diff / 1000).toInt()
+    val minutes = seconds / 60
+    val hours = minutes / 60
+    val days = hours / 24
+    return when {
+        days > 0 -> context.getString(R.string.rules_time_day, days)
+        hours > 0 -> context.getString(R.string.rules_time_hour, hours)
+        minutes > 0 -> context.getString(R.string.rules_time_minute, minutes)
+        else -> context.getString(R.string.rules_time_second, seconds)
+    }
+}
+
+@SuppressLint("LocalContext")
 @Composable
 fun RulesPageView(
     applyIntervalMinutes: Int = 0,
@@ -114,6 +136,10 @@ fun RulesPageView(
     val scope = rememberCoroutineScope()
     val scrollBehavior = MiuixScrollBehavior()
     val title = stringResource(R.string.tab_rules)
+    val rulesRootRequiredText = stringResource(R.string.rules_root_required)
+    val exportSuccessText = stringResource(R.string.export_success)
+    val exportFailedText = stringResource(R.string.export_failed)
+    val rulesPresetFailedText = stringResource(R.string.rules_preset_failed)
 
     val configs = remember { mutableStateListOf<RuleConfigSource>() }
     var isApplying by remember { mutableStateOf(false) }
@@ -134,9 +160,16 @@ fun RulesPageView(
     var ruleType by remember { mutableStateOf(RuleType.CLOUD) }
     var urlInput by remember { mutableStateOf("") }
     var jsonInput by remember { mutableStateOf("") }
-    var noteInput by remember { mutableStateOf("") }
     var intervalInput by remember { mutableStateOf("0") }
     var showPresetSheet by remember { mutableStateOf(false) }
+    var toastMessage by remember { mutableStateOf<String?>(null) }
+    
+    LaunchedEffect(toastMessage) {
+        toastMessage?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            toastMessage = null
+        }
+    }
     var isSaving by remember { mutableStateOf(false) }
     var showJsonEditor by remember { mutableStateOf(false) }
 
@@ -148,22 +181,6 @@ fun RulesPageView(
         val updated = RulesManager.loadAll(context).sortedBy { it.priority }
         configs.clear()
         configs.addAll(updated)
-    }
-
-    fun formatElapsedTime(timestamp: Long, @Suppress("UNUSED_PARAMETER") tick: Int): String {
-        if (timestamp == 0L) return "—"
-        val diff = System.currentTimeMillis() - timestamp
-        if (diff < 1000) return context.getString(R.string.rules_just_now)
-        val seconds = (diff / 1000).toInt()
-        val minutes = seconds / 60
-        val hours = minutes / 60
-        val days = hours / 24
-        return when {
-            days > 0 -> "${days}天"
-            hours > 0 -> "${hours}小时"
-            minutes > 0 -> "${minutes}分钟"
-            else -> "${seconds}秒"
-        }
     }
 
     suspend fun fetchAndParseConfigs(): MutableMap<String, RuleFetcher.FetchResult> {
@@ -215,7 +232,7 @@ fun RulesPageView(
             val current = configs.toList()
             val toUpdate = current.filter {
                 it.enabled && it.type == RuleType.CLOUD && it.refreshIntervalMs > 0 &&
-                    System.currentTimeMillis() - it.lastRefreshTime >= it.refreshIntervalMs
+                        System.currentTimeMillis() - it.lastRefreshTime >= it.refreshIntervalMs
             }
             if (toUpdate.isNotEmpty()) {
                 val ids = toUpdate.map { it.id }.toSet()
@@ -243,7 +260,13 @@ fun RulesPageView(
                         val cachedResults = fetchAndParseConfigs()
                         if (cachedResults.isNotEmpty()) {
                             val mergedJson = RuleCombiner.combine(configs.toList(), cachedResults)
-                            val mode = RuleConverter.detectOsMode()
+                            val mode = SystemVersionDetector.getEffectiveOsMode(context)?.let { osmode ->
+                                try {
+                                    RuleConverter.OsMode.valueOf(osmode.name)
+                                } catch (_: Exception) {
+                                    RuleConverter.detectOsMode()
+                                }
+                            } ?: RuleConverter.detectOsMode()
                             val targetContent = RuleConverter.convert(mergedJson, mode)
                             val targetPath = RuleConverter.getTargetPath(mode)
                             val totalApps = RuleCombiner.getTotalAppCount(cachedResults)
@@ -266,7 +289,6 @@ fun RulesPageView(
         ruleType = RuleType.CLOUD
         urlInput = ""
         jsonInput = ""
-        noteInput = ""
         intervalInput = "0"
     }
 
@@ -275,7 +297,6 @@ fun RulesPageView(
         editingConfig = null
         urlInput = ""
         jsonInput = ""
-        noteInput = ""
         intervalInput = "0"
     }
 
@@ -307,7 +328,6 @@ fun RulesPageView(
                                         context,
                                         newConfig.copy(
                                             refreshIntervalMs = intervalMs,
-                                            note = noteInput.trim(),
                                             cachedContent = result.rawJson
                                         )
                                     )
@@ -350,7 +370,6 @@ fun RulesPageView(
                                         context,
                                         newConfig.copy(
                                             refreshIntervalMs = intervalMs,
-                                            note = noteInput.trim(),
                                             cachedContent = jsonContent
                                         )
                                     )
@@ -390,7 +409,6 @@ fun RulesPageView(
                 val updated = dialog.copy(
                     url = urlInput.trim().ifEmpty { dialog.url },
                     jsonContent = formattedJson.ifEmpty { dialog.jsonContent },
-                    note = noteInput.trim(),
                     refreshIntervalMs = (intervalInput.toIntOrNull() ?: 0) * 60_000L,
                 )
 
@@ -439,7 +457,13 @@ fun RulesPageView(
                 val cachedResults = fetchAndParseConfigs()
                 if (cachedResults.isNotEmpty()) {
                     val mergedJson = RuleCombiner.combine(configs.toList(), cachedResults)
-                    val mode = RuleConverter.detectOsMode()
+                    val mode = SystemVersionDetector.getEffectiveOsMode(context)?.let { osmode ->
+                        try {
+                            RuleConverter.OsMode.valueOf(osmode.name)
+                        } catch (_: Exception) {
+                            RuleConverter.detectOsMode()
+                        }
+                    } ?: RuleConverter.detectOsMode()
                     val targetContent = RuleConverter.convert(mergedJson, mode)
                     val targetPath = RuleConverter.getTargetPath(mode)
                     val totalApps = RuleCombiner.getTotalAppCount(cachedResults)
@@ -449,9 +473,11 @@ fun RulesPageView(
                     }
                     saveApplyState(System.currentTimeMillis(), totalApps, isCustomApplied)
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, context.getString(R.string.rules_update_success, totalApps), Toast.LENGTH_SHORT).show()
+                        @Suppress("LocalContext")
+                        val updateSuccessMsg = context.getString(R.string.rules_update_success, totalApps)
+                        Toast.makeText(context, updateSuccessMsg, Toast.LENGTH_SHORT).show()
                         if (!hasRoot) {
-                            Toast.makeText(context, context.getString(R.string.rules_root_required), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, rulesRootRequiredText, Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -463,7 +489,7 @@ fun RulesPageView(
 
     LaunchedEffect(ruleType) {
         if (ruleType == RuleType.LOCAL && jsonInput.isEmpty()) {
-            jsonInput = EMPTY_JSON_TEMPLATE
+            jsonInput = getEmptyJsonTemplate()
         }
     }
 
@@ -489,9 +515,9 @@ fun RulesPageView(
                 context.contentResolver.openOutputStream(it)?.use { output ->
                     output.write(formatNbiJson(jsonInput).toByteArray())
                 }
-                Toast.makeText(context, "导出成功", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, exportSuccessText, Toast.LENGTH_SHORT).show()
             } catch (_: Exception) {
-                Toast.makeText(context, "导出失败", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, exportFailedText, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -499,8 +525,7 @@ fun RulesPageView(
     LaunchedEffect(pendingEditConfig) {
         val cfg = pendingEditConfig ?: return@LaunchedEffect
         urlInput = cfg.url
-        jsonInput = cfg.jsonContent.ifEmpty { EMPTY_JSON_TEMPLATE }
-        noteInput = cfg.note
+        jsonInput = cfg.jsonContent.ifEmpty { getEmptyJsonTemplate() }
         intervalInput = (cfg.refreshIntervalMs / 60_000).toString()
         editingConfig = cfg
         showActionsSheet = false
@@ -559,11 +584,16 @@ fun RulesPageView(
             },
         ) {
             LazyColumn(
-                modifier = Modifier.fillMaxWidth().scrollEndHaptic().overScrollVertical(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .scrollEndHaptic()
+                    .overScrollVertical(),
             ) {
                 items(PRESET_SOURCES) { preset ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
                         onClick = {
                             showPresetSheet = false
                             scope.launch {
@@ -572,9 +602,11 @@ fun RulesPageView(
                                     val newConfig = RulesManager.add(context, RuleType.CLOUD, preset.url, name = result.configName, appCount = result.appCount)
                                     RulesManager.updateRefreshTime(context, newConfig.id, System.currentTimeMillis(), result.appCount, result.configName, result.rawJson)
                                     reloadConfigs()
-                                    Toast.makeText(context, context.getString(R.string.rules_preset_added, result.configName), Toast.LENGTH_SHORT).show()
+                                    @Suppress("LocalContext")
+                                    val presetAddedMsg = context.getString(R.string.rules_preset_added, result.configName)
+                                    Toast.makeText(context, presetAddedMsg, Toast.LENGTH_SHORT).show()
                                 } else {
-                                    Toast.makeText(context, context.getString(R.string.rules_preset_failed), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, rulesPresetFailedText, Toast.LENGTH_SHORT).show()
                                 }
                             }
                         },
@@ -587,10 +619,12 @@ fun RulesPageView(
                     }
                 }
                 item {
-                    Spacer(Modifier.padding(
-                        bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-                            WindowInsets.captionBar.asPaddingValues().calculateBottomPadding(),
-                    ))
+                    Spacer(
+                        Modifier.padding(
+                            bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                                    WindowInsets.captionBar.asPaddingValues().calculateBottomPadding(),
+                        )
+                    )
                 }
             }
         }
@@ -613,7 +647,7 @@ fun RulesPageView(
                     if (isSaving) {
                         InfiniteProgressIndicator()
                     } else {
-                        Icon(MiuixIcons.Ok, "确定")
+                        Icon(MiuixIcons.Ok, stringResource(R.string.rules_confirm))
                     }
                 }
             }
@@ -625,8 +659,6 @@ fun RulesPageView(
                 onUrlChange = { urlInput = it },
                 jsonInput = jsonInput,
                 onJsonChange = { jsonInput = it },
-                noteInput = noteInput,
-                onNoteChange = { noteInput = it },
                 intervalInput = intervalInput,
                 onIntervalChange = { v -> intervalInput = v.filter(Char::isDigit) },
                 jsonFilePicker = jsonFilePicker,
@@ -634,7 +666,11 @@ fun RulesPageView(
                 enabled = !isSaving,
                 onOpenEditor = { showJsonEditor = true },
                 onExport = {
-                    val name = try { JSONObject(jsonInput.trim()).optString("name", "nbi_rules") } catch (_: Exception) { "nbi_rules" }
+                    val name = try {
+                        JSONObject(jsonInput.trim()).optString("name", "nbi_rules")
+                    } catch (_: Exception) {
+                        "nbi_rules"
+                    }
                     jsonFileSaver.launch("${name}.json")
                 },
                 onExportCloud = {
@@ -642,7 +678,11 @@ fun RulesPageView(
                         val results = fetchAndParseConfigs()
                         val merged = RuleCombiner.combine(configs, results)
                         jsonInput = merged.toString(4)
-                        val name = try { merged.optString("name", "nbi_rules") } catch (_: Exception) { "nbi_rules" }
+                        val name = try {
+                            merged.optString("name", "nbi_rules")
+                        } catch (_: Exception) {
+                            "nbi_rules"
+                        }
                         jsonFileSaver.launch("${name}.json")
                     }
                 },
@@ -667,7 +707,7 @@ fun RulesPageView(
                     if (isSaving) {
                         InfiniteProgressIndicator()
                     } else {
-                        Icon(MiuixIcons.Ok, "确定")
+                        Icon(MiuixIcons.Ok, stringResource(R.string.rules_confirm))
                     }
                 }
             },
@@ -681,8 +721,6 @@ fun RulesPageView(
                     onUrlChange = { urlInput = it },
                     jsonInput = jsonInput,
                     onJsonChange = { jsonInput = it },
-                    noteInput = noteInput,
-                    onNoteChange = { noteInput = it },
                     intervalInput = intervalInput,
                     onIntervalChange = { v -> intervalInput = v.filter(Char::isDigit) },
                     jsonFilePicker = jsonFilePicker,
@@ -691,7 +729,11 @@ fun RulesPageView(
                     enabled = !isSaving,
                     onOpenEditor = { showJsonEditor = true },
                     onExport = {
-                        val name = try { JSONObject(jsonInput.trim()).optString("name", "nbi_rules") } catch (_: Exception) { "nbi_rules" }
+                        val name = try {
+                            JSONObject(jsonInput.trim()).optString("name", "nbi_rules")
+                        } catch (_: Exception) {
+                            "nbi_rules"
+                        }
                         jsonFileSaver.launch("${name}.json")
                     },
                     onExportCloud = {
@@ -699,7 +741,11 @@ fun RulesPageView(
                             val results = fetchAndParseConfigs()
                             val merged = RuleCombiner.combine(configs, results)
                             jsonInput = merged.toString(4)
-                            val name = try { merged.optString("name", "nbi_rules") } catch (_: Exception) { "nbi_rules" }
+                            val name = try {
+                                merged.optString("name", "nbi_rules")
+                            } catch (_: Exception) {
+                                "nbi_rules"
+                            }
                             jsonFileSaver.launch("${name}.json")
                         }
                     },
@@ -723,7 +769,7 @@ fun RulesPageView(
 
         // Actions sheet (edit/move/delete/refresh)
         WindowBottomSheet(
-            title = actionsTarget?.name?.ifEmpty { actionsTarget?.url?.ifEmpty { "本地规则" } } ?: "",
+            title = actionsTarget?.name?.ifEmpty { actionsTarget?.url?.ifEmpty { stringResource(R.string.rules_local_rule) } } ?: "",
             show = showActionsSheet,
             onDismissRequest = { showActionsSheet = false },
             startAction = {
@@ -772,7 +818,10 @@ fun RulesPageView(
             val cfg = actionsTarget
             if (cfg != null) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxWidth().scrollEndHaptic().overScrollVertical(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .scrollEndHaptic()
+                        .overScrollVertical(),
                 ) {
                     item {
                         Card(modifier = Modifier.padding(vertical = 6.dp)) {
@@ -783,10 +832,12 @@ fun RulesPageView(
                         }
                     }
                     item {
-                        Spacer(Modifier.padding(
-                            bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-                                WindowInsets.captionBar.asPaddingValues().calculateBottomPadding(),
-                        ))
+                        Spacer(
+                            Modifier.padding(
+                                bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                                        WindowInsets.captionBar.asPaddingValues().calculateBottomPadding(),
+                            )
+                        )
                     }
                 }
             }
@@ -803,7 +854,9 @@ fun RulesPageView(
         // Main content
         Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().pageScrollModifiers(showTopAppBar = true, topAppBarScrollBehavior = scrollBehavior),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pageScrollModifiers(showTopAppBar = true, topAppBarScrollBehavior = scrollBehavior),
                 contentPadding = PaddingValues(
                     top = innerPadding.calculateTopPadding(),
                     bottom = innerPadding.calculateBottomPadding() + extraBottomPadding
@@ -812,14 +865,22 @@ fun RulesPageView(
                 // Apply section - always at top
                 item {
                     SmallTitle(text = stringResource(R.string.rules_apply), modifier = Modifier.padding(top = 6.dp))
-                    Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 6.dp)) {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 6.dp)
+                    ) {
                         BasicComponent(
                             title = stringResource(R.string.rules_apply_now),
                             summary = stringResource(R.string.rules_merged_count, mergedAppCount) +
-                                " · " + if (isApplying) stringResource(R.string.rules_refreshing) else formatElapsedTime(lastApplyTime, tick),
+                                    " · " + if (isApplying) stringResource(R.string.rules_refreshing) else formatElapsedTime(context, lastApplyTime, tick),
                             onClick = if (isApplying) null else ({ applyRules() }),
                             endActions = {
-                                Box(modifier = Modifier.size(32.dp).padding(end = 8.dp), contentAlignment = Alignment.Center) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .padding(end = 8.dp), contentAlignment = Alignment.Center
+                                ) {
                                     if (isApplying) {
                                         InfiniteProgressIndicator()
                                     } else {
@@ -853,7 +914,10 @@ fun RulesPageView(
 
                 itemsIndexed(configs.toList()) { _, config ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 6.dp),
                         onClick = { actionsTarget = config; showActionsSheet = true },
                         showIndication = true,
                     ) {
@@ -862,15 +926,24 @@ fun RulesPageView(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             BasicComponent(
-                                title = config.name.ifEmpty { config.url.ifEmpty { "本地规则" } },
+                                title = config.name.ifEmpty { config.url.ifEmpty { stringResource(R.string.rules_local_rule) } },
                                 summary = buildString {
-                                    append(if (config.type == RuleType.LOCAL) "本地 · " else "云端 · ")
-                                    append(stringResource(R.string.rules_app_count, config.appCount))
-                                    if (config.note.isNotEmpty()) append(" · ${config.note}")
-                                if (config.type == RuleType.CLOUD) {
-                                    append(" · ")
-                                    append(if (config.id in updatingIds) stringResource(R.string.rules_refreshing) else formatElapsedTime(config.lastRefreshTime, tick))
-                                }
+                                    append(if (config.type == RuleType.LOCAL) stringResource(R.string.rules_local_prefix) else stringResource(R.string.rules_cloud_prefix))
+                                    // Show dataVersion
+                                    val content = config.cachedContent.ifEmpty { config.jsonContent }
+                                    if (content.isNotEmpty()) {
+                                        try {
+                                            val json = JSONObject(content)
+                                            val version = json.optString("dataVersion", "")
+                                            if (version.isNotEmpty()) append(" $version ·")
+                                        } catch (_: Exception) {
+                                        }
+                                    }
+                                    append(" ${stringResource(R.string.rules_app_count, config.appCount)}")
+                                    if (config.type == RuleType.CLOUD) {
+                                        append(" · ")
+                                        append(if (config.id in updatingIds) stringResource(R.string.rules_refreshing) else formatElapsedTime(context, config.lastRefreshTime, tick))
+                                    }
                                 },
                                 modifier = Modifier.weight(1f),
                             )
@@ -882,7 +955,9 @@ fun RulesPageView(
                                     val idx = configs.indexOfFirst { it.id == config.id }
                                     if (idx >= 0) configs[idx] = updated
                                 },
-                                modifier = Modifier.padding(end = 12.dp).size(52.dp, 32.dp),
+                                modifier = Modifier
+                                    .padding(end = 12.dp)
+                                    .size(52.dp, 32.dp),
                             )
                         }
                     }
@@ -902,8 +977,6 @@ private fun SubscriptionForm(
     onUrlChange: (String) -> Unit,
     jsonInput: String,
     onJsonChange: (String) -> Unit,
-    noteInput: String,
-    onNoteChange: (String) -> Unit,
     intervalInput: String,
     onIntervalChange: (String) -> Unit,
     jsonFilePicker: androidx.activity.result.ActivityResultLauncher<String>,
@@ -915,7 +988,10 @@ private fun SubscriptionForm(
     onExportCloud: () -> Unit = {},
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().scrollEndHaptic().overScrollVertical(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .scrollEndHaptic()
+            .overScrollVertical(),
     ) {
         if (showTypeSelector) {
             item {
@@ -924,14 +1000,14 @@ private fun SubscriptionForm(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     TextButton(
-                        text = "云端",
+                        text = stringResource(R.string.rules_cloud),
                         onClick = { onRuleTypeChange(RuleType.CLOUD) },
                         modifier = Modifier.weight(1f),
                         colors = if (ruleType == RuleType.CLOUD) ButtonDefaults.textButtonColorsPrimary() else ButtonDefaults.textButtonColors(),
                         enabled = enabled,
                     )
                     TextButton(
-                        text = "本地",
+                        text = stringResource(R.string.rules_local),
                         onClick = { onRuleTypeChange(RuleType.LOCAL) },
                         modifier = Modifier.weight(1f),
                         colors = if (ruleType == RuleType.LOCAL) ButtonDefaults.textButtonColorsPrimary() else ButtonDefaults.textButtonColors(),
@@ -951,26 +1027,32 @@ private fun SubscriptionForm(
                     enabled = enabled,
                 )
                 TextButton(
-                    text = "导出到文件",
+                    text = stringResource(R.string.rules_export_file),
                     onClick = onExportCloud,
                     enabled = enabled,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
                 )
             } else {
                 TextField(
-                    modifier = Modifier.padding(vertical = 4.dp).height(180.dp),
+                    modifier = Modifier
+                        .padding(vertical = 4.dp)
+                        .height(180.dp),
                     value = jsonInput,
                     onValueChange = onJsonChange,
-                    label = "JSON 配置内容",
+                    label = stringResource(R.string.rules_json_content),
                     singleLine = false,
                     enabled = enabled,
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     TextButton(
-                        text = "可视化编辑",
+                        text = stringResource(R.string.rules_visual_edit),
                         onClick = onOpenEditor,
                         enabled = enabled,
                         modifier = Modifier.weight(1f),
@@ -978,33 +1060,25 @@ private fun SubscriptionForm(
                     )
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     TextButton(
-                        text = "从文件导入",
+                        text = stringResource(R.string.rules_import_file),
                         onClick = { jsonFilePicker.launch("application/json") },
                         enabled = enabled,
                         modifier = Modifier.weight(1f),
                     )
                     TextButton(
-                        text = "导出到文件",
+                        text = stringResource(R.string.rules_export_file),
                         onClick = onExport,
                         enabled = enabled,
                         modifier = Modifier.weight(1f),
                     )
                 }
             }
-        }
-        item {
-            TextField(
-                modifier = Modifier.padding(vertical = 4.dp),
-                value = noteInput,
-                onValueChange = onNoteChange,
-                label = stringResource(R.string.rules_note),
-                singleLine = true,
-                enabled = enabled,
-            )
         }
         if (showInterval) {
             item {
@@ -1019,10 +1093,12 @@ private fun SubscriptionForm(
             }
         }
         item {
-            Spacer(Modifier.padding(
-                bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-                    WindowInsets.captionBar.asPaddingValues().calculateBottomPadding(),
-            ))
+            Spacer(
+                Modifier.padding(
+                    bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                            WindowInsets.captionBar.asPaddingValues().calculateBottomPadding(),
+                )
+            )
         }
     }
 }

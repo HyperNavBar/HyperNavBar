@@ -55,7 +55,6 @@
     <string name="rules_update_failed">Refresh failed: %s</string>
     <string name="rules_root_required">Root permission required to apply rules</string>
     <string name="rules_config_name">Config Name</string>
-    <string name="rules_note">Note</string>
     <string name="rules_preset">Presets</string>
     <string name="rules_preset_added">Added preset: %s</string>
     <string name="rules_preset_failed">Failed to load preset</string>
@@ -76,6 +75,12 @@
     <string name="home_unknown">Unknown</string>
     <string name="home_loading">Loading…</string>
     <string name="home_module_version">Module Version</string>
+    <string name="home_immersion_status">Immersion Support: %s</string>
+    <string name="home_immersion_not_supported">No</string>
+    <string name="home_immersion_hyperos">%s</string>
+    <string name="home_immersion_mode_title">Immersion Mode</string>
+    <string name="home_immersion_mode_summary">Select immersion rule version</string>
+    <string name="home_immersion_mode_auto">Auto Detect</string>
     <string name="settings_data">Data Management</string>
     <string name="export_settings">Export Settings</string>
     <string name="export_settings_summary">Save current settings as JSON file</string>
@@ -104,4 +109,92 @@
     <string name="tl_ksp_summary">Apache-2.0</string>
     <string name="tl_coroutines">Kotlin Coroutines</string>
     <string name="tl_coroutines_summary">Apache-2.0</string>
+
+    <!-- Rule editor – general -->
+    <string name="rules_local_rule">Local Rule</string>
+    <string name="rules_local_prefix">Local · </string>
+    <string name="rules_cloud_prefix">Cloud · </string>
+    <string name="rules_cloud">Cloud</string>
+    <string name="rules_local">Local</string>
+    <string name="rules_export_file">Export to File</string>
+    <string name="rules_visual_edit">Visual Editor</string>
+    <string name="rules_import_file">Import from File</string>
+    <string name="rules_json_content">JSON Content</string>
+
+    <!-- Time elapsed -->
+    <string name="rules_time_day">%dd</string>
+    <string name="rules_time_hour">%dh</string>
+    <string name="rules_time_minute">%dm</string>
+    <string name="rules_time_second">%ds</string>
+
+    <!-- Editor – mode labels -->
+    <string name="editor_mode_auto">Auto Mode</string>
+    <string name="editor_mode_disabled">Disabled</string>
+    <string name="editor_mode_color_pick">Color Pick</string>
+    <string name="editor_mode_float">Floating</string>
+
+    <!-- Editor – SF sampling labels -->
+    <string name="editor_sf_force_enable">Force Enable</string>
+    <string name="editor_sf_force_disable">Force Disable</string>
+
+    <!-- Editor – dialog / popup labels -->
+    <string name="editor_dialog_view_sampling">View Sampling</string>
+    <string name="editor_dialog_sf_sampling">SF Sampling</string>
+
+    <!-- Editor – color labels -->
+    <string name="editor_color_default">Default</string>
+    <string name="editor_color_auto">Auto Color</string>
+    <string name="editor_color_custom">Custom Color</string>
+    <string name="editor_color_custom_value">Custom</string>
+
+    <!-- Editor – titles -->
+    <string name="editor_title_apps">Visual Rule Editor</string>
+    <string name="editor_title_activities">Activity List</string>
+    <string name="editor_title_fields">Edit Activity Rule</string>
+
+    <!-- Editor – actions -->
+    <string name="editor_back">Back</string>
+    <string name="editor_save">Save</string>
+
+    <!-- Editor – app list -->
+    <string name="editor_app_list_count">App List (%d)</string>
+    <string name="editor_add_app">Add App</string>
+    <string name="editor_app_name">App Name</string>
+    <string name="editor_tap_edit"> (Tap to Edit)</string>
+    <string name="editor_not_set_tap_edit">Not Set (Tap to Edit)</string>
+    <string name="editor_add_activity">Add Activity</string>
+    <string name="editor_activity_count">%d Activities</string>
+    <string name="editor_no_activities">No activity rules, tap above to add</string>
+
+    <!-- Editor – color shortcuts -->
+    <string name="editor_color_auto_short">Color: Auto</string>
+    <string name="editor_color_default_short">Color: Default</string>
+    <string name="editor_color_hex_short">Color: #%s</string>
+
+    <!-- Editor – field editors -->
+    <string name="editor_mode_title">Immersive Mode</string>
+    <string name="editor_mode_summary">mode</string>
+    <string name="editor_color_title">Navbar Color</string>
+    <string name="editor_color_summary">color</string>
+    <string name="editor_sf_title">SF Sampling Mode</string>
+    <string name="editor_sf_summary">sf_sampling_mode</string>
+    <string name="editor_dialog_title">Dialog Mode</string>
+    <string name="editor_dialog_summary">dialogMode</string>
+    <string name="editor_popup_title">Popup Mode</string>
+    <string name="editor_popup_summary">popupMode</string>
+    <string name="editor_disable_app_nav_color">Disable App Navbar Color</string>
+    <string name="editor_disable_app_nav_color_summary">appNavColorDisabled</string>
+    <string name="editor_delete_activity">Delete This Activity</string>
+    <string name="editor_package_name">Package Name</string>
+    <string name="editor_app_name_optional">App Name (Optional)</string>
+    <string name="editor_activity_name_hint">Activity Name (e.g. com.example.MainActivity or *)</string>
+    <string name="editor_rgba_hint">RGBA (Format: R, G, B, A)</string>
+    <string name="editor_hex_hint">HEX (Format: #RRGGBB / #RRGGBBAA)</string>
+
+    <!-- Editor – dialogs -->
+    <string name="editor_confirm_delete">Confirm Delete</string>
+    <string name="editor_confirm_delete_message">Are you sure you want to delete this entry? This action cannot be undone.</string>
+
+    <!-- Editor – misc -->
+    <string name="editor_selected">Selected</string>
 </resources>

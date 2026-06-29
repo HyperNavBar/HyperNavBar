@@ -134,42 +134,32 @@ object RuleConverter {
     private fun convertToOS22(json: JSONObject): String {
         val nbiRules = json.optJSONObject("NBIRules") ?: JSONObject()
         val sb = StringBuilder()
-        sb.append("<?xml version='1.0' encoding='utf-8' standalone='yes' ?>\n")
-        sb.append("<map>\n")
-        sb.append("    <int name=\"dataVersion\" value=\"${json.optString("dataVersion", "999999")}\" />\n")
-        sb.append("    <string name=\"modules\">${xmlEscape(json.optString("modules", "navigation_bar_immersive_application_config_new"))}</string>\n")
-        sb.append("    <string name=\"modifyApps\">${xmlEscape(json.optString("modifyApps", "modifyApps"))}</string>\n")
+        sb.append("<?xml version='1.0' encoding='utf-8' standalone='yes'?>\n")
+        sb.append("<NBIRules>\n")
 
-        val keys = nbiRules.keys()
-        while (keys.hasNext()) {
-            val pkg = keys.next()
-            val appRule = nbiRules.getJSONObject(pkg)
-            sb.append("    <string name=\"${xmlEscape(pkg)}\">\n")
-            sb.append("        <string name=\"name\">${xmlEscape(appRule.optString("name", ""))}</string>\n")
-            sb.append("        <boolean name=\"enable\" value=\"${appRule.optBoolean("enable", true)}\" />\n")
-
+        val sortedKeys = nbiRules.keys().asSequence().sorted()
+        for (pkg in sortedKeys) {
+            val appRule = nbiRules.optJSONObject(pkg) ?: continue
+            val enable = appRule.optBoolean("enable", true)
             val activityRules = appRule.optJSONObject("activityRules") ?: JSONObject()
-            val actKeys = activityRules.keys()
-            while (actKeys.hasNext()) {
-                val actName = actKeys.next()
-                val rule = activityRules.getJSONObject(actName)
+
+            // Build activityRule string: "Activity1:mode:color,Activity2:mode"
+            val activityParts = mutableListOf<String>()
+            val actKeys = activityRules.keys().asSequence().sorted()
+            for (actName in actKeys) {
+                val rule = activityRules.optJSONObject(actName) ?: continue
                 val mode = rule.optInt("mode", -1)
-                val color = if (rule.has("color") && !rule.isNull("color")) {
+                val color = if (rule.has("color") && !rule.isNull("color") && rule.opt("color") != 1) {
                     ":${rule.opt("color")}"
                 } else ""
-                sb.append("        <string name=\"${xmlEscape(actName)}\">${xmlEscape("$mode$color")}</string>\n")
+                activityParts.add("$actName:$mode$color")
             }
-            sb.append("    </string>\n")
-        }
-        sb.append("</map>")
-        return sb.toString()
-    }
+            val activityRuleStr = activityParts.joinToString(",")
 
-    private fun xmlEscape(text: String): String {
-        return text.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&apos;")
+            sb.append("   <package name=\"$pkg\" enable=\"$enable\" activityRule=\"$activityRuleStr\" />\n")
+        }
+
+        sb.append("</NBIRules>")
+        return sb.toString()
     }
 }

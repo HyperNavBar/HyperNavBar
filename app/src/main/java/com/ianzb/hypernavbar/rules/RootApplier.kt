@@ -7,7 +7,7 @@ import java.io.File
 
 object RootApplier {
 
-    private const val MARKER_PATH = "/data/system/MiNavBarImmerse"
+    private const val MARKER_PATH = "/data/system/HyperNavBarRules"
 
     suspend fun applyRules(
         jsonContent: String,
@@ -49,6 +49,7 @@ object RootApplier {
         }
     }
 
+    @Suppress("unused")
     suspend fun restoreBackup(targetPath: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val bakPath = "$targetPath.bak"
@@ -92,22 +93,6 @@ object RootApplier {
             reader.use { it.readLine()?.trim() == "YES" }
         } catch (_: Exception) {
             false
-        }
-    }
-
-    fun getCurrentRuleCount(): Int {
-        return try {
-            val targetPath = RuleConverter.getTargetPath(RuleConverter.detectOsMode())
-            val process = Runtime.getRuntime().exec("su")
-            val stream = DataOutputStream(process.outputStream)
-            stream.writeBytes("cat ${shellQuote(targetPath)} 2>/dev/null | grep -c '\"name\"'\n")
-            stream.writeBytes("exit\n")
-            stream.flush()
-            process.waitFor()
-            val reader = process.inputStream.bufferedReader()
-            reader.use { it.readLine()?.trim()?.toIntOrNull() ?: 0 }
-        } catch (_: Exception) {
-            0
         }
     }
 

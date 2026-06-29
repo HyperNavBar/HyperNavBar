@@ -32,13 +32,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ianzb.hypernavbar.R
 import org.json.JSONObject
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.ColorPicker
 import top.yukonga.miuix.kmp.basic.ColorSpace
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -51,6 +55,7 @@ import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
+import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -61,16 +66,10 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 private enum class EditorLevel { APPS, ACTIVITIES, FIELDS }
 
 // ── Option definitions ────────────────────────────────────────────────
-private val MODE_LABELS = listOf("自动模式（-1）", "禁用模式（0）", "取色模式（1）", "强制沉浸模式（2）")
 private val MODE_VALUES = listOf(-1, 0, 1, 2)
-
-private val SF_SAMPLING_LABELS = listOf("自动模式（0）", "强制启用（1）", "强制禁用（255）")
 private val SF_SAMPLING_VALUES = listOf(0, 1, 255)
-
-private val DIALOG_POPUP_LABELS = listOf("禁用模式（0）", "视图采样模式（1）", "SF采样模式（2）")
 private val DIALOG_POPUP_VALUES = listOf(0, 1, 2)
 
-private val COLOR_TYPE_LABELS = listOf("默认（null）", "自动取色（1）", "自定义颜色")
 private const val COLOR_TYPE_DEFAULT = 0
 private const val COLOR_TYPE_AUTO = 1
 private const val COLOR_TYPE_CUSTOM = 2
@@ -100,12 +99,14 @@ private fun parseJsonSafe(jsonStr: String): JSONObject {
  * sort activity rules by activity name A-Z.
  */
 fun formatNbiJson(jsonStr: String): String {
+    val defaultDate = java.text.SimpleDateFormat("yyMMdd", java.util.Locale.US).format(java.util.Date())
     return try {
         val root = JSONObject(jsonStr.trim().ifEmpty { return jsonStr })
         val nbiRules = root.optJSONObject("NBIRules") ?: return root.toString(4)
         val sortedRoot = JSONObject()
-        sortedRoot.put("dataVersion", root.optString("dataVersion", "999999"))
+        // Root key order: name, dataVersion, modules, modifyApps, NBIRules
         if (root.has("name")) sortedRoot.put("name", root.optString("name"))
+        sortedRoot.put("dataVersion", root.optString("dataVersion", defaultDate))
         sortedRoot.put("modules", root.optString("modules", "navigation_bar_immersive_application_config_new"))
         sortedRoot.put("modifyApps", root.optString("modifyApps", "modifyApps"))
         val sortedNbi = JSONObject()
@@ -234,9 +235,9 @@ fun JsonRuleEditorSheet(
     // ── UI ────────────────────────────────────────────────────────────
     WindowBottomSheet(
         title = when (currentLevel) {
-            EditorLevel.APPS -> "可视化规则编辑"
-            EditorLevel.ACTIVITIES -> "Activity 列表"
-            EditorLevel.FIELDS -> "编辑 Activity 规则"
+            EditorLevel.APPS -> stringResource(R.string.editor_title_apps)
+            EditorLevel.ACTIVITIES -> stringResource(R.string.editor_title_activities)
+            EditorLevel.FIELDS -> stringResource(R.string.editor_title_fields)
         },
         show = show,
         onDismissRequest = onDismiss,
@@ -250,7 +251,7 @@ fun JsonRuleEditorSheet(
             }) {
                 Icon(
                     MiuixIcons.Close,
-                    contentDescription = if (currentLevel == EditorLevel.APPS) "取消" else "返回",
+                    contentDescription = if (currentLevel == EditorLevel.APPS) stringResource(R.string.rules_cancel) else stringResource(R.string.editor_back),
                     tint = MiuixTheme.colorScheme.onBackground,
                 )
             }
@@ -273,7 +274,7 @@ fun JsonRuleEditorSheet(
                     }
                 }
             }) {
-                Icon(MiuixIcons.Ok, "保存", tint = MiuixTheme.colorScheme.onBackground)
+                Icon(MiuixIcons.Ok, stringResource(R.string.editor_save), tint = MiuixTheme.colorScheme.onBackground)
             }
         },
     ) {
@@ -293,13 +294,13 @@ fun JsonRuleEditorSheet(
                 EditorLevel.APPS -> {
                     item {
                         SmallTitle(
-                            text = "应用列表（${nbiRules.length()}）",
+                            text = stringResource(R.string.editor_app_list_count, nbiRules.length()),
                             modifier = Modifier.padding(top = 6.dp),
                         )
                     }
                     item {
                         TextButton(
-                            text = "添加应用",
+                            text = stringResource(R.string.editor_add_app),
                             onClick = {
                                 newPkg = ""
                                 newName = ""
@@ -334,14 +335,14 @@ fun JsonRuleEditorSheet(
                                     title = pkg,
                                     summary = buildString {
                                         if (name.isNotEmpty()) append(name).append(" · ")
-                                        append("$actCount 个 Activity")
+                                        append(stringResource(R.string.editor_activity_count, actCount))
                                     },
                                     modifier = Modifier.weight(1f),
                                 )
                                 IconButton(onClick = { showDeleteConfirm = pkg }) {
                                     Icon(
                                         MiuixIcons.Delete,
-                                        contentDescription = "删除",
+                                        contentDescription = stringResource(R.string.rules_delete),
                                         tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                         modifier = Modifier.size(20.dp),
                                     )
@@ -389,7 +390,7 @@ fun JsonRuleEditorSheet(
                                     TextField(
                                         value = nameField,
                                         onValueChange = { nameField = it },
-                                        label = "应用名称",
+                                        label = stringResource(R.string.editor_app_name),
                                         singleLine = true,
                                         modifier = Modifier.fillMaxWidth(),
                                     )
@@ -398,13 +399,13 @@ fun JsonRuleEditorSheet(
                                         horizontalArrangement = Arrangement.End,
                                     ) {
                                         TextButton(
-                                            text = "取消",
+                                            text = stringResource(R.string.rules_cancel),
                                             onClick = { isEditingName = false },
                                             enabled = true,
                                         )
                                         Spacer(Modifier.width(12.dp))
                                         TextButton(
-                                            text = "保存",
+                                            text = stringResource(R.string.editor_save),
                                             onClick = {
                                                 appForSelected?.put("name", nameField.trim())
                                                 saveRoot()
@@ -417,15 +418,15 @@ fun JsonRuleEditorSheet(
                                 }
                             } else {
                                 BasicComponent(
-                                    title = "应用名称",
-                                    summary = if (appName.isNotEmpty()) "$appName（点击编辑）" else "未设置（点击编辑）",
+                                    title = stringResource(R.string.editor_app_name),
+                                    summary = if (appName.isNotEmpty()) "$appName${stringResource(R.string.editor_tap_edit)}" else stringResource(R.string.editor_not_set_tap_edit),
                                 )
                             }
                         }
                     }
                     item {
                         TextButton(
-                            text = "添加 Activity",
+                            text = stringResource(R.string.editor_add_activity),
                             onClick = {
                                 newActName = ""
                                 showAddActivityDialog = true
@@ -438,14 +439,20 @@ fun JsonRuleEditorSheet(
                     items(actKeys) { actName ->
                         val actJson = activityRules.optJSONObject(actName)
                         val mode = actJson?.optIntOrNull("mode")
+                        val modeLabels = listOf(
+                            stringResource(R.string.editor_mode_auto),
+                            stringResource(R.string.editor_mode_disabled),
+                            stringResource(R.string.editor_mode_color_pick),
+                            stringResource(R.string.editor_mode_float),
+                        )
                         val modeLabel = mode?.let { m ->
-                            MODE_LABELS.getOrNull(MODE_VALUES.indexOf(m))
+                            modeLabels.getOrNull(MODE_VALUES.indexOf(m))
                         } ?: "—"
                         val color = actJson?.opt("color")
                         val colorLabel = when (colorTypeFromValue(color)) {
-                            COLOR_TYPE_AUTO -> "取色:自动"
-                            COLOR_TYPE_CUSTOM -> "取色:#${(argbFromValue(color) and 0xFFFFFF).toString(16).padStart(6, '0').uppercase()}"
-                            else -> "取色:默认"
+                            COLOR_TYPE_AUTO -> stringResource(R.string.editor_color_auto_short)
+                            COLOR_TYPE_CUSTOM -> stringResource(R.string.editor_color_hex_short, (argbFromValue(color) and 0xFFFFFF).toString(16).padStart(6, '0').uppercase())
+                            else -> stringResource(R.string.editor_color_default_short)
                         }
 
                         Card(
@@ -473,7 +480,7 @@ fun JsonRuleEditorSheet(
                                 }) {
                                     Icon(
                                         MiuixIcons.Delete,
-                                        contentDescription = "删除",
+                                        contentDescription = stringResource(R.string.rules_delete),
                                         tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                         modifier = Modifier.size(20.dp),
                                     )
@@ -485,7 +492,7 @@ fun JsonRuleEditorSheet(
                     if (actKeys.isEmpty()) {
                         item {
                             Text(
-                                text = "暂无 Activity 规则，请点击上方添加",
+                                text = stringResource(R.string.editor_no_activities),
                                 style = MiuixTheme.textStyles.body2,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp),
@@ -536,6 +543,15 @@ fun JsonRuleEditorSheet(
 
                     // ── mode spinner ──
                     item {
+                        val modeLabels = listOf(
+                            stringResource(R.string.editor_mode_auto),
+                            stringResource(R.string.editor_mode_disabled),
+                            stringResource(R.string.editor_mode_color_pick),
+                            stringResource(R.string.editor_mode_float),
+                        )
+                        val modeItems = modeLabels.mapIndexed { i, text ->
+                            DropdownItem(text = text, summary = MODE_VALUES[i].toString())
+                        }
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -543,11 +559,14 @@ fun JsonRuleEditorSheet(
                                 .padding(bottom = 6.dp),
                         ) {
                             WindowDropdownPreference(
-                                title = "沉浸模式（mode）",
-                                summary = MODE_LABELS[modeIdx],
-                                items = MODE_LABELS,
-                                selectedIndex = modeIdx,
-                                onSelectedIndexChange = { updateActivityField("mode", MODE_VALUES[it]) },
+                                title = stringResource(R.string.editor_mode_title),
+                                summary = stringResource(R.string.editor_mode_summary),
+                                entry = DropdownEntry(modeItems.mapIndexed { i, item ->
+                                    item.copy(
+                                        selected = i == modeIdx,
+                                        onClick = { updateActivityField("mode", MODE_VALUES[i]) },
+                                    )
+                                }),
                             )
                         }
                     }
@@ -584,23 +603,35 @@ fun JsonRuleEditorSheet(
                                 .padding(bottom = 6.dp),
                         ) {
                             Column {
+                                val colorTypeLabels = listOf(
+                                    stringResource(R.string.editor_color_default),
+                                    stringResource(R.string.editor_color_auto),
+                                    stringResource(R.string.editor_color_custom),
+                                )
+                                val colorTypeSummaries = listOf(
+                                    "null",
+                                    "1",
+                                    stringResource(R.string.editor_color_custom_value),
+                                )
+                                val colorTypeItems = colorTypeLabels.mapIndexed { i, text ->
+                                    DropdownItem(text = text, summary = colorTypeSummaries[i])
+                                }
                                 WindowDropdownPreference(
-                                    title = "导航栏颜色（color）",
-                                    summary = when (colorType) {
-                                        COLOR_TYPE_DEFAULT -> "默认（null）"
-                                        COLOR_TYPE_AUTO -> "自动取色（1）"
-                                        else -> "自定义颜色"
-                                    },
-                                    items = COLOR_TYPE_LABELS,
-                                    selectedIndex = colorType,
-                                    onSelectedIndexChange = { i ->
-                                        when (i) {
-                                            COLOR_TYPE_DEFAULT -> updateActivityField("color", JSONObject.NULL)
-                                            COLOR_TYPE_AUTO -> updateActivityField("color", 1)
-                                            COLOR_TYPE_CUSTOM -> updateActivityField("color", 0xFF000000.toInt())
-                                        }
-                                        showColorPicker = (i == COLOR_TYPE_CUSTOM)
-                                    },
+                                    title = stringResource(R.string.editor_color_title),
+                                    summary = stringResource(R.string.editor_color_summary),
+                                    entry = DropdownEntry(colorTypeItems.mapIndexed { i, item ->
+                                        item.copy(
+                                            selected = i == colorType,
+                                            onClick = {
+                                                when (i) {
+                                                    COLOR_TYPE_DEFAULT -> updateActivityField("color", JSONObject.NULL)
+                                                    COLOR_TYPE_AUTO -> updateActivityField("color", 1)
+                                                    COLOR_TYPE_CUSTOM -> updateActivityField("color", 0xFF000000.toInt())
+                                                }
+                                                showColorPicker = (i == COLOR_TYPE_CUSTOM)
+                                            },
+                                        )
+                                    }),
                                 )
                                 // Custom color editor - animated appearance
                                 AnimatedVisibility(
@@ -651,7 +682,7 @@ fun JsonRuleEditorSheet(
                                                     syncFromArgb(newArgb)
                                                 }
                                             },
-                                            label = "RGBA（格式：R, G, B, A）",
+                                            label = stringResource(R.string.editor_rgba_hint),
                                             singleLine = true,
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -675,7 +706,7 @@ fun JsonRuleEditorSheet(
                                                     } catch (_: Exception) {}
                                                 }
                                             },
-                                            label = "HEX（格式：#RRGGBB / #RRGGBBAA）",
+                                            label = stringResource(R.string.editor_hex_hint),
                                             singleLine = true,
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -699,6 +730,14 @@ fun JsonRuleEditorSheet(
 
                     // ── sf_sampling_mode spinner ──
                     item {
+                        val sfLabels = listOf(
+                            stringResource(R.string.editor_mode_auto),
+                            stringResource(R.string.editor_sf_force_enable),
+                            stringResource(R.string.editor_sf_force_disable),
+                        )
+                        val sfItems = sfLabels.mapIndexed { i, text ->
+                            DropdownItem(text = text, summary = SF_SAMPLING_VALUES[i].toString())
+                        }
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -706,17 +745,28 @@ fun JsonRuleEditorSheet(
                                 .padding(bottom = 6.dp),
                         ) {
                             WindowDropdownPreference(
-                                title = "SF采样模式（sf_sampling_mode）",
-                                summary = SF_SAMPLING_LABELS[sfIdx],
-                                items = SF_SAMPLING_LABELS,
-                                selectedIndex = sfIdx,
-                                onSelectedIndexChange = { updateActivityField("sf_sampling_mode", SF_SAMPLING_VALUES[it]) },
+                                title = stringResource(R.string.editor_sf_title),
+                                summary = stringResource(R.string.editor_sf_summary),
+                                entry = DropdownEntry(sfItems.mapIndexed { i, item ->
+                                    item.copy(
+                                        selected = i == sfIdx,
+                                        onClick = { updateActivityField("sf_sampling_mode", SF_SAMPLING_VALUES[i]) },
+                                    )
+                                }),
                             )
                         }
                     }
 
                     // ── dialogMode spinner ──
                     item {
+                        val dialogLabels = listOf(
+                            stringResource(R.string.editor_mode_disabled),
+                            stringResource(R.string.editor_dialog_view_sampling),
+                            stringResource(R.string.editor_dialog_sf_sampling),
+                        )
+                        val dialogItems = dialogLabels.mapIndexed { i, text ->
+                            DropdownItem(text = text, summary = DIALOG_POPUP_VALUES[i].toString())
+                        }
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -724,17 +774,28 @@ fun JsonRuleEditorSheet(
                                 .padding(bottom = 6.dp),
                         ) {
                             WindowDropdownPreference(
-                                title = "对话框模式（dialogMode）",
-                                summary = DIALOG_POPUP_LABELS[dialogIdx],
-                                items = DIALOG_POPUP_LABELS,
-                                selectedIndex = dialogIdx,
-                                onSelectedIndexChange = { updateActivityField("dialogMode", DIALOG_POPUP_VALUES[it]) },
+                                title = stringResource(R.string.editor_dialog_title),
+                                summary = stringResource(R.string.editor_dialog_summary),
+                                entry = DropdownEntry(dialogItems.mapIndexed { i, item ->
+                                    item.copy(
+                                        selected = i == dialogIdx,
+                                        onClick = { updateActivityField("dialogMode", DIALOG_POPUP_VALUES[i]) },
+                                    )
+                                }),
                             )
                         }
                     }
 
                     // ── popupMode spinner ──
                     item {
+                        val popupLabels = listOf(
+                            stringResource(R.string.editor_mode_disabled),
+                            stringResource(R.string.editor_dialog_view_sampling),
+                            stringResource(R.string.editor_dialog_sf_sampling),
+                        )
+                        val popupItems = popupLabels.mapIndexed { i, text ->
+                            DropdownItem(text = text, summary = DIALOG_POPUP_VALUES[i].toString())
+                        }
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -742,11 +803,14 @@ fun JsonRuleEditorSheet(
                                 .padding(bottom = 6.dp),
                         ) {
                             WindowDropdownPreference(
-                                title = "弹窗模式（popupMode）",
-                                summary = DIALOG_POPUP_LABELS[popupIdx],
-                                items = DIALOG_POPUP_LABELS,
-                                selectedIndex = popupIdx,
-                                onSelectedIndexChange = { updateActivityField("popupMode", DIALOG_POPUP_VALUES[it]) },
+                                title = stringResource(R.string.editor_popup_title),
+                                summary = stringResource(R.string.editor_popup_summary),
+                                entry = DropdownEntry(popupItems.mapIndexed { i, item ->
+                                    item.copy(
+                                        selected = i == popupIdx,
+                                        onClick = { updateActivityField("popupMode", DIALOG_POPUP_VALUES[i]) },
+                                    )
+                                }),
                             )
                         }
                     }
@@ -764,8 +828,8 @@ fun JsonRuleEditorSheet(
                                 onCheckedChange = { checked ->
                                     updateActivityField("appNavColorDisabled", if (checked) 1 else 0)
                                 },
-                                title = "禁用应用导航栏颜色",
-                                summary = "appNavColorDisabled",
+                                title = stringResource(R.string.editor_disable_app_nav_color),
+                                summary = stringResource(R.string.editor_disable_app_nav_color_summary),
                             )
                         }
                     }
@@ -773,7 +837,7 @@ fun JsonRuleEditorSheet(
                     // ── delete activity ──
                     item {
                         TextButton(
-                            text = "删除此 Activity",
+                            text = stringResource(R.string.editor_delete_activity),
                             onClick = {
                                 showDeleteConfirm = "$selectedPackage::$selectedActivity"
                             },
@@ -799,35 +863,37 @@ fun JsonRuleEditorSheet(
 
     // ── Add App dialog ─────────────────────────────────────────────────
     WindowDialog(
-        title = "添加应用",
+        title = stringResource(R.string.editor_add_app),
         show = showAddAppDialog,
         onDismissRequest = { showAddAppDialog = false },
     ) {
+        val dismissState = LocalDismissState.current
         TextField(
             modifier = Modifier.padding(vertical = 4.dp),
             value = newPkg,
             onValueChange = { newPkg = it },
-            label = "应用包名",
+            label = stringResource(R.string.editor_package_name),
             singleLine = true,
         )
         TextField(
             modifier = Modifier.padding(vertical = 4.dp),
             value = newName,
             onValueChange = { newName = it },
-            label = "应用名称（可选）",
+            label = stringResource(R.string.editor_app_name_optional),
             singleLine = true,
         )
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalArrangement = Arrangement.End,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             TextButton(
-                text = "取消",
-                onClick = { showAddAppDialog = false },
+                text = stringResource(R.string.rules_cancel),
+                onClick = { dismissState?.invoke() },
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(20.dp))
             TextButton(
-                text = "确定",
+                text = stringResource(R.string.rules_confirm),
                 onClick = {
                     val pkg = newPkg.trim()
                     if (pkg.isEmpty()) return@TextButton
@@ -839,8 +905,9 @@ fun JsonRuleEditorSheet(
                         nbiRules.put(pkg, newApp)
                         saveRoot()
                     }
-                    showAddAppDialog = false
+                    dismissState?.invoke()
                 },
+                modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
             )
         }
@@ -848,28 +915,30 @@ fun JsonRuleEditorSheet(
 
     // ── Add Activity dialog ────────────────────────────────────────────
     WindowDialog(
-        title = "添加 Activity",
+        title = stringResource(R.string.editor_add_activity),
         show = showAddActivityDialog,
         onDismissRequest = { showAddActivityDialog = false },
     ) {
+        val dismissState = LocalDismissState.current
         TextField(
             modifier = Modifier.padding(vertical = 4.dp),
             value = newActName,
             onValueChange = { newActName = it },
-            label = "Activity 名称（如 com.example.MainActivity 或 *）",
+            label = stringResource(R.string.editor_activity_name_hint),
             singleLine = true,
         )
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalArrangement = Arrangement.End,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             TextButton(
-                text = "取消",
-                onClick = { showAddActivityDialog = false },
+                text = stringResource(R.string.rules_cancel),
+                onClick = { dismissState?.invoke() },
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(20.dp))
             TextButton(
-                text = "确定",
+                text = stringResource(R.string.rules_confirm),
                 onClick = {
                     val actName = newActName.trim()
                     if (actName.isEmpty()) return@TextButton
@@ -887,8 +956,9 @@ fun JsonRuleEditorSheet(
                         rules.put(actName, newAct)
                         saveRoot()
                     }
-                    showAddActivityDialog = false
+                    dismissState?.invoke()
                 },
+                modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
             )
         }
@@ -896,22 +966,24 @@ fun JsonRuleEditorSheet(
 
     // ── Delete confirmation ────────────────────────────────────────────
     WindowDialog(
-        title = "确认删除",
-        summary = "确定要删除此条目吗？此操作不可撤销。",
+        title = stringResource(R.string.editor_confirm_delete),
+        summary = stringResource(R.string.editor_confirm_delete_message),
         show = showDeleteConfirm.isNotEmpty(),
         onDismissRequest = { showDeleteConfirm = "" },
     ) {
+        val dismissState = LocalDismissState.current
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             TextButton(
-                text = "取消",
-                onClick = { showDeleteConfirm = "" },
+                text = stringResource(R.string.rules_cancel),
+                onClick = { dismissState?.invoke() },
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(20.dp))
             TextButton(
-                text = "删除",
+                text = stringResource(R.string.rules_delete),
                 onClick = {
                     val target = showDeleteConfirm
                     if (target.contains("::")) {
@@ -926,8 +998,9 @@ fun JsonRuleEditorSheet(
                             currentLevel = EditorLevel.APPS
                         }
                     }
-                    showDeleteConfirm = ""
+                    dismissState?.invoke()
                 },
+                modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
             )
         }

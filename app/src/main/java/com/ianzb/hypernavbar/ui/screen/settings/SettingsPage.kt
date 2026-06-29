@@ -9,6 +9,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -55,6 +56,7 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
+import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowDialog
 import java.io.BufferedReader
@@ -125,38 +127,41 @@ fun SettingsPageView(
 
     // Interval dialog
     WindowDialog(
+        show = showIntervalDialog,
         title = stringResource(R.string.rules_apply_interval),
         summary = stringResource(R.string.rules_apply_interval_summary),
-        show = showIntervalDialog,
-        onDismissRequest = { showIntervalDialog = false }
-    ) {
-        TextField(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            value = intervalInput,
-            onValueChange = { intervalInput = it.filter(Char::isDigit) },
-            label = stringResource(R.string.rules_apply_interval),
-            singleLine = true,
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        ) {
-            TextButton(
-                text = stringResource(R.string.rules_cancel),
-                onClick = { showIntervalDialog = false; intervalInput = applyIntervalMinutes.toString() },
-                modifier = Modifier.weight(1f),
+        onDismissRequest = { showIntervalDialog = false },
+        content = {
+            val dismissState = LocalDismissState.current
+            TextField(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                value = intervalInput,
+                onValueChange = { intervalInput = it.filter(Char::isDigit) },
+                label = stringResource(R.string.rules_apply_interval),
+                singleLine = true,
             )
-            Spacer(Modifier.width(12.dp))
-            TextButton(
-                text = stringResource(R.string.rules_confirm),
-                onClick = {
-                    onApplyIntervalChange(intervalInput.toIntOrNull() ?: 0)
-                    showIntervalDialog = false
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-            )
-        }
-    }
+            Row(
+                modifier = Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                TextButton(
+                    text = stringResource(R.string.rules_cancel),
+                    onClick = { dismissState?.invoke() },
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(20.dp))
+                TextButton(
+                    text = stringResource(R.string.rules_confirm),
+                    onClick = {
+                        onApplyIntervalChange(intervalInput.toIntOrNull() ?: 0)
+                        dismissState?.invoke()
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
+            }
+        },
+    )
 
     Scaffold(
         topBar = {

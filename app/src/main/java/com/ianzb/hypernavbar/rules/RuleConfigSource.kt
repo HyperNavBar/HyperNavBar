@@ -11,7 +11,6 @@ data class RuleConfigSource(
     val jsonContent: String = "",
     val cachedContent: String = "",
     val name: String = "",
-    val note: String = "",
     val priority: Int = 0,
     val lastRefreshTime: Long = 0L,
     val refreshIntervalMs: Long = 0L,
@@ -25,7 +24,6 @@ data class RuleConfigSource(
         put("jsonContent", jsonContent)
         put("cachedContent", cachedContent)
         put("name", name)
-        put("note", note)
         put("priority", priority)
         put("lastRefreshTime", lastRefreshTime)
         put("refreshIntervalMs", refreshIntervalMs)
@@ -41,7 +39,6 @@ data class RuleConfigSource(
             jsonContent = obj.optString("jsonContent", ""),
             cachedContent = obj.optString("cachedContent", ""),
             name = obj.optString("name", ""),
-            note = obj.optString("note", ""),
             priority = obj.optInt("priority", 0),
             lastRefreshTime = obj.optLong("lastRefreshTime", 0L),
             refreshIntervalMs = obj.optLong("refreshIntervalMs", 0L),

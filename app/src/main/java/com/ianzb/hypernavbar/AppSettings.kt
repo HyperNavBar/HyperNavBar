@@ -3,6 +3,7 @@ package com.ianzb.hypernavbar
 import android.content.Context
 import androidx.core.content.edit
 import com.ianzb.hypernavbar.rules.RulesManager
+import com.ianzb.hypernavbar.rules.SystemVersionDetector
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -11,6 +12,8 @@ data class AppSettings(
     val isFloatingNavbar: Boolean = false,
     val isLiquidGlass: Boolean = false,
     val applyIntervalMinutes: Int = 0,
+    val language: String = "",
+    val forcedMode: String = "auto",
     val rulesConfigsJson: String = "",
 ) {
     fun toJson(): String {
@@ -19,6 +22,8 @@ data class AppSettings(
         json.put("isFloatingNavbar", isFloatingNavbar)
         json.put("isLiquidGlass", isLiquidGlass)
         json.put("applyIntervalMinutes", applyIntervalMinutes)
+        json.put("language", language)
+        json.put("forcedMode", forcedMode)
         json.put("rulesConfigs", JSONArray(rulesConfigsJson.ifEmpty { "[]" }))
         return json.toString(2)
     }
@@ -32,6 +37,8 @@ data class AppSettings(
                     isFloatingNavbar = obj.optBoolean("isFloatingNavbar", false),
                     isLiquidGlass = obj.optBoolean("isLiquidGlass", false),
                     applyIntervalMinutes = obj.optInt("applyIntervalMinutes", 0),
+                    language = obj.optString("language", ""),
+                    forcedMode = obj.optString("forcedMode", "auto"),
                     rulesConfigsJson = obj.optJSONArray("rulesConfigs")?.toString() ?: "",
                 )
             } catch (_: Exception) {
@@ -47,11 +54,15 @@ data class AppSettings(
 
         fun load(context: Context): AppSettings {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val language = LocaleHelper.getSavedLanguage(context).code
+            val forcedMode = SystemVersionDetector.getForcedMode(context)
             return AppSettings(
                 themeMode = prefs.getString(KEY_THEME_MODE, "System") ?: "System",
                 isFloatingNavbar = prefs.getBoolean(KEY_FLOATING_NAVBAR, false),
                 isLiquidGlass = prefs.getBoolean(KEY_LIQUID_GLASS, false),
                 applyIntervalMinutes = prefs.getInt(KEY_APPLY_INTERVAL, 0),
+                language = language,
+                forcedMode = forcedMode,
             )
         }
 
@@ -62,6 +73,11 @@ data class AppSettings(
                 putBoolean(KEY_LIQUID_GLASS, settings.isLiquidGlass)
                 putInt(KEY_APPLY_INTERVAL, settings.applyIntervalMinutes)
             }
+            // Restore language
+            val lang = LocaleHelper.Language.entries.find { it.code == settings.language } ?: LocaleHelper.Language.SYSTEM
+            LocaleHelper.setLanguage(context, lang)
+            // Restore forced mode
+            SystemVersionDetector.setForcedMode(context, settings.forcedMode)
         }
 
         fun importFromJson(context: Context, json: String): AppSettings {

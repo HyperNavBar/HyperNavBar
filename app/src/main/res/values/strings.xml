@@ -55,7 +55,6 @@
     <string name="rules_update_failed">刷新失败：%s</string>
     <string name="rules_root_required">需要 Root 权限才能应用规则</string>
     <string name="rules_config_name">配置名称</string>
-    <string name="rules_note">备注</string>
     <string name="rules_preset">预设配置</string>
     <string name="rules_preset_added">已添加预设：%s</string>
     <string name="rules_preset_failed">预设加载失败</string>
@@ -76,6 +75,12 @@
     <string name="home_unknown">未知</string>
     <string name="home_loading">加载中…</string>
     <string name="home_module_version">模块版本</string>
+    <string name="home_immersion_status">沉浸支持：%s</string>
+    <string name="home_immersion_not_supported">否</string>
+    <string name="home_immersion_hyperos">%s</string>
+    <string name="home_immersion_mode_title">沉浸模式选择</string>
+    <string name="home_immersion_mode_summary">选择沉浸规则适配版本</string>
+    <string name="home_immersion_mode_auto">自动判断</string>
     <string name="settings_data">数据管理</string>
     <string name="export_settings">导出设置</string>
     <string name="export_settings_summary">将当前设置保存为 JSON 文件</string>
@@ -104,4 +109,92 @@
     <string name="tl_ksp_summary">Apache-2.0</string>
     <string name="tl_coroutines">Kotlin Coroutines</string>
     <string name="tl_coroutines_summary">Apache-2.0</string>
+
+    <!-- Rule editor – general -->
+    <string name="rules_local_rule">本地规则</string>
+    <string name="rules_local_prefix">本地 · </string>
+    <string name="rules_cloud_prefix">云端 · </string>
+    <string name="rules_cloud">云端</string>
+    <string name="rules_local">本地</string>
+    <string name="rules_export_file">导出到文件</string>
+    <string name="rules_visual_edit">可视化编辑</string>
+    <string name="rules_import_file">从文件导入</string>
+    <string name="rules_json_content">JSON 配置内容</string>
+
+    <!-- Time elapsed -->
+    <string name="rules_time_day">%d天</string>
+    <string name="rules_time_hour">%d小时</string>
+    <string name="rules_time_minute">%d分钟</string>
+    <string name="rules_time_second">%d秒</string>
+
+    <!-- Editor – mode labels -->
+    <string name="editor_mode_auto">自动模式</string>
+    <string name="editor_mode_disabled">禁用模式</string>
+    <string name="editor_mode_color_pick">取色模式</string>
+    <string name="editor_mode_float">悬浮模式</string>
+
+    <!-- Editor – SF sampling labels -->
+    <string name="editor_sf_force_enable">强制启用</string>
+    <string name="editor_sf_force_disable">强制禁用</string>
+
+    <!-- Editor – dialog / popup labels -->
+    <string name="editor_dialog_view_sampling">视图采样模式</string>
+    <string name="editor_dialog_sf_sampling">SF采样模式</string>
+
+    <!-- Editor – color labels -->
+    <string name="editor_color_default">默认</string>
+    <string name="editor_color_auto">自动取色</string>
+    <string name="editor_color_custom">自定义颜色</string>
+    <string name="editor_color_custom_value">自定义</string>
+
+    <!-- Editor – titles -->
+    <string name="editor_title_apps">可视化规则编辑</string>
+    <string name="editor_title_activities">Activity 列表</string>
+    <string name="editor_title_fields">编辑 Activity 规则</string>
+
+    <!-- Editor – actions -->
+    <string name="editor_back">返回</string>
+    <string name="editor_save">保存</string>
+
+    <!-- Editor – app list -->
+    <string name="editor_app_list_count">应用列表（%d）</string>
+    <string name="editor_add_app">添加应用</string>
+    <string name="editor_app_name">应用名称</string>
+    <string name="editor_tap_edit">（点击编辑）</string>
+    <string name="editor_not_set_tap_edit">未设置（点击编辑）</string>
+    <string name="editor_add_activity">添加 Activity</string>
+    <string name="editor_activity_count">%d 个 Activity</string>
+    <string name="editor_no_activities">暂无 Activity 规则，请点击上方添加</string>
+
+    <!-- Editor – color shortcuts -->
+    <string name="editor_color_auto_short">取色:自动</string>
+    <string name="editor_color_default_short">取色:默认</string>
+    <string name="editor_color_hex_short">取色:#%s</string>
+
+    <!-- Editor – field editors -->
+    <string name="editor_mode_title">沉浸模式</string>
+    <string name="editor_mode_summary">mode</string>
+    <string name="editor_color_title">导航栏颜色</string>
+    <string name="editor_color_summary">color</string>
+    <string name="editor_sf_title">SF采样模式</string>
+    <string name="editor_sf_summary">sf_sampling_mode</string>
+    <string name="editor_dialog_title">对话框模式</string>
+    <string name="editor_dialog_summary">dialogMode</string>
+    <string name="editor_popup_title">弹窗模式</string>
+    <string name="editor_popup_summary">popupMode</string>
+    <string name="editor_disable_app_nav_color">禁用应用导航栏颜色</string>
+    <string name="editor_disable_app_nav_color_summary">appNavColorDisabled</string>
+    <string name="editor_delete_activity">删除此 Activity</string>
+    <string name="editor_package_name">应用包名</string>
+    <string name="editor_app_name_optional">应用名称（可选）</string>
+    <string name="editor_activity_name_hint">Activity 名称（如 com.example.MainActivity 或 *）</string>
+    <string name="editor_rgba_hint">RGBA（格式：R, G, B, A）</string>
+    <string name="editor_hex_hint">HEX（格式：#RRGGBB / #RRGGBBAA）</string>
+
+    <!-- Editor – dialogs -->
+    <string name="editor_confirm_delete">确认删除</string>
+    <string name="editor_confirm_delete_message">确定要删除此条目吗？此操作不可撤销。</string>
+
+    <!-- Editor – misc -->
+    <string name="editor_selected">已选</string>
 </resources>

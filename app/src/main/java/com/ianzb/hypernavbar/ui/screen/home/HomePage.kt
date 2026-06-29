@@ -1,5 +1,6 @@
 package com.ianzb.hypernavbar.ui.screen.home
 
+import android.annotation.SuppressLint
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ianzb.hypernavbar.R
 import com.ianzb.hypernavbar.rules.RulesManager
+import com.ianzb.hypernavbar.rules.SystemVersionDetector
 import com.ianzb.hypernavbar.ui.util.BlurredBar
 import com.ianzb.hypernavbar.ui.util.isInDarkTheme
 import com.ianzb.hypernavbar.ui.util.pageScrollModifiers
@@ -57,12 +59,14 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.preference.RadioButtonPreference
+import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.window.WindowDialog
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
+@SuppressLint("LocalContext")
 @Composable
 fun HomePageView(
     hasRoot: Boolean,
@@ -79,17 +83,26 @@ fun HomePageView(
         ?: deviceModel
     val systemVersion = "Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})"
     val loadingText = stringResource(R.string.home_loading)
-    val unknownText = stringResource(R.string.home_unknown)
+    val notSupportedText = stringResource(R.string.home_immersion_not_supported)
+    val noRootText = stringResource(R.string.home_status_no_root)
     var hyperOSVersion by remember { mutableStateOf(loadingText) }
+    var immersionStatus by remember { mutableStateOf(loadingText) }
+    var immersionSupported by remember { mutableStateOf(false) }
+    var showModeDialog by remember { mutableStateOf(false) }
+    var forcedMode by remember { mutableStateOf(SystemVersionDetector.getForcedMode(context)) }
+    var immersionVersion by remember { mutableStateOf("") }
+    
+    fun refreshImmersionStatus() {
+        val status = SystemVersionDetector.getImmersionStatus(context)
+        immersionVersion = status.version
+        immersionStatus = if (status.isSupported) status.version else notSupportedText
+        immersionSupported = status.isSupported
+    }
+    
     LaunchedEffect(Unit) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                val process = Runtime.getRuntime().exec("getprop ro.miui.ui.version.name")
-                val result = BufferedReader(InputStreamReader(process.inputStream)).readLine()
-                hyperOSVersion = result ?: unknownText
-            } catch (_: Exception) {
-                hyperOSVersion = unknownText
-            }
+            hyperOSVersion = SystemVersionDetector.getSystemVersionIncremental()
+            refreshImmersionStatus()
         }
     }
     val moduleVersion = try {
@@ -99,7 +112,7 @@ fun HomePageView(
     var mergedCount by remember { mutableStateOf(0) }
     LaunchedEffect(rootChecked) {
         if (rootChecked && !hasRoot) {
-            Toast.makeText(context, context.getString(R.string.home_status_no_root), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, noRootText, Toast.LENGTH_SHORT).show()
         }
     }
     LaunchedEffect(refreshKey, rootChecked) {
@@ -152,7 +165,8 @@ fun HomePageView(
                     ) {
                         val darkTheme = isInDarkTheme()
                         val dynamicColor = MiuixTheme.isDynamicColor
-                        val statusColor = if (hasRoot) {
+                        // Card style: green only if has root AND immersion supported
+                        val statusColor = if (hasRoot && immersionSupported) {
                             when {
                                 dynamicColor -> MiuixTheme.colorScheme.secondaryContainer
                                 darkTheme -> Color(0xFF1A3825)
@@ -165,7 +179,7 @@ fun HomePageView(
                                 else -> Color(0xFFFDE8E8)
                             }
                         }
-                        val iconTint = if (hasRoot) {
+                        val iconTint = if (hasRoot && immersionSupported) {
                             if (dynamicColor) MiuixTheme.colorScheme.primary.copy(alpha = 0.8f) else Color(0xFF36D167)
                         } else {
                             if (dynamicColor) MiuixTheme.colorScheme.error.copy(alpha = 0.8f) else Color(0xFFDC3545)
@@ -192,11 +206,7 @@ fun HomePageView(
                                 if (!hasRoot) {
                                     onRetryRootCheck()
                                 } else {
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.home_status_root_ok),
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    showModeDialog = true
                                 }
                             },
                             showIndication = true,
@@ -211,7 +221,7 @@ fun HomePageView(
                                 ) {
                                     Icon(
                                         modifier = Modifier.size(170.dp),
-                                        imageVector = if (hasRoot)
+                                        imageVector = if (hasRoot && immersionSupported)
                                             Icons.Rounded.CheckCircleOutline
                                         else
                                             Icons.Rounded.ErrorOutline,
@@ -234,6 +244,13 @@ fun HomePageView(
                                     MiuixText(
                                         modifier = Modifier.fillMaxWidth(),
                                         text = versionText,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    MiuixText(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        text = stringResource(R.string.home_immersion_status, immersionStatus),
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Medium
                                     )
@@ -341,4 +358,42 @@ fun HomePageView(
             }
         }
     }
+    
+    // Mode selection dialog
+    WindowDialog(
+        show = showModeDialog,
+        title = stringResource(R.string.home_immersion_mode_title),
+        summary = stringResource(R.string.home_immersion_mode_summary),
+        onDismissRequest = { showModeDialog = false },
+        content = {
+            val dismissState = LocalDismissState.current
+            val autoDetectText = stringResource(R.string.home_immersion_mode_auto)
+            val modeOptions = listOf(
+                autoDetectText,
+                "3.3",
+                "3.0",
+                "2.2"
+            )
+            val modeValues = listOf("auto", "3.3", "3.0", "2.2")
+            
+            val autoDetectMode = SystemVersionDetector.detectOsMode()
+            val hasAnySupport = autoDetectMode != null
+            
+            Card {
+                modeOptions.forEachIndexed { index, label ->
+                    RadioButtonPreference(
+                        title = label,
+                        selected = forcedMode == modeValues[index],
+                        enabled = hasAnySupport || modeValues[index] == "auto",
+                        onClick = {
+                            forcedMode = modeValues[index]
+                            SystemVersionDetector.setForcedMode(context, modeValues[index])
+                            refreshImmersionStatus()
+                            dismissState?.invoke()
+                        },
+                    )
+                }
+            }
+        },
+    )
 }

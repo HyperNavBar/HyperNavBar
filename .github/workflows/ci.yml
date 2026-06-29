@@ -1,0 +1,69 @@
+name: CI Build
+
+env:
+  PROGRAM_NAME: "HyperNavBar"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "app/**"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "app/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: "25"
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: 读取版本号
+        id: get_version
+        run: |
+          VERSION_NAME=$(grep 'versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
+          VERSION_CODE=$(grep 'versionCode' app/build.gradle.kts | sed 's/.*= //')
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+      - name: 生成 CI 版本号
+        id: generate_ci_version
+        run: |
+          BASE="${{ steps.get_version.outputs.version_name }}"
+          CI_VERSION="$BASE+ci$GITHUB_RUN_NUMBER"
+          echo "ci_version=$CI_VERSION" >> $GITHUB_OUTPUT
+          echo "CI Version: $CI_VERSION"
+
+      - name: 构建 Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: 重命名 APK
+        run: |
+          mv app/build/outputs/apk/debug/app-arm64-v8a-debug.apk \
+             ${{ env.PROGRAM_NAME }}_${{ steps.generate_ci_version.outputs.ci_version }}.apk
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.PROGRAM_NAME }}_${{ steps.generate_ci_version.outputs.ci_version }}
+          path: ${{ env.PROGRAM_NAME }}_${{ steps.generate_ci_version.outputs.ci_version }}.apk
+          retention-days: 7
+
+      - name: 显示构建信息
+        run: |
+          echo "构建完成"
+          echo "版本号: ${{ steps.generate_ci_version.outputs.ci_version }}"
+          echo "构建产物已上传至 Actions Artifacts"

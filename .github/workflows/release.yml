@@ -33,6 +33,10 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: 解码签名密钥
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+
       - name: 读取当前版本号
         id: get_version
         run: |
@@ -70,11 +74,14 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: 重命名 APK
         run: |
           FINAL_VERSION="${{ steps.update_version.outputs.final_version }}"
-          mv app/build/outputs/apk/release/app-arm64-v8a-release-unsigned.apk \
+          mv app/build/outputs/apk/release/app-arm64-v8a-release.apk \
              ${PROGRAM_NAME}_${FINAL_VERSION}.apk
 
       - name: 提交版本更新

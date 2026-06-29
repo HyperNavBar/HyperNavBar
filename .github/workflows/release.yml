@@ -88,7 +88,17 @@ jobs:
       - name: 重命名 APK
         run: |
           $finalVersion = "${{ steps.update_version.outputs.final_version }}"
-          Rename-Item -Path "app/build/outputs/apk/release/app-arm64-v8a-release.apk" -NewName "${{ env.PROGRAM_NAME }}_$finalVersion.apk"
+          $sourcePath = "app/build/outputs/apk/release/app-arm64-v8a-release.apk"
+          $destPath = "${{ env.PROGRAM_NAME }}_$finalVersion.apk"
+          
+          if (Test-Path $sourcePath) {
+            Move-Item -Path $sourcePath -Destination $destPath -Force
+            Write-Host "APK renamed to: $destPath"
+          } else {
+            Write-Host "Source APK not found at: $sourcePath"
+            Get-ChildItem -Path "app/build/outputs/apk/release" -Recurse
+            exit 1
+          }
         shell: pwsh
 
       - name: 提交版本更新

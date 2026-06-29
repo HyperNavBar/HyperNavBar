@@ -56,7 +56,17 @@ jobs:
       - name: 重命名 APK
         run: |
           $ciVersion = "${{ steps.generate_ci_version.outputs.ci_version }}"
-          Rename-Item -Path "app/build/outputs/apk/debug/app-arm64-v8a-debug.apk" -NewName "${{ env.PROGRAM_NAME }}_$ciVersion.apk"
+          $sourcePath = "app/build/outputs/apk/debug/app-arm64-v8a-debug.apk"
+          $destPath = "${{ env.PROGRAM_NAME }}_$ciVersion.apk"
+          
+          if (Test-Path $sourcePath) {
+            Move-Item -Path $sourcePath -Destination $destPath -Force
+            Write-Host "APK renamed to: $destPath"
+          } else {
+            Write-Host "Source APK not found at: $sourcePath"
+            Get-ChildItem -Path "app/build/outputs/apk/debug" -Recurse
+            exit 1
+          }
         shell: pwsh
 
       - name: 上传构建产物

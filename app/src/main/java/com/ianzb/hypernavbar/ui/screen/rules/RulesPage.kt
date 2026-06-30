@@ -462,17 +462,26 @@ fun RulesPageView(
                 val dialog = editingConfig ?: return@launch
 
                 val formattedJson = formatNbiJson(jsonInput.trim())
+                val contentToParse = formattedJson.ifEmpty {
+                    if (dialog.type == RuleType.CLOUD) dialog.cachedContent else dialog.jsonContent
+                }
+                val newAppCount = RuleFetcher.parseJson(contentToParse).fold(
+                    onSuccess = { it.appCount },
+                    onFailure = { dialog.appCount },
+                )
                 val updated = if (dialog.type == RuleType.CLOUD) {
                     dialog.copy(
                         url = urlInput.trim().ifEmpty { dialog.url },
                         cachedContent = formattedJson.ifEmpty { dialog.cachedContent },
                         refreshIntervalMs = (intervalInput.toIntOrNull() ?: 0) * 60_000L,
+                        appCount = newAppCount,
                     )
                 } else {
                     dialog.copy(
                         url = urlInput.trim().ifEmpty { dialog.url },
                         jsonContent = formattedJson.ifEmpty { dialog.jsonContent },
                         refreshIntervalMs = (intervalInput.toIntOrNull() ?: 0) * 60_000L,
+                        appCount = newAppCount,
                     )
                 }
 

@@ -197,4 +197,25 @@
 
     <!-- Editor – misc -->
     <string name="editor_selected">Selected</string>
+
+    <!-- Editor – search -->
+    <string name="editor_search_apps">Search apps (package or name)</string>
+    <string name="editor_search_activities">Search Activity</string>
+    <string name="editor_no_search_results">No search results</string>
+
+    <!-- Editor – floating identify -->
+    <string name="editor_floating_identify">Floating Identify</string>
+    <string name="editor_floating_identify_summary">Identify current foreground app info</string>
+    <string name="editor_overlay_permission_required">Overlay permission required</string>
+    <string name="editor_accessibility_required">Accessibility permission required</string>
+    <string name="editor_floating_pkg">Package</string>
+    <string name="editor_floating_app_name">App Name</string>
+    <string name="editor_floating_activity">Activity</string>
+    <string name="editor_floating_add">Quick Add</string>
+    <string name="editor_floating_close">Close Overlay</string>
+    <string name="editor_copied_toast">Copied: %s</string>
+    <string name="editor_floating_identifying">Identifying…</string>
+    <string name="editor_drag_hint">Long press to drag</string>
+    <string name="editor_edit_cloud_cache">Edit Cloud Cache</string>
+    <string name="editor_rule_name">Rule Name</string>
 </resources>

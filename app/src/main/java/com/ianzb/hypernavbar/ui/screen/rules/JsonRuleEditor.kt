@@ -23,7 +23,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,14 +47,17 @@ import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Ok
+import top.yukonga.miuix.kmp.icon.extended.Scan
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import top.yukonga.miuix.kmp.theme.LocalDismissState
@@ -61,9 +66,6 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.window.WindowDialog
-
-// ── Navigation state ──────────────────────────────────────────────────
-private enum class EditorLevel { APPS, ACTIVITIES, FIELDS }
 
 // ── Option definitions ────────────────────────────────────────────────
 private val MODE_VALUES = listOf(-1, 0, 1, 2)
@@ -154,7 +156,7 @@ private fun argbFromValue(color: Any?): Int = when (color) {
     else -> 0xFF000000.toInt()
 }
 
-// ── Main editor sheet ─────────────────────────────────────────────────
+// ── Main editor (three stacked sheets) ────────────────────────────────
 @Composable
 fun JsonRuleEditorSheet(
     show: Boolean,
@@ -165,27 +167,43 @@ fun JsonRuleEditorSheet(
     if (!show) return
 
     // --- work-copy of the JSON, rebuilt whenever we confirm an edit ---
-    var editingJsonStr by remember { mutableStateOf(jsonInput) }
+    var editingJsonStr by remember { mutableStateOf(jsonInput) }   // stable: only changes on ✓ or editor open
+    var stagingJsonStr by remember { mutableStateOf(jsonInput) }    // volatile: changes during edits, reset per sheet
+    var editVersion by remember { mutableIntStateOf(0) }
 
-    // sync when sheet is first opened (or jsonInput changes externally)
-    if (editingJsonStr != jsonInput) {
-        editingJsonStr = jsonInput
+    // Reset editingJsonStr to jsonInput every time the editor opens
+    LaunchedEffect(show) {
+        if (show) {
+            editingJsonStr = jsonInput
+            stagingJsonStr = jsonInput
+            editVersion = 0
+        }
     }
 
-    val root = remember(editingJsonStr) { parseJsonSafe(editingJsonStr) }
-    val nbiRules = remember(root) {
+    val root = remember(stagingJsonStr, editVersion) { parseJsonSafe(stagingJsonStr) }
+    val nbiRules = remember(root, editVersion) {
         root.optJSONObject("NBIRules") ?: JSONObject().also { root.put("NBIRules", it) }
     }
 
     // --- navigation ---
-    var currentLevel by remember { mutableStateOf(EditorLevel.APPS) }
+    var showApps by remember { mutableStateOf(true) }
+    var showActivities by remember { mutableStateOf(false) }
+    var showFields by remember { mutableStateOf(false) }
     var selectedPackage by remember { mutableStateOf("") }
     var selectedActivity by remember { mutableStateOf("") }
+
+    // --- undo backups ---
+    var activitiesBackup by remember { mutableStateOf("") }
+    var fieldBackup by remember { mutableStateOf("") }
 
     // --- dialogs ---
     var showAddAppDialog by remember { mutableStateOf(false) }
     var showAddActivityDialog by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf("") } // pkg or "pkg::activity"
+
+    // --- search ---
+    var searchQuery by remember { mutableStateOf("") }
+    var showFloatingIdentify by remember { mutableStateOf(false) }
 
     // --- add-app fields ---
     var newPkg by remember { mutableStateOf("") }
@@ -201,12 +219,10 @@ fun JsonRuleEditorSheet(
         return rules.optJSONObject(selectedActivity)
     }
 
-    /** Fetch a field from the current activity, or null. */
-    /** Write back to the working JSON and update the string. */
+    /** Write back to the working JSON without propagating to parent. */
     fun saveRoot() {
-        editingJsonStr = root.toString(2)
-        // Immediately propagate changes to parent
-        onJsonChange(editingJsonStr)
+        stagingJsonStr = root.toString(2)
+        editVersion++
     }
 
     fun deleteApp(pkg: String) {
@@ -232,631 +248,822 @@ fun JsonRuleEditorSheet(
         saveRoot()
     }
 
-    // ── UI ────────────────────────────────────────────────────────────
+    // ── Sheet 3: Field editor (topmost) ──────────────────────────────
     WindowBottomSheet(
-        title = when (currentLevel) {
-            EditorLevel.APPS -> stringResource(R.string.editor_title_apps)
-            EditorLevel.ACTIVITIES -> stringResource(R.string.editor_title_activities)
-            EditorLevel.FIELDS -> stringResource(R.string.editor_title_fields)
+        title = stringResource(R.string.editor_title_fields),
+        show = showFields,
+        onDismissRequest = {
+            searchQuery = ""
+            stagingJsonStr = fieldBackup
+            showFields = false
         },
-        show = show,
-        onDismissRequest = onDismiss,
         startAction = {
             IconButton(onClick = {
-                when (currentLevel) {
-                    EditorLevel.ACTIVITIES -> currentLevel = EditorLevel.APPS
-                    EditorLevel.FIELDS -> currentLevel = EditorLevel.ACTIVITIES
-                    EditorLevel.APPS -> onDismiss()
-                }
+                searchQuery = ""
+                stagingJsonStr = fieldBackup
+                showFields = false
             }) {
                 Icon(
                     MiuixIcons.Close,
-                    contentDescription = if (currentLevel == EditorLevel.APPS) stringResource(R.string.rules_cancel) else stringResource(R.string.editor_back),
+                    contentDescription = stringResource(R.string.editor_back),
                     tint = MiuixTheme.colorScheme.onBackground,
                 )
             }
         },
         endAction = {
             IconButton(onClick = {
-                when (currentLevel) {
-                    EditorLevel.FIELDS -> {
-                        // Save changes and go back to activity list
-                        currentLevel = EditorLevel.ACTIVITIES
-                    }
-                    EditorLevel.ACTIVITIES -> {
-                        // Go back to app list
-                        currentLevel = EditorLevel.APPS
-                    }
-                    EditorLevel.APPS -> {
-                        // Format and save, then dismiss
-                        onJsonChange(formatNbiJson(editingJsonStr))
-                        onDismiss()
-                    }
-                }
+                searchQuery = ""
+                editingJsonStr = stagingJsonStr
+                showFields = false
             }) {
-                Icon(MiuixIcons.Ok, stringResource(R.string.editor_save), tint = MiuixTheme.colorScheme.onBackground)
+                Icon(
+                    MiuixIcons.Ok,
+                    contentDescription = stringResource(R.string.editor_save),
+                    tint = MiuixTheme.colorScheme.onBackground,
+                )
             }
         },
     ) {
-        // Pre-compute derived values to avoid @Composable context issues inside LazyColumn
-        val pkgKeys = nbiRules.keys().asSequence().toList().sorted()
-        val appForSelected = nbiRules.optJSONObject(selectedPackage)
-        val activityRules = appForSelected?.optJSONObject("activityRules") ?: JSONObject()
-        val actKeys = activityRules.keys().asSequence().toList().sorted()
         val currentAct = getActivityJson() ?: JSONObject()
+        val act = currentAct
+
+        val mode = act.optIntOrNull("mode") ?: -1
+        val modeIdx = MODE_VALUES.indexOf(mode).coerceAtLeast(0)
+
+        val color = act.opt("color")
+        val colorType = colorTypeFromValue(color)
+        val argb = argbFromValue(color)
+
+        val sfMode = act.optIntOrNull("sf_sampling_mode") ?: 0
+        val sfIdx = SF_SAMPLING_VALUES.indexOf(sfMode).coerceAtLeast(0)
+
+        val dialogMode = act.optIntOrNull("dialogMode") ?: 1
+        val dialogIdx = DIALOG_POPUP_VALUES.indexOf(dialogMode).coerceAtLeast(0)
+
+        val popupModeVal = act.optIntOrNull("popupMode") ?: 1
+        val popupIdx = DIALOG_POPUP_VALUES.indexOf(popupModeVal).coerceAtLeast(0)
+
+        val appNavDisabled = act.optInt("appNavColorDisabled", 0) == 1
 
         LazyColumn(
             modifier = Modifier.fillMaxWidth().scrollEndHaptic().overScrollVertical(),
         ) {
-            when (currentLevel) {
+            item {
+                SmallTitle(
+                    text = "$selectedPackage / $selectedActivity",
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
 
-                // ── App list ──────────────────────────────────────────
-                EditorLevel.APPS -> {
-                    item {
-                        SmallTitle(
-                            text = stringResource(R.string.editor_app_list_count, nbiRules.length()),
-                            modifier = Modifier.padding(top = 6.dp),
+            // ── mode spinner ──
+            item {
+                val modeLabels = listOf(
+                    stringResource(R.string.editor_mode_auto),
+                    stringResource(R.string.editor_mode_disabled),
+                    stringResource(R.string.editor_mode_color_pick),
+                    stringResource(R.string.editor_mode_float),
+                )
+                val modeItems = modeLabels.mapIndexed { i, text ->
+                    DropdownItem(text = text, summary = MODE_VALUES[i].toString())
+                }
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                ) {
+                    WindowDropdownPreference(
+                        title = stringResource(R.string.editor_mode_title),
+                        summary = stringResource(R.string.editor_mode_summary),
+                        entry = DropdownEntry(modeItems.mapIndexed { i, item ->
+                            item.copy(
+                                selected = i == modeIdx,
+                                onClick = { updateActivityField("mode", MODE_VALUES[i]) },
+                            )
+                        }),
+                    )
+                }
+            }
+
+            // ── color ──
+            item {
+                var pickerColor by remember(argb) { mutableStateOf(Color(argb)) }
+                val aVal = (argb ushr 24) and 0xFF
+                val rVal = (argb ushr 16) and 0xFF
+                val gVal = (argb ushr 8) and 0xFF
+                val bVal = argb and 0xFF
+                var rgbaInput by remember(argb) { mutableStateOf("$rVal, $gVal, $bVal, $aVal") }
+                var hexInput by remember(argb) {
+                    mutableStateOf("#${rVal.toString(16).padStart(2, '0')}${gVal.toString(16).padStart(2, '0')}${bVal.toString(16).padStart(2, '0')}${aVal.toString(16).padStart(2, '0')}".uppercase())
+                }
+                var showColorPicker by remember(colorType) { mutableStateOf(colorType == COLOR_TYPE_CUSTOM) }
+
+                /** Sync both inputs and picker from ARGB int */
+                fun syncFromArgb(newArgb: Int) {
+                    pickerColor = Color(newArgb)
+                    updateActivityField("color", newArgb)
+                    val r = (newArgb ushr 16) and 0xFF
+                    val g = (newArgb ushr 8) and 0xFF
+                    val b = newArgb and 0xFF
+                    val a = (newArgb ushr 24) and 0xFF
+                    rgbaInput = "$r, $g, $b, $a"
+                    hexInput = "#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}${a.toString(16).padStart(2, '0')}".uppercase()
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                ) {
+                    Column {
+                        val colorTypeLabels = listOf(
+                            stringResource(R.string.editor_color_default),
+                            stringResource(R.string.editor_color_auto),
+                            stringResource(R.string.editor_color_custom),
                         )
-                    }
-                    item {
-                        TextButton(
-                            text = stringResource(R.string.editor_add_app),
-                            onClick = {
-                                newPkg = ""
-                                newName = ""
-                                showAddAppDialog = true
-                            },
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            colors = ButtonDefaults.textButtonColorsPrimary(),
+                        val colorTypeSummaries = listOf(
+                            "null",
+                            "1",
+                            stringResource(R.string.editor_color_custom_value),
                         )
-                    }
-
-                    items(pkgKeys) { pkg ->
-                        val app = nbiRules.optJSONObject(pkg)
-                        val name = app?.optString("name", "") ?: ""
-                        val actCount = app?.optJSONObject("activityRules")?.length() ?: 0
-
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 6.dp),
-                            onClick = {
-                                selectedPackage = pkg
-                                currentLevel = EditorLevel.ACTIVITIES
-                            },
-                            showIndication = true,
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                BasicComponent(
-                                    title = pkg,
-                                    summary = buildString {
-                                        if (name.isNotEmpty()) append(name).append(" · ")
-                                        append(stringResource(R.string.editor_activity_count, actCount))
+                        val colorTypeItems = colorTypeLabels.mapIndexed { i, text ->
+                            DropdownItem(text = text, summary = colorTypeSummaries[i])
+                        }
+                        WindowDropdownPreference(
+                            title = stringResource(R.string.editor_color_title),
+                            summary = stringResource(R.string.editor_color_summary),
+                            entry = DropdownEntry(colorTypeItems.mapIndexed { i, item ->
+                                item.copy(
+                                    selected = i == colorType,
+                                    onClick = {
+                                        when (i) {
+                                            COLOR_TYPE_DEFAULT -> updateActivityField("color", JSONObject.NULL)
+                                            COLOR_TYPE_AUTO -> updateActivityField("color", 1)
+                                            COLOR_TYPE_CUSTOM -> updateActivityField("color", 0xFF000000.toInt())
+                                        }
+                                        showColorPicker = (i == COLOR_TYPE_CUSTOM)
                                     },
-                                    modifier = Modifier.weight(1f),
                                 )
-                                IconButton(onClick = { showDeleteConfirm = pkg }) {
-                                    Icon(
-                                        MiuixIcons.Delete,
-                                        contentDescription = stringResource(R.string.rules_delete),
-                                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    item {
-                        Spacer(
-                            Modifier.padding(
-                                bottom = WindowInsets.navigationBars.asPaddingValues()
-                                    .calculateBottomPadding() +
-                                    WindowInsets.captionBar.asPaddingValues()
-                                        .calculateBottomPadding(),
-                            )
+                            }),
                         )
-                    }
-                }
-
-                // ── Activity list ─────────────────────────────────────
-                EditorLevel.ACTIVITIES -> {
-                    item {
-                        SmallTitle(
-                            text = selectedPackage,
-                            modifier = Modifier.padding(top = 6.dp),
-                        )
-                    }
-                    // App name editor
-                    item {
-                        val appName = appForSelected?.optString("name", "") ?: ""
-                        var isEditingName by remember { mutableStateOf(false) }
-                        var nameField by remember(appName) { mutableStateOf(appName) }
-
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 6.dp),
-                            onClick = { isEditingName = true },
-                            showIndication = true,
-                        ) {
-                            if (isEditingName) {
-                                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                                    TextField(
-                                        value = nameField,
-                                        onValueChange = { nameField = it },
-                                        label = stringResource(R.string.editor_app_name),
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                        horizontalArrangement = Arrangement.End,
-                                    ) {
-                                        TextButton(
-                                            text = stringResource(R.string.rules_cancel),
-                                            onClick = { isEditingName = false },
-                                            enabled = true,
-                                        )
-                                        Spacer(Modifier.width(12.dp))
-                                        TextButton(
-                                            text = stringResource(R.string.editor_save),
-                                            onClick = {
-                                                appForSelected?.put("name", nameField.trim())
-                                                saveRoot()
-                                                isEditingName = false
-                                            },
-                                            colors = ButtonDefaults.textButtonColorsPrimary(),
-                                            enabled = true,
-                                        )
-                                    }
-                                }
-                            } else {
-                                BasicComponent(
-                                    title = stringResource(R.string.editor_app_name),
-                                    summary = if (appName.isNotEmpty()) "$appName${stringResource(R.string.editor_tap_edit)}" else stringResource(R.string.editor_not_set_tap_edit),
-                                )
-                            }
-                        }
-                    }
-                    item {
-                        TextButton(
-                            text = stringResource(R.string.editor_add_activity),
-                            onClick = {
-                                newActName = ""
-                                showAddActivityDialog = true
-                            },
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            colors = ButtonDefaults.textButtonColorsPrimary(),
-                        )
-                    }
-
-                    items(actKeys) { actName ->
-                        val actJson = activityRules.optJSONObject(actName)
-                        val mode = actJson?.optIntOrNull("mode")
-                        val modeLabels = listOf(
-                            stringResource(R.string.editor_mode_auto),
-                            stringResource(R.string.editor_mode_disabled),
-                            stringResource(R.string.editor_mode_color_pick),
-                            stringResource(R.string.editor_mode_float),
-                        )
-                        val modeLabel = mode?.let { m ->
-                            modeLabels.getOrNull(MODE_VALUES.indexOf(m))
-                        } ?: "—"
-                        val color = actJson?.opt("color")
-                        val colorLabel = when (colorTypeFromValue(color)) {
-                            COLOR_TYPE_AUTO -> stringResource(R.string.editor_color_auto_short)
-                            COLOR_TYPE_CUSTOM -> stringResource(R.string.editor_color_hex_short, (argbFromValue(color) and 0xFFFFFF).toString(16).padStart(6, '0').uppercase())
-                            else -> stringResource(R.string.editor_color_default_short)
-                        }
-
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 6.dp),
-                            onClick = {
-                                selectedActivity = actName
-                                currentLevel = EditorLevel.FIELDS
-                            },
-                            showIndication = true,
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                BasicComponent(
-                                    title = actName,
-                                    summary = "$modeLabel · $colorLabel",
-                                    modifier = Modifier.weight(1f),
-                                )
-                                IconButton(onClick = {
-                                    showDeleteConfirm = "$selectedPackage::$actName"
-                                }) {
-                                    Icon(
-                                        MiuixIcons.Delete,
-                                        contentDescription = stringResource(R.string.rules_delete),
-                                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    if (actKeys.isEmpty()) {
-                        item {
-                            Text(
-                                text = stringResource(R.string.editor_no_activities),
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp),
-                            )
-                        }
-                    }
-
-                    item {
-                        Spacer(
-                            Modifier.padding(
-                                bottom = WindowInsets.navigationBars.asPaddingValues()
-                                    .calculateBottomPadding() +
-                                    WindowInsets.captionBar.asPaddingValues()
-                                        .calculateBottomPadding(),
-                            )
-                        )
-                    }
-                }
-
-                // ── Field editor ──────────────────────────────────────
-                EditorLevel.FIELDS -> {
-                    val act = currentAct
-
-                    val mode = act.optIntOrNull("mode") ?: -1
-                    val modeIdx = MODE_VALUES.indexOf(mode).coerceAtLeast(0)
-
-                    val color = act.opt("color")
-                    val colorType = colorTypeFromValue(color)
-                    val argb = argbFromValue(color)
-
-                    val sfMode = act.optIntOrNull("sf_sampling_mode") ?: 0
-                    val sfIdx = SF_SAMPLING_VALUES.indexOf(sfMode).coerceAtLeast(0)
-
-                    val dialogMode = act.optIntOrNull("dialogMode") ?: 1
-                    val dialogIdx = DIALOG_POPUP_VALUES.indexOf(dialogMode).coerceAtLeast(0)
-
-                    val popupModeVal = act.optIntOrNull("popupMode") ?: 1
-                    val popupIdx = DIALOG_POPUP_VALUES.indexOf(popupModeVal).coerceAtLeast(0)
-
-                    val appNavDisabled = act.optInt("appNavColorDisabled", 0) == 1
-
-                    item {
-                        SmallTitle(
-                            text = "$selectedPackage / $selectedActivity",
-                            modifier = Modifier.padding(top = 6.dp),
-                        )
-                    }
-
-                    // ── mode spinner ──
-                    item {
-                        val modeLabels = listOf(
-                            stringResource(R.string.editor_mode_auto),
-                            stringResource(R.string.editor_mode_disabled),
-                            stringResource(R.string.editor_mode_color_pick),
-                            stringResource(R.string.editor_mode_float),
-                        )
-                        val modeItems = modeLabels.mapIndexed { i, text ->
-                            DropdownItem(text = text, summary = MODE_VALUES[i].toString())
-                        }
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 6.dp),
-                        ) {
-                            WindowDropdownPreference(
-                                title = stringResource(R.string.editor_mode_title),
-                                summary = stringResource(R.string.editor_mode_summary),
-                                entry = DropdownEntry(modeItems.mapIndexed { i, item ->
-                                    item.copy(
-                                        selected = i == modeIdx,
-                                        onClick = { updateActivityField("mode", MODE_VALUES[i]) },
-                                    )
-                                }),
-                            )
-                        }
-                    }
-
-                    // ── color ──
-                    item {
-                        var pickerColor by remember(argb) { mutableStateOf(Color(argb)) }
-                        val aVal = (argb ushr 24) and 0xFF
-                        val rVal = (argb ushr 16) and 0xFF
-                        val gVal = (argb ushr 8) and 0xFF
-                        val bVal = argb and 0xFF
-                        var rgbaInput by remember(argb) { mutableStateOf("$rVal, $gVal, $bVal, $aVal") }
-                        var hexInput by remember(argb) {
-                            mutableStateOf("#${rVal.toString(16).padStart(2, '0')}${gVal.toString(16).padStart(2, '0')}${bVal.toString(16).padStart(2, '0')}${aVal.toString(16).padStart(2, '0')}".uppercase())
-                        }
-                        var showColorPicker by remember(colorType) { mutableStateOf(colorType == COLOR_TYPE_CUSTOM) }
-
-                        /** Sync both inputs and picker from ARGB int */
-                        fun syncFromArgb(newArgb: Int) {
-                            pickerColor = Color(newArgb)
-                            updateActivityField("color", newArgb)
-                            val r = (newArgb ushr 16) and 0xFF
-                            val g = (newArgb ushr 8) and 0xFF
-                            val b = newArgb and 0xFF
-                            val a = (newArgb ushr 24) and 0xFF
-                            rgbaInput = "$r, $g, $b, $a"
-                            hexInput = "#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}${a.toString(16).padStart(2, '0')}".uppercase()
-                        }
-
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 6.dp),
+                        // Custom color editor - animated appearance
+                        AnimatedVisibility(
+                            visible = showColorPicker && colorType == COLOR_TYPE_CUSTOM,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut(),
                         ) {
                             Column {
-                                val colorTypeLabels = listOf(
-                                    stringResource(R.string.editor_color_default),
-                                    stringResource(R.string.editor_color_auto),
-                                    stringResource(R.string.editor_color_custom),
-                                )
-                                val colorTypeSummaries = listOf(
-                                    "null",
-                                    "1",
-                                    stringResource(R.string.editor_color_custom_value),
-                                )
-                                val colorTypeItems = colorTypeLabels.mapIndexed { i, text ->
-                                    DropdownItem(text = text, summary = colorTypeSummaries[i])
-                                }
-                                WindowDropdownPreference(
-                                    title = stringResource(R.string.editor_color_title),
-                                    summary = stringResource(R.string.editor_color_summary),
-                                    entry = DropdownEntry(colorTypeItems.mapIndexed { i, item ->
-                                        item.copy(
-                                            selected = i == colorType,
-                                            onClick = {
-                                                when (i) {
-                                                    COLOR_TYPE_DEFAULT -> updateActivityField("color", JSONObject.NULL)
-                                                    COLOR_TYPE_AUTO -> updateActivityField("color", 1)
-                                                    COLOR_TYPE_CUSTOM -> updateActivityField("color", 0xFF000000.toInt())
-                                                }
-                                                showColorPicker = (i == COLOR_TYPE_CUSTOM)
-                                            },
-                                        )
-                                    }),
-                                )
-                                // Custom color editor - animated appearance
-                                AnimatedVisibility(
-                                    visible = showColorPicker && colorType == COLOR_TYPE_CUSTOM,
-                                    enter = expandVertically() + fadeIn(),
-                                    exit = shrinkVertically() + fadeOut(),
+                                // Color preview + ARGB display
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                        .padding(top = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Column {
-                                        // Color preview + ARGB display
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 16.dp)
-                                                .padding(top = 4.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(36.dp)
-                                                    .clip(CircleShape)
-                                                    .background(pickerColor),
-                                            )
-                                            Column(modifier = Modifier.padding(start = 12.dp)) {
-                                                Text(
-                                                    text = "ARGB: $argb",
-                                                    style = MiuixTheme.textStyles.body2,
-                                                    color = MiuixTheme.colorScheme.onSurface,
-                                                )
-                                                Text(
-                                                    text = "R: $rVal  G: $gVal  B: $bVal  A: $aVal",
-                                                    style = MiuixTheme.textStyles.footnote2,
-                                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                                )
-                                            }
-                                        }
-                                        // RGBA input field
-                                        TextField(
-                                            value = rgbaInput,
-                                            onValueChange = { v ->
-                                                rgbaInput = v
-                                                val parts = v.split(",").map { it.trim() }
-                                                if (parts.size == 4) {
-                                                    val nr = parts[0].toIntOrNull()?.coerceIn(0, 255) ?: return@TextField
-                                                    val ng = parts[1].toIntOrNull()?.coerceIn(0, 255) ?: return@TextField
-                                                    val nb = parts[2].toIntOrNull()?.coerceIn(0, 255) ?: return@TextField
-                                                    val na = parts[3].toIntOrNull()?.coerceIn(0, 255) ?: return@TextField
-                                                    val newArgb = (na shl 24) or (nr shl 16) or (ng shl 8) or nb
-                                                    syncFromArgb(newArgb)
-                                                }
-                                            },
-                                            label = stringResource(R.string.editor_rgba_hint),
-                                            singleLine = true,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(pickerColor),
+                                    )
+                                    Column(modifier = Modifier.padding(start = 12.dp)) {
+                                        Text(
+                                            text = "ARGB: $argb",
+                                            style = MiuixTheme.textStyles.body2,
+                                            color = MiuixTheme.colorScheme.onSurface,
                                         )
-                                        // Hex input field
-                                        TextField(
-                                            value = hexInput,
-                                            onValueChange = { v ->
-                                                hexInput = v
-                                                val trimmed = v.trim()
-                                                if (trimmed.startsWith("#") && (trimmed.length == 7 || trimmed.length == 9)) {
-                                                    try {
-                                                        val hex = trimmed.substring(1)
-                                                        val r = hex.substring(0, 2).toInt(16)
-                                                        val g = hex.substring(2, 4).toInt(16)
-                                                        val b = hex.substring(4, 6).toInt(16)
-                                                        val a = if (hex.length == 8) hex.substring(6, 8).toInt(16) else 255
-                                                        val newArgb = (a shl 24) or (r shl 16) or (g shl 8) or b
-                                                        syncFromArgb(newArgb)
-                                                    } catch (_: Exception) {}
-                                                }
-                                            },
-                                            label = stringResource(R.string.editor_hex_hint),
-                                            singleLine = true,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 12.dp, vertical = 4.dp),
-                                        )
-                                        // ColorPicker
-                                        ColorPicker(
-                                            color = pickerColor,
-                                            onColorChanged = { newColor ->
-                                                syncFromArgb(newColor.toArgb())
-                                            },
-                                            colorSpace = ColorSpace.HSV,
-                                            showPreview = false,
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                        Text(
+                                            text = "R: $rVal  G: $gVal  B: $bVal  A: $aVal",
+                                            style = MiuixTheme.textStyles.footnote2,
+                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                         )
                                     }
                                 }
+                                // RGBA input field
+                                TextField(
+                                    value = rgbaInput,
+                                    onValueChange = { v ->
+                                        rgbaInput = v
+                                        val parts = v.split(",").map { it.trim() }
+                                        if (parts.size == 4) {
+                                            val nr = parts[0].toIntOrNull()?.coerceIn(0, 255) ?: return@TextField
+                                            val ng = parts[1].toIntOrNull()?.coerceIn(0, 255) ?: return@TextField
+                                            val nb = parts[2].toIntOrNull()?.coerceIn(0, 255) ?: return@TextField
+                                            val na = parts[3].toIntOrNull()?.coerceIn(0, 255) ?: return@TextField
+                                            val newArgb = (na shl 24) or (nr shl 16) or (ng shl 8) or nb
+                                            syncFromArgb(newArgb)
+                                        }
+                                    },
+                                    label = stringResource(R.string.editor_rgba_hint),
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                )
+                                // Hex input field
+                                TextField(
+                                    value = hexInput,
+                                    onValueChange = { v ->
+                                        hexInput = v
+                                        val trimmed = v.trim()
+                                        if (trimmed.startsWith("#") && (trimmed.length == 7 || trimmed.length == 9)) {
+                                            try {
+                                                val hex = trimmed.substring(1)
+                                                val r = hex.substring(0, 2).toInt(16)
+                                                val g = hex.substring(2, 4).toInt(16)
+                                                val b = hex.substring(4, 6).toInt(16)
+                                                val a = if (hex.length == 8) hex.substring(6, 8).toInt(16) else 255
+                                                val newArgb = (a shl 24) or (r shl 16) or (g shl 8) or b
+                                                syncFromArgb(newArgb)
+                                            } catch (_: Exception) {}
+                                        }
+                                    },
+                                    label = stringResource(R.string.editor_hex_hint),
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                )
+                                // ColorPicker
+                                ColorPicker(
+                                    color = pickerColor,
+                                    onColorChanged = { newColor ->
+                                        syncFromArgb(newColor.toArgb())
+                                    },
+                                    colorSpace = ColorSpace.HSV,
+                                    showPreview = false,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                )
                             }
                         }
                     }
+                }
+            }
 
-                    // ── sf_sampling_mode spinner ──
-                    item {
-                        val sfLabels = listOf(
-                            stringResource(R.string.editor_mode_auto),
-                            stringResource(R.string.editor_sf_force_enable),
-                            stringResource(R.string.editor_sf_force_disable),
+            // ── sf_sampling_mode spinner ──
+            item {
+                val sfLabels = listOf(
+                    stringResource(R.string.editor_mode_auto),
+                    stringResource(R.string.editor_sf_force_enable),
+                    stringResource(R.string.editor_sf_force_disable),
+                )
+                val sfItems = sfLabels.mapIndexed { i, text ->
+                    DropdownItem(text = text, summary = SF_SAMPLING_VALUES[i].toString())
+                }
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                ) {
+                    WindowDropdownPreference(
+                        title = stringResource(R.string.editor_sf_title),
+                        summary = stringResource(R.string.editor_sf_summary),
+                        entry = DropdownEntry(sfItems.mapIndexed { i, item ->
+                            item.copy(
+                                selected = i == sfIdx,
+                                onClick = { updateActivityField("sf_sampling_mode", SF_SAMPLING_VALUES[i]) },
+                            )
+                        }),
+                    )
+                }
+            }
+
+            // ── dialogMode spinner ──
+            item {
+                val dialogLabels = listOf(
+                    stringResource(R.string.editor_mode_disabled),
+                    stringResource(R.string.editor_dialog_view_sampling),
+                    stringResource(R.string.editor_dialog_sf_sampling),
+                )
+                val dialogItems = dialogLabels.mapIndexed { i, text ->
+                    DropdownItem(text = text, summary = DIALOG_POPUP_VALUES[i].toString())
+                }
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                ) {
+                    WindowDropdownPreference(
+                        title = stringResource(R.string.editor_dialog_title),
+                        summary = stringResource(R.string.editor_dialog_summary),
+                        entry = DropdownEntry(dialogItems.mapIndexed { i, item ->
+                            item.copy(
+                                selected = i == dialogIdx,
+                                onClick = { updateActivityField("dialogMode", DIALOG_POPUP_VALUES[i]) },
+                            )
+                        }),
+                    )
+                }
+            }
+
+            // ── popupMode spinner ──
+            item {
+                val popupLabels = listOf(
+                    stringResource(R.string.editor_mode_disabled),
+                    stringResource(R.string.editor_dialog_view_sampling),
+                    stringResource(R.string.editor_dialog_sf_sampling),
+                )
+                val popupItems = popupLabels.mapIndexed { i, text ->
+                    DropdownItem(text = text, summary = DIALOG_POPUP_VALUES[i].toString())
+                }
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                ) {
+                    WindowDropdownPreference(
+                        title = stringResource(R.string.editor_popup_title),
+                        summary = stringResource(R.string.editor_popup_summary),
+                        entry = DropdownEntry(popupItems.mapIndexed { i, item ->
+                            item.copy(
+                                selected = i == popupIdx,
+                                onClick = { updateActivityField("popupMode", DIALOG_POPUP_VALUES[i]) },
+                            )
+                        }),
+                    )
+                }
+            }
+
+            // ── appNavColorDisabled ──
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                ) {
+                    SwitchPreference(
+                        checked = appNavDisabled,
+                        onCheckedChange = { checked ->
+                            updateActivityField("appNavColorDisabled", if (checked) 1 else 0)
+                        },
+                        title = stringResource(R.string.editor_disable_app_nav_color),
+                        summary = stringResource(R.string.editor_disable_app_nav_color_summary),
+                    )
+                }
+            }
+
+            // ── delete activity ──
+            item {
+                TextButton(
+                    text = stringResource(R.string.editor_delete_activity),
+                    onClick = {
+                        showDeleteConfirm = "$selectedPackage::$selectedActivity"
+                    },
+                    modifier = Modifier.padding(vertical = 6.dp),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
+            }
+
+            item {
+                Spacer(
+                    Modifier.padding(
+                        bottom = WindowInsets.navigationBars.asPaddingValues()
+                            .calculateBottomPadding() +
+                            WindowInsets.captionBar.asPaddingValues()
+                                .calculateBottomPadding(),
+                    )
+                )
+            }
+        }
+    }
+
+    // ── Sheet 2: Activity list ────────────────────────────────────────
+    WindowBottomSheet(
+        title = stringResource(R.string.editor_title_activities),
+        show = showActivities,
+        onDismissRequest = {
+            searchQuery = ""
+            stagingJsonStr = activitiesBackup
+            showActivities = false
+        },
+        startAction = {
+            IconButton(onClick = {
+                searchQuery = ""
+                stagingJsonStr = activitiesBackup
+                showActivities = false
+            }) {
+                Icon(
+                    MiuixIcons.Close,
+                    contentDescription = stringResource(R.string.editor_back),
+                    tint = MiuixTheme.colorScheme.onBackground,
+                )
+            }
+        },
+        endAction = {
+            IconButton(onClick = {
+                searchQuery = ""
+                editingJsonStr = stagingJsonStr
+                showActivities = false
+            }) {
+                Icon(
+                    MiuixIcons.Ok,
+                    contentDescription = stringResource(R.string.editor_save),
+                    tint = MiuixTheme.colorScheme.onBackground,
+                )
+            }
+        },
+    ) {
+        val appForSelected = nbiRules.optJSONObject(selectedPackage)
+        val activityRules = appForSelected?.optJSONObject("activityRules") ?: JSONObject()
+        val actKeys = activityRules.keys().asSequence().toList().sorted()
+
+        val filteredActKeys = remember(searchQuery, actKeys, stagingJsonStr, editVersion) {
+            if (searchQuery.isEmpty()) actKeys
+            else actKeys.filter { it.lowercase().contains(searchQuery.lowercase()) }
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().scrollEndHaptic().overScrollVertical(),
+        ) {
+            item {
+                SmallTitle(
+                    text = selectedPackage,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+            // Search bar
+            item {
+                SearchBar(
+                    modifier = Modifier.padding(bottom = 6.dp),
+                    inputField = {
+                        InputField(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            onSearch = { },
+                            expanded = false,
+                            onExpandedChange = { },
+                            label = stringResource(R.string.editor_search_activities),
                         )
-                        val sfItems = sfLabels.mapIndexed { i, text ->
-                            DropdownItem(text = text, summary = SF_SAMPLING_VALUES[i].toString())
-                        }
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 6.dp),
-                        ) {
-                            WindowDropdownPreference(
-                                title = stringResource(R.string.editor_sf_title),
-                                summary = stringResource(R.string.editor_sf_summary),
-                                entry = DropdownEntry(sfItems.mapIndexed { i, item ->
-                                    item.copy(
-                                        selected = i == sfIdx,
-                                        onClick = { updateActivityField("sf_sampling_mode", SF_SAMPLING_VALUES[i]) },
-                                    )
-                                }),
-                            )
-                        }
-                    }
+                    },
+                    expanded = false,
+                    onExpandedChange = { },
+                    content = { },
+                )
+            }
+            // App name editor
+            item {
+                val appName = appForSelected?.optString("name", "") ?: ""
+                var isEditingName by remember { mutableStateOf(false) }
+                var nameField by remember(appName) { mutableStateOf(appName) }
 
-                    // ── dialogMode spinner ──
-                    item {
-                        val dialogLabels = listOf(
-                            stringResource(R.string.editor_mode_disabled),
-                            stringResource(R.string.editor_dialog_view_sampling),
-                            stringResource(R.string.editor_dialog_sf_sampling),
-                        )
-                        val dialogItems = dialogLabels.mapIndexed { i, text ->
-                            DropdownItem(text = text, summary = DIALOG_POPUP_VALUES[i].toString())
-                        }
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 6.dp),
-                        ) {
-                            WindowDropdownPreference(
-                                title = stringResource(R.string.editor_dialog_title),
-                                summary = stringResource(R.string.editor_dialog_summary),
-                                entry = DropdownEntry(dialogItems.mapIndexed { i, item ->
-                                    item.copy(
-                                        selected = i == dialogIdx,
-                                        onClick = { updateActivityField("dialogMode", DIALOG_POPUP_VALUES[i]) },
-                                    )
-                                }),
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                    onClick = { isEditingName = true },
+                    showIndication = true,
+                ) {
+                    if (isEditingName) {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            TextField(
+                                value = nameField,
+                                onValueChange = { nameField = it },
+                                label = stringResource(R.string.editor_app_name),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
                             )
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                TextButton(
+                                    text = stringResource(R.string.rules_cancel),
+                                    onClick = { isEditingName = false },
+                                    enabled = true,
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                TextButton(
+                                    text = stringResource(R.string.editor_save),
+                                    onClick = {
+                                        appForSelected?.put("name", nameField.trim())
+                                        saveRoot()
+                                        isEditingName = false
+                                    },
+                                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                                    enabled = true,
+                                )
+                            }
                         }
-                    }
-
-                    // ── popupMode spinner ──
-                    item {
-                        val popupLabels = listOf(
-                            stringResource(R.string.editor_mode_disabled),
-                            stringResource(R.string.editor_dialog_view_sampling),
-                            stringResource(R.string.editor_dialog_sf_sampling),
-                        )
-                        val popupItems = popupLabels.mapIndexed { i, text ->
-                            DropdownItem(text = text, summary = DIALOG_POPUP_VALUES[i].toString())
-                        }
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 6.dp),
-                        ) {
-                            WindowDropdownPreference(
-                                title = stringResource(R.string.editor_popup_title),
-                                summary = stringResource(R.string.editor_popup_summary),
-                                entry = DropdownEntry(popupItems.mapIndexed { i, item ->
-                                    item.copy(
-                                        selected = i == popupIdx,
-                                        onClick = { updateActivityField("popupMode", DIALOG_POPUP_VALUES[i]) },
-                                    )
-                                }),
-                            )
-                        }
-                    }
-
-                    // ── appNavColorDisabled ──
-                    item {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 6.dp),
-                        ) {
-                            SwitchPreference(
-                                checked = appNavDisabled,
-                                onCheckedChange = { checked ->
-                                    updateActivityField("appNavColorDisabled", if (checked) 1 else 0)
-                                },
-                                title = stringResource(R.string.editor_disable_app_nav_color),
-                                summary = stringResource(R.string.editor_disable_app_nav_color_summary),
-                            )
-                        }
-                    }
-
-                    // ── delete activity ──
-                    item {
-                        TextButton(
-                            text = stringResource(R.string.editor_delete_activity),
-                            onClick = {
-                                showDeleteConfirm = "$selectedPackage::$selectedActivity"
-                            },
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            colors = ButtonDefaults.textButtonColorsPrimary(),
-                        )
-                    }
-
-                    item {
-                        Spacer(
-                            Modifier.padding(
-                                bottom = WindowInsets.navigationBars.asPaddingValues()
-                                    .calculateBottomPadding() +
-                                    WindowInsets.captionBar.asPaddingValues()
-                                        .calculateBottomPadding(),
-                            )
+                    } else {
+                        BasicComponent(
+                            title = stringResource(R.string.editor_app_name),
+                            summary = if (appName.isNotEmpty()) "$appName${stringResource(R.string.editor_tap_edit)}" else stringResource(R.string.editor_not_set_tap_edit),
                         )
                     }
                 }
+            }
+            item {
+                TextButton(
+                    text = stringResource(R.string.editor_add_activity),
+                    onClick = {
+                        newActName = ""
+                        showAddActivityDialog = true
+                    },
+                    modifier = Modifier.padding(vertical = 6.dp),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
+            }
+
+            if (filteredActKeys.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.editor_no_search_results),
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(vertical = 12.dp),
+                    )
+                }
+            }
+
+            items(filteredActKeys) { actName ->
+                val actJson = activityRules.optJSONObject(actName)
+                val mode = actJson?.optIntOrNull("mode")
+                val modeLabels = listOf(
+                    stringResource(R.string.editor_mode_auto),
+                    stringResource(R.string.editor_mode_disabled),
+                    stringResource(R.string.editor_mode_color_pick),
+                    stringResource(R.string.editor_mode_float),
+                )
+                val modeLabel = mode?.let { m ->
+                    modeLabels.getOrNull(MODE_VALUES.indexOf(m))
+                } ?: "—"
+                val color = actJson?.opt("color")
+                val colorLabel = when (colorTypeFromValue(color)) {
+                    COLOR_TYPE_AUTO -> stringResource(R.string.editor_color_auto_short)
+                    COLOR_TYPE_CUSTOM -> stringResource(R.string.editor_color_hex_short, (argbFromValue(color) and 0xFFFFFF).toString(16).padStart(6, '0').uppercase())
+                    else -> stringResource(R.string.editor_color_default_short)
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                    onClick = {
+                        searchQuery = ""
+                        selectedActivity = actName
+                        fieldBackup = stagingJsonStr
+                        showFields = true
+                    },
+                    showIndication = true,
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        BasicComponent(
+                            title = actName,
+                            summary = "$modeLabel · $colorLabel",
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = {
+                            showDeleteConfirm = "$selectedPackage::$actName"
+                        }) {
+                            Icon(
+                                MiuixIcons.Delete,
+                                contentDescription = stringResource(R.string.rules_delete),
+                                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (filteredActKeys.isEmpty() && actKeys.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.editor_no_activities),
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(vertical = 12.dp),
+                    )
+                }
+            }
+
+            item {
+                Spacer(
+                    Modifier.padding(
+                        bottom = WindowInsets.navigationBars.asPaddingValues()
+                            .calculateBottomPadding() +
+                            WindowInsets.captionBar.asPaddingValues()
+                                .calculateBottomPadding(),
+                    )
+                )
+            }
+        }
+    }
+
+    // ── Sheet 1: App list (bottommost) ─────────────────────────────────
+    WindowBottomSheet(
+        title = stringResource(R.string.editor_title_apps),
+        show = showApps,
+        onDismissRequest = {
+            // Swipe dismiss — do NOT propagate to parent
+            onDismiss()
+        },
+        startAction = {
+            IconButton(onClick = {
+                // × button — do NOT propagate to parent
+                onDismiss()
+            }) {
+                Icon(
+                    MiuixIcons.Close,
+                    contentDescription = stringResource(R.string.rules_cancel),
+                    tint = MiuixTheme.colorScheme.onBackground,
+                )
+            }
+        },
+        endAction = {
+            IconButton(onClick = {
+                // ✓ button — save formatted JSON and close
+                editingJsonStr = stagingJsonStr
+                onJsonChange(formatNbiJson(editingJsonStr))
+                onDismiss()
+            }) {
+                Icon(
+                    MiuixIcons.Ok,
+                    contentDescription = stringResource(R.string.editor_save),
+                    tint = MiuixTheme.colorScheme.onBackground,
+                )
+            }
+        },
+    ) {
+        val pkgKeys = nbiRules.keys().asSequence().toList().sorted()
+
+        // Filtered list for search
+        val filteredPkgKeys = remember(searchQuery, pkgKeys, stagingJsonStr, editVersion) {
+            if (searchQuery.isEmpty()) pkgKeys
+            else pkgKeys.filter { pkg ->
+                val name = nbiRules.optJSONObject(pkg)?.optString("name", "") ?: ""
+                pkg.lowercase().contains(searchQuery.lowercase()) || name.lowercase().contains(searchQuery.lowercase())
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().scrollEndHaptic().overScrollVertical(),
+        ) {
+            // Search bar
+            item {
+                SearchBar(
+                    modifier = Modifier.padding(bottom = 6.dp),
+                    inputField = {
+                        InputField(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            onSearch = { },
+                            expanded = false,
+                            onExpandedChange = { },
+                            label = stringResource(R.string.editor_search_apps),
+                        )
+                    },
+                    expanded = false,
+                    onExpandedChange = { },
+                    content = { },
+                )
+            }
+            // Rule name editor
+            item {
+                val ruleName = root.optString("name", "")
+                var isEditingRuleName by remember { mutableStateOf(false) }
+                var ruleNameField by remember(ruleName) { mutableStateOf(ruleName) }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                    onClick = { isEditingRuleName = true },
+                    showIndication = true,
+                ) {
+                    if (isEditingRuleName) {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            TextField(
+                                value = ruleNameField,
+                                onValueChange = { ruleNameField = it },
+                                label = stringResource(R.string.editor_rule_name),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                TextButton(
+                                    text = stringResource(R.string.rules_cancel),
+                                    onClick = { isEditingRuleName = false },
+                                    enabled = true,
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                TextButton(
+                                    text = stringResource(R.string.editor_save),
+                                    onClick = {
+                                        root.put("name", ruleNameField.trim())
+                                        saveRoot()
+                                        isEditingRuleName = false
+                                    },
+                                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                                    enabled = true,
+                                )
+                            }
+                        }
+                    } else {
+                        BasicComponent(
+                            title = stringResource(R.string.editor_rule_name),
+                            summary = if (ruleName.isNotEmpty()) "$ruleName${stringResource(R.string.editor_tap_edit)}" else stringResource(R.string.editor_not_set_tap_edit),
+                        )
+                    }
+                }
+            }
+            item {
+                SmallTitle(
+                    text = stringResource(R.string.editor_app_list_count, nbiRules.length()),
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(
+                        text = stringResource(R.string.editor_add_app),
+                        onClick = {
+                            newPkg = ""
+                            newName = ""
+                            showAddAppDialog = true
+                        },
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                    )
+                    IconButton(onClick = { showFloatingIdentify = true }) {
+                        Icon(
+                            MiuixIcons.Scan,
+                            contentDescription = stringResource(R.string.editor_floating_identify),
+                            tint = MiuixTheme.colorScheme.onBackground,
+                        )
+                    }
+                }
+            }
+
+            if (filteredPkgKeys.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.editor_no_search_results),
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(vertical = 12.dp),
+                    )
+                }
+            }
+
+            items(filteredPkgKeys) { pkg ->
+                val app = nbiRules.optJSONObject(pkg)
+                val name = app?.optString("name", "") ?: ""
+                val actCount = app?.optJSONObject("activityRules")?.length() ?: 0
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                    onClick = {
+                        searchQuery = ""
+                        selectedPackage = pkg
+                        activitiesBackup = stagingJsonStr
+                        showActivities = true
+                    },
+                    showIndication = true,
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        BasicComponent(
+                            title = pkg,
+                            summary = buildString {
+                                if (name.isNotEmpty()) append(name).append(" · ")
+                                append(stringResource(R.string.editor_activity_count, actCount))
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = { showDeleteConfirm = pkg }) {
+                            Icon(
+                                MiuixIcons.Delete,
+                                contentDescription = stringResource(R.string.rules_delete),
+                                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                Spacer(
+                    Modifier.padding(
+                        bottom = WindowInsets.navigationBars.asPaddingValues()
+                            .calculateBottomPadding() +
+                            WindowInsets.captionBar.asPaddingValues()
+                                .calculateBottomPadding(),
+                    )
+                )
             }
         }
     }
@@ -989,21 +1196,23 @@ fun JsonRuleEditorSheet(
                     if (target.contains("::")) {
                         val parts = target.split("::")
                         deleteActivity(parts[0], parts[1])
-                        if (currentLevel == EditorLevel.FIELDS) {
-                            currentLevel = EditorLevel.ACTIVITIES
+                        if (showFields) {
+                            showFields = false
                         }
                     } else {
                         deleteApp(target)
-                        if (currentLevel != EditorLevel.APPS && selectedPackage == target) {
-                            currentLevel = EditorLevel.APPS
+                        if ((showActivities || showFields) && selectedPackage == target) {
+                            showActivities = false
+                            showFields = false
+                            selectedPackage = ""
+                            selectedActivity = ""
                         }
                     }
                     dismissState?.invoke()
                 },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
-            )
-        }
+                )
+            }
     }
 }
-

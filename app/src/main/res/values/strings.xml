@@ -149,8 +149,8 @@
 
     <!-- Editor – titles -->
     <string name="editor_title_apps">可视化规则编辑</string>
-    <string name="editor_title_activities">Activity 列表</string>
-    <string name="editor_title_fields">编辑 Activity 规则</string>
+    <string name="editor_title_activities">活动列表</string>
+    <string name="editor_title_fields">编辑活动规则</string>
 
     <!-- Editor – actions -->
     <string name="editor_back">返回</string>
@@ -162,9 +162,9 @@
     <string name="editor_app_name">应用名称</string>
     <string name="editor_tap_edit">（点击编辑）</string>
     <string name="editor_not_set_tap_edit">未设置（点击编辑）</string>
-    <string name="editor_add_activity">添加 Activity</string>
-    <string name="editor_activity_count">%d 个 Activity</string>
-    <string name="editor_no_activities">暂无 Activity 规则，请点击上方添加</string>
+    <string name="editor_add_activity">添加活动</string>
+    <string name="editor_activity_count">%d 个活动</string>
+    <string name="editor_no_activities">暂无活动规则，请点击上方添加</string>
 
     <!-- Editor – color shortcuts -->
     <string name="editor_color_auto_short">取色:自动</string>
@@ -184,10 +184,10 @@
     <string name="editor_popup_summary">popupMode</string>
     <string name="editor_disable_app_nav_color">禁用应用导航栏颜色</string>
     <string name="editor_disable_app_nav_color_summary">appNavColorDisabled</string>
-    <string name="editor_delete_activity">删除此 Activity</string>
+    <string name="editor_delete_activity">删除此活动</string>
     <string name="editor_package_name">应用包名</string>
     <string name="editor_app_name_optional">应用名称（可选）</string>
-    <string name="editor_activity_name_hint">Activity 名称（如 com.example.MainActivity 或 *）</string>
+    <string name="editor_activity_name_hint">活动名称（如 com.example.MainActivity 或 *）</string>
     <string name="editor_rgba_hint">RGBA（格式：R, G, B, A）</string>
     <string name="editor_hex_hint">HEX（格式：#RRGGBB / #RRGGBBAA）</string>
 
@@ -197,4 +197,25 @@
 
     <!-- Editor – misc -->
     <string name="editor_selected">已选</string>
+
+    <!-- Editor – search -->
+    <string name="editor_search_apps">搜索应用（包名或名称）</string>
+    <string name="editor_search_activities">搜索活动</string>
+    <string name="editor_no_search_results">无搜索结果</string>
+
+    <!-- Editor – floating identify -->
+    <string name="editor_floating_identify">悬浮窗识别</string>
+    <string name="editor_floating_identify_summary">开启后可识别当前前台应用信息</string>
+    <string name="editor_overlay_permission_required">需要悬浮窗权限</string>
+    <string name="editor_accessibility_required">需要无障碍权限</string>
+    <string name="editor_floating_pkg">包名</string>
+    <string name="editor_floating_app_name">应用名称</string>
+    <string name="editor_floating_activity">活动ID</string>
+    <string name="editor_floating_add">一键添加</string>
+    <string name="editor_floating_close">关闭悬浮窗</string>
+    <string name="editor_copied_toast">已复制：%s</string>
+    <string name="editor_floating_identifying">正在识别…</string>
+    <string name="editor_drag_hint">长按拖拽排序</string>
+    <string name="editor_edit_cloud_cache">编辑云端缓存</string>
+    <string name="editor_rule_name">规则名称</string>
 </resources>

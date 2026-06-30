@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,10 +41,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.ianzb.hypernavbar.R
 import com.ianzb.hypernavbar.RootHelper
 import com.ianzb.hypernavbar.rules.RootApplier
@@ -66,9 +71,9 @@ import org.json.JSONObject
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -172,6 +177,11 @@ fun RulesPageView(
     }
     var isSaving by remember { mutableStateOf(false) }
     var showJsonEditor by remember { mutableStateOf(false) }
+
+    // Drag-to-reorder state
+    var draggedConfigId by remember { mutableStateOf<String?>(null) }
+    var draggedOriginalIndex by remember { mutableStateOf(-1) }
+    var dragOffsetY by remember { mutableStateOf(0f) }
 
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
@@ -405,12 +415,20 @@ fun RulesPageView(
             try {
                 val dialog = editingConfig ?: return@launch
 
-                val formattedJson = if (dialog.type == RuleType.LOCAL) formatNbiJson(jsonInput.trim()) else jsonInput.trim()
-                val updated = dialog.copy(
-                    url = urlInput.trim().ifEmpty { dialog.url },
-                    jsonContent = formattedJson.ifEmpty { dialog.jsonContent },
-                    refreshIntervalMs = (intervalInput.toIntOrNull() ?: 0) * 60_000L,
-                )
+                val formattedJson = formatNbiJson(jsonInput.trim())
+                val updated = if (dialog.type == RuleType.CLOUD) {
+                    dialog.copy(
+                        url = urlInput.trim().ifEmpty { dialog.url },
+                        cachedContent = formattedJson.ifEmpty { dialog.cachedContent },
+                        refreshIntervalMs = (intervalInput.toIntOrNull() ?: 0) * 60_000L,
+                    )
+                } else {
+                    dialog.copy(
+                        url = urlInput.trim().ifEmpty { dialog.url },
+                        jsonContent = formattedJson.ifEmpty { dialog.jsonContent },
+                        refreshIntervalMs = (intervalInput.toIntOrNull() ?: 0) * 60_000L,
+                    )
+                }
 
                 withContext(Dispatchers.IO) {
                     RulesManager.update(context, updated)
@@ -421,9 +439,7 @@ fun RulesPageView(
                     if (idx >= 0) {
                         configs[idx] = updated
                     }
-                    if (dialog.type == RuleType.LOCAL) {
-                        jsonInput = formattedJson
-                    }
+                    jsonInput = formattedJson
                     resetEditState()
                 }
             } finally {
@@ -525,7 +541,10 @@ fun RulesPageView(
     LaunchedEffect(pendingEditConfig) {
         val cfg = pendingEditConfig ?: return@LaunchedEffect
         urlInput = cfg.url
-        jsonInput = cfg.jsonContent.ifEmpty { getEmptyJsonTemplate() }
+        jsonInput = when (cfg.type) {
+            RuleType.LOCAL -> cfg.jsonContent.ifEmpty { getEmptyJsonTemplate() }
+            RuleType.CLOUD -> cfg.cachedContent.ifEmpty { getEmptyJsonTemplate() }
+        }
         intervalInput = (cfg.refreshIntervalMs / 60_000).toString()
         editingConfig = cfg
         showActionsSheet = false
@@ -726,6 +745,7 @@ fun RulesPageView(
                     jsonFilePicker = jsonFilePicker,
                     showInterval = cfg.type == RuleType.CLOUD,
                     showTypeSelector = false,
+                    isEditMode = true,
                     enabled = !isSaving,
                     onOpenEditor = { showJsonEditor = true },
                     onExport = {
@@ -912,12 +932,79 @@ fun RulesPageView(
                     }
                 }
 
-                itemsIndexed(configs.toList()) { _, config ->
+                itemsIndexed(configs.toList(), key = { _, c -> c.id }) { index, config ->
+                    val density = LocalDensity.current
+                    val itemHeightPx = with(density) { 72.dp.toPx() }
+
+                    val isDragged = draggedConfigId == config.id
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp)
-                            .padding(bottom = 6.dp),
+                            .padding(bottom = 6.dp)
+                            .zIndex(if (isDragged) 1f else 0f)
+                            .graphicsLayer {
+                                if (isDragged) {
+                                    translationY = dragOffsetY
+                                }
+                            }
+                            .pointerInput(config.id) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = {
+                                        draggedConfigId = config.id
+                                        draggedOriginalIndex = index
+                                        dragOffsetY = 0f
+                                    },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        dragOffsetY += dragAmount.y
+
+                                        // Swap with neighbor when offset crosses a full item height
+                                        val id = draggedConfigId ?: return@detectDragGesturesAfterLongPress
+                                        val currentIdx = configs.indexOfFirst { it.id == id }
+                                        if (currentIdx < 0) return@detectDragGesturesAfterLongPress
+
+                                        val steps = (dragOffsetY / itemHeightPx).toInt()
+                                        if (steps != 0) {
+                                            val targetIdx = (currentIdx + steps).coerceIn(0, configs.size - 1)
+                                            if (targetIdx != currentIdx) {
+                                                val mover = configs[currentIdx]
+                                                configs.removeAt(currentIdx)
+                                                configs.add(targetIdx, mover)
+                                                dragOffsetY -= steps * itemHeightPx
+                                            }
+                                        }
+                                    },
+                                    onDragEnd = {
+                                        val id = draggedConfigId
+                                        val orig = draggedOriginalIndex
+                                        if (id != null && orig >= 0) {
+                                            val fGapSteps = (dragOffsetY / itemHeightPx).toInt()
+                                            if (fGapSteps != 0) {
+                                                val currentIdx = configs.indexOfFirst { it.id == id }
+                                                val targetIdx = (currentIdx + fGapSteps).coerceIn(0, configs.size - 1)
+                                                if (targetIdx != currentIdx) {
+                                                    val mover = configs[currentIdx]
+                                                    configs.removeAt(currentIdx)
+                                                    configs.add(targetIdx, mover)
+                                                }
+                                            }
+                                            val reordered = configs.mapIndexed { i, c -> c.copy(priority = i) }
+                                            RulesManager.saveAll(context, reordered)
+                                            for (i in configs.indices) { configs[i] = reordered[i] }
+                                        }
+                                        draggedConfigId = null
+                                        draggedOriginalIndex = -1
+                                        dragOffsetY = 0f
+                                    },
+                                    onDragCancel = {
+                                        draggedConfigId = null
+                                        draggedOriginalIndex = -1
+                                        dragOffsetY = 0f
+                                    },
+                                )
+                            },
                         onClick = { actionsTarget = config; showActionsSheet = true },
                         showIndication = true,
                     ) {
@@ -926,7 +1013,7 @@ fun RulesPageView(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             BasicComponent(
-                                title = config.name.ifEmpty { config.url.ifEmpty { stringResource(R.string.rules_local_rule) } },
+                                title = "${index + 1}. ${config.name.ifEmpty { config.url.ifEmpty { stringResource(R.string.rules_local_rule) } }}",
                                 summary = buildString {
                                     append(if (config.type == RuleType.LOCAL) stringResource(R.string.rules_local_prefix) else stringResource(R.string.rules_cloud_prefix))
                                     // Show dataVersion
@@ -982,6 +1069,7 @@ private fun SubscriptionForm(
     jsonFilePicker: androidx.activity.result.ActivityResultLauncher<String>,
     showInterval: Boolean,
     showTypeSelector: Boolean = true,
+    isEditMode: Boolean = false,
     enabled: Boolean = true,
     onOpenEditor: () -> Unit = {},
     onExport: () -> Unit = {},
@@ -1026,14 +1114,18 @@ private fun SubscriptionForm(
                     singleLine = true,
                     enabled = enabled,
                 )
-                TextButton(
-                    text = stringResource(R.string.rules_export_file),
-                    onClick = onExportCloud,
-                    enabled = enabled,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                )
+                if (isEditMode) {
+                    // Edit mode: show visual edit for cloud cache
+                    TextButton(
+                        text = stringResource(R.string.rules_visual_edit),
+                        onClick = onOpenEditor,
+                        enabled = enabled,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                    )
+                }
             } else {
                 TextField(
                     modifier = Modifier
@@ -1045,37 +1137,65 @@ private fun SubscriptionForm(
                     singleLine = false,
                     enabled = enabled,
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
+                if (isEditMode) {
+                    // Edit mode: visual edit alone, import+export together
                     TextButton(
                         text = stringResource(R.string.rules_visual_edit),
                         onClick = onOpenEditor,
                         enabled = enabled,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
                         colors = ButtonDefaults.textButtonColorsPrimary(),
                     )
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        TextButton(
+                            text = stringResource(R.string.rules_import_file),
+                            onClick = { jsonFilePicker.launch("application/json") },
+                            enabled = enabled,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(
+                            text = stringResource(R.string.rules_export_file),
+                            onClick = onExport,
+                            enabled = enabled,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                } else {
+                    // Add mode: visual edit + export together, import alone
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        TextButton(
+                            text = stringResource(R.string.rules_visual_edit),
+                            onClick = onOpenEditor,
+                            enabled = enabled,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.textButtonColorsPrimary(),
+                        )
+                        TextButton(
+                            text = stringResource(R.string.rules_export_file),
+                            onClick = onExport,
+                            enabled = enabled,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     TextButton(
                         text = stringResource(R.string.rules_import_file),
                         onClick = { jsonFilePicker.launch("application/json") },
                         enabled = enabled,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(
-                        text = stringResource(R.string.rules_export_file),
-                        onClick = onExport,
-                        enabled = enabled,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
                     )
                 }
             }

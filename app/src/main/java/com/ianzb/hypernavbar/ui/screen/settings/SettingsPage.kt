@@ -1,6 +1,7 @@
 package com.ianzb.hypernavbar.ui.screen.settings
 
 import android.app.Activity
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -40,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import com.ianzb.hypernavbar.AppSettings
 import com.ianzb.hypernavbar.LocaleHelper
 import com.ianzb.hypernavbar.R
+import com.ianzb.hypernavbar.ui.screen.rules.FloatingIdentifyService
+import com.ianzb.hypernavbar.ui.screen.rules.ScreenColorPickerService
 import com.ianzb.hypernavbar.ui.util.BlurredBar
 import com.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import com.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
@@ -294,8 +297,23 @@ fun SettingsPageView(
                                 items = languageNames,
                                 selectedIndex = langCurrentIndex,
                                 onSelectedIndexChange = {
+                                    val wasFloatingRunning = FloatingIdentifyService.isRunning
+                                    val wasColorPickerRunning = ScreenColorPickerService.isRunning
+                                    if (wasFloatingRunning) {
+                                        context.stopService(Intent(context, FloatingIdentifyService::class.java))
+                                    }
+                                    if (wasColorPickerRunning) {
+                                        context.stopService(Intent(context, ScreenColorPickerService::class.java))
+                                    }
                                     LocaleHelper.setLanguage(context, languageValues[it])
                                     activity?.recreate()
+                                    // 语言切换后重启悬浮窗和取色器
+                                    if (wasFloatingRunning) {
+                                        context.startService(Intent(context, FloatingIdentifyService::class.java))
+                                    }
+                                    if (wasColorPickerRunning) {
+                                        context.startService(Intent(context, ScreenColorPickerService::class.java))
+                                    }
                                 },
                                 onExpandedChange = { langExpanded = it }
                             )

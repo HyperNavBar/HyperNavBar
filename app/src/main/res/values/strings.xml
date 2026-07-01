@@ -239,4 +239,21 @@
     <string name="editor_drag_hint">长按拖拽排序</string>
     <string name="editor_edit_cloud_cache">编辑云端缓存</string>
     <string name="editor_rule_name">规则名称</string>
+
+    <!-- Error messages -->
+    <string name="rules_fetch_failed">获取失败：%s</string>
+    <string name="rules_parse_failed">解析失败：%s</string>
+    <string name="rules_file_read_failed">文件读取失败</string>
+    <string name="editor_screenshot_failed">截图失败</string>
+    <string name="editor_screenshot_load_failed">截图加载失败</string>
+    <string name="editor_screenshot_error">错误：%s</string>
+
+    <!-- Preset sources -->
+    <string name="preset_official_name">官方规则源</string>
+    <string name="preset_official_summary">由小米官方维护的沉浸规则</string>
+    <string name="preset_community_name">社区规则源</string>
+    <string name="preset_community_summary">由本项目社区维护的沉浸规则</string>
+
+    <!-- Default rule name -->
+    <string name="default_rule_name">沉浸规则</string>
 </resources>

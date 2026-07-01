@@ -31,10 +31,16 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.ianzb.hypernavbar.AppIdentifyAccessibilityService
+import com.ianzb.hypernavbar.LocaleHelper
 import com.ianzb.hypernavbar.R
 import java.util.Date
 
 class FloatingIdentifyService : Service() {
+
+    override fun attachBaseContext(newBase: Context) {
+        val language = LocaleHelper.getSavedLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.wrapContext(newBase, language))
+    }
 
     companion object {
         const val ACTION_QUICK_ADD = "com.ianzb.hypernavbar.QUICK_ADD_APP"
@@ -49,6 +55,20 @@ class FloatingIdentifyService : Service() {
 
         @Volatile
         var pendingQuickAdd: ((pkg: String, appName: String, activity: String) -> Unit)? = null
+
+        /** 悬浮窗是否正在运行 */
+        @JvmStatic
+        val isRunning: Boolean get() = runningInstance != null
+
+        /** 重建悬浮窗（用于语言切换等场景） */
+        @JvmStatic
+        fun recreateFloatingWindow() {
+            runningInstance?.let { instance ->
+                instance.removeFloatingWindow()
+                instance.createFloatingWindow()
+                instance.updateDisplayedInfo()
+            }
+        }
 
         @JvmStatic
         fun notifyForegroundApp(pkg: String, appName: String, activity: String) {
@@ -135,6 +155,14 @@ class FloatingIdentifyService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // 语言变更时重建悬浮窗以应用新语言
+        removeFloatingWindow()
+        createFloatingWindow()
+        updateDisplayedInfo()
+    }
 
     // ── History tracking ──────────────────────────────────────────────
 

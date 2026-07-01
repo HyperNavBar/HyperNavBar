@@ -29,10 +29,16 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import com.ianzb.hypernavbar.LocaleHelper
 import com.ianzb.hypernavbar.R
 import java.io.File
 
 class ScreenColorPickerService : Service() {
+
+    override fun attachBaseContext(newBase: Context) {
+        val language = LocaleHelper.getSavedLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.wrapContext(newBase, language))
+    }
 
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "screen_color_picker_channel"
@@ -44,6 +50,10 @@ class ScreenColorPickerService : Service() {
 
         @Volatile
         private var runningInstance: ScreenColorPickerService? = null
+
+        /** 取色器是否正在运行 */
+        @JvmStatic
+        val isRunning: Boolean get() = runningInstance != null
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -265,7 +275,7 @@ class ScreenColorPickerService : Service() {
                     val exitCode = process.waitFor()
                     if (exitCode != 0) {
                         handler.post {
-                            Toast.makeText(applicationContext, "Screenshot failed", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(applicationContext, getString(R.string.editor_screenshot_failed), Toast.LENGTH_SHORT).show()
                             stopSelf()
                         }
                         return@Thread
@@ -273,7 +283,7 @@ class ScreenColorPickerService : Service() {
                     val bitmap = BitmapFactory.decodeFile(SCREENSHOT_PATH)
                     if (bitmap == null) {
                         handler.post {
-                            Toast.makeText(applicationContext, "Failed to load screenshot", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(applicationContext, getString(R.string.editor_screenshot_load_failed), Toast.LENGTH_SHORT).show()
                             stopSelf()
                         }
                         return@Thread
@@ -282,7 +292,7 @@ class ScreenColorPickerService : Service() {
                     handler.post { showPickerWindow(bitmap) }
                 } catch (e: Exception) {
                     handler.post {
-                        Toast.makeText(applicationContext, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(applicationContext, getString(R.string.editor_screenshot_error, e.message ?: ""), Toast.LENGTH_SHORT).show()
                         stopSelf()
                     }
                 }

@@ -281,6 +281,12 @@ fun JsonRuleEditorSheet(
         } else if (appJson.optString("name", "").isEmpty() && appName.isNotEmpty()) {
             appJson.put("name", appName)
         }
+
+        // 保存应用层级变更，再捕获 activities 备份（与手动添加逻辑一致）
+        saveRoot()
+        selectedPackage = pkg
+        activitiesBackup = stagingJsonStr
+
         val rules = nbiRules.optJSONObject(pkg)?.optJSONObject("activityRules")
         if (rules != null && !rules.has(activityName)) {
             rules.put(activityName, JSONObject().apply {
@@ -292,9 +298,12 @@ fun JsonRuleEditorSheet(
                 put("appNavColorDisabled", 0)
             })
         }
+
+        // 保存活动层级变更，再捕获 fields 备份（与手动添加逻辑一致）
         saveRoot()
-        selectedPackage = pkg
         selectedActivity = activityName
+        fieldBackup = stagingJsonStr
+
         showActivities = true
         showFields = true
     }

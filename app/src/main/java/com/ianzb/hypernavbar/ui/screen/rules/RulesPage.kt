@@ -97,10 +97,11 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 import kotlin.time.Duration.Companion.milliseconds
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
-private fun getEmptyJsonTemplate(): String {
+private fun getEmptyJsonTemplate(context: android.content.Context): String {
     val date = java.text.SimpleDateFormat("yyMMdd", java.util.Locale.US).format(java.util.Date())
+    val name = context.getString(R.string.default_rule_name)
     return """{
-    "name": "沉浸规则",
+    "name": "$name",
     "dataVersion": "$date",
     "modules": "navigation_bar_immersive_application_config_new",
     "modifyApps": "modifyApps",
@@ -110,9 +111,9 @@ private fun getEmptyJsonTemplate(): String {
 
 private data class PresetSource(val name: String, val summary: String, val url: String)
 
-private val PRESET_SOURCES = listOf(
-    PresetSource("官方规则源", "由小米官方维护的沉浸规则", "https://drive.ianzb.cn/code/HyperNavBarRules/official.json"),
-    PresetSource("社区规则源", "由本项目社区维护的沉浸规则", "https://drive.ianzb.cn/code/HyperNavBarRules/custom.json"),
+private fun getPresetSources(context: android.content.Context): List<PresetSource> = listOf(
+    PresetSource(context.getString(R.string.preset_official_name), context.getString(R.string.preset_official_summary), "https://drive.ianzb.cn/code/HyperNavBarRules/official.json"),
+    PresetSource(context.getString(R.string.preset_community_name), context.getString(R.string.preset_community_summary), "https://drive.ianzb.cn/code/HyperNavBarRules/custom.json"),
 )
 
 private fun formatElapsedTime(context: android.content.Context, timestamp: Long, @Suppress("UNUSED_PARAMETER") tick: Int): String {
@@ -395,7 +396,7 @@ fun RulesPageView(
                                     withContext(Dispatchers.Main) {
                                         Toast.makeText(
                                             context,
-                                            "Fetch failed: ${e.message ?: "unknown error"}",
+                                            context.getString(R.string.rules_fetch_failed, e.message ?: "unknown error"),
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
@@ -439,7 +440,7 @@ fun RulesPageView(
                                     withContext(Dispatchers.Main) {
                                         Toast.makeText(
                                             context,
-                                            "Parse failed: ${e.message ?: "unknown error"}",
+                                            context.getString(R.string.rules_parse_failed, e.message ?: "unknown error"),
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
@@ -527,7 +528,7 @@ fun RulesPageView(
 
     LaunchedEffect(ruleType) {
         if (ruleType == RuleType.LOCAL && jsonInput.isEmpty()) {
-            jsonInput = getEmptyJsonTemplate()
+            jsonInput = getEmptyJsonTemplate(context)
         }
     }
 
@@ -540,7 +541,7 @@ fun RulesPageView(
                     jsonInput = input.bufferedReader().readText()
                 }
             } catch (_: Exception) {
-                Toast.makeText(context, "File read failed", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.rules_file_read_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -564,8 +565,8 @@ fun RulesPageView(
         val cfg = pendingEditConfig ?: return@LaunchedEffect
         urlInput = cfg.url
         jsonInput = when (cfg.type) {
-            RuleType.LOCAL -> cfg.jsonContent.ifEmpty { getEmptyJsonTemplate() }
-            RuleType.CLOUD -> cfg.cachedContent.ifEmpty { getEmptyJsonTemplate() }
+            RuleType.LOCAL -> cfg.jsonContent.ifEmpty { getEmptyJsonTemplate(context) }
+            RuleType.CLOUD -> cfg.cachedContent.ifEmpty { getEmptyJsonTemplate(context) }
         }
         intervalInput = (cfg.refreshIntervalMs / 60_000).toString()
         editingConfig = cfg
@@ -630,7 +631,7 @@ fun RulesPageView(
                     .scrollEndHaptic()
                     .overScrollVertical(),
             ) {
-                items(PRESET_SOURCES) { preset ->
+                items(getPresetSources(context)) { preset ->
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()

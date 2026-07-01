@@ -239,4 +239,21 @@
     <string name="editor_drag_hint">Long press to drag</string>
     <string name="editor_edit_cloud_cache">Edit Cloud Cache</string>
     <string name="editor_rule_name">Rule Name</string>
+
+    <!-- Error messages -->
+    <string name="rules_fetch_failed">Fetch failed: %s</string>
+    <string name="rules_parse_failed">Parse failed: %s</string>
+    <string name="rules_file_read_failed">File read failed</string>
+    <string name="editor_screenshot_failed">Screenshot failed</string>
+    <string name="editor_screenshot_load_failed">Failed to load screenshot</string>
+    <string name="editor_screenshot_error">Error: %s</string>
+
+    <!-- Preset sources -->
+    <string name="preset_official_name">Official Rules</string>
+    <string name="preset_official_summary">Immersion rules maintained by Xiaomi</string>
+    <string name="preset_community_name">Community Rules</string>
+    <string name="preset_community_summary">Immersion rules maintained by the community</string>
+
+    <!-- Default rule name -->
+    <string name="default_rule_name">Immersion Rules</string>
 </resources>

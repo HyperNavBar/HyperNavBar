@@ -4,7 +4,7 @@
 
 ### 小米 HyperOS 小白条沉浸规则管理工具
 
-[适配文档](docs/tutorial.md) | [更新日志](changelog.md) | [规则仓库](https://github.com/HyperNavBar/HyperNavBarRules) | [Telegram 群组](https://t.me/HyperNavBar)
+[使用教程](docs/usage.md) | [适配文档](docs/tutorial.md) | [更新日志](changelog.md) | [规则仓库](https://github.com/HyperNavBar/HyperNavBarRules) | [Telegram 群组](https://t.me/HyperNavBar)
 
 [![GitHub License](https://img.shields.io/github/license/HyperNavBar/HyperNavBar)](LICENSE)
 [![GitHub Issues](https://img.shields.io/github/issues/HyperNavBar/HyperNavBar)](https://github.com/HyperNavBar/HyperNavBar/issues)
@@ -78,6 +78,7 @@ cd HyperNavBar
 
 ### 相关信息
 
+[点击此处](docs/usage.md) 查看使用教程  
 [点击此处](docs/tutorial.md) 查看规则适配与格式说明  
 [点击此处](changelog.md) 查看更新日志  
 [点击此处](https://github.com/HyperNavBar/HyperNavBarRules) 查看规则仓库  

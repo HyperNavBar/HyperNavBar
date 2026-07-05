@@ -228,6 +228,9 @@
     <string name="editor_floating_close">Close Overlay</string>
     <string name="editor_floating_history">History</string>
     <string name="editor_floating_back_to_current">Back to Current</string>
+    <string name="editor_floating_collapse">Collapse</string>
+    <string name="editor_floating_expand">Expand</string>
+    <string name="editor_floating_blacklist_in_system_ui">In system blacklist, skipped</string>
     <string name="editor_screen_color_pick">Pick Color</string>
     <string name="editor_screen_color_pick_title">Screen Color Picker</string>
     <string name="editor_screen_color_confirm">Confirm</string>

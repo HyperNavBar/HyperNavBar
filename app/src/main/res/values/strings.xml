@@ -228,6 +228,9 @@
     <string name="editor_floating_close">关闭悬浮窗</string>
     <string name="editor_floating_history">历史记录</string>
     <string name="editor_floating_back_to_current">返回当前</string>
+    <string name="editor_floating_collapse">收缩</string>
+    <string name="editor_floating_expand">展开</string>
+    <string name="editor_floating_blacklist_in_system_ui">已在系统黑名单中，跳过</string>
     <string name="editor_screen_color_pick">屏幕取色</string>
     <string name="editor_screen_color_pick_title">屏幕取色</string>
     <string name="editor_screen_color_confirm">确认取色</string>

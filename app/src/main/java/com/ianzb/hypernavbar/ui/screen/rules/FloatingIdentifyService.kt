@@ -26,6 +26,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -107,6 +108,11 @@ class FloatingIdentifyService : Service() {
     private var historyContainer: LinearLayout? = null
     private var historyBtn: TextView? = null
     private var showingHistory = false
+
+    // 收缩/展开状态
+    private var isCollapsed = false
+    private var collapsedView: View? = null
+    private var expandedView: ViewGroup? = null
 
     private var currentPkg: String = ""
     private var currentApp: String = ""
@@ -313,6 +319,58 @@ class FloatingIdentifyService : Service() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val waiting = getString(R.string.editor_floating_waiting)
 
+        // 创建展开视图（原有布局）
+        val expandedLayout = createExpandedLayout(waiting)
+        expandedView = expandedLayout
+
+        // 创建收缩视图（图标大小）
+        val collapsedLayout = createCollapsedLayout()
+        collapsedView = collapsedLayout
+
+        // 主容器
+        val mainContainer = FrameLayout(this).apply {
+            addView(expandedLayout)
+            addView(collapsedLayout)
+        }
+
+        // 初始状态：展开
+        expandedLayout.visibility = View.VISIBLE
+        collapsedLayout.visibility = View.GONE
+
+        // Drag handler for both views
+        mainContainer.setOnTouchListener { view, event ->
+            handleDrag(view, event)
+        }
+
+        floatingView = mainContainer
+
+        val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            @Suppress("DEPRECATION")
+            WindowManager.LayoutParams.TYPE_PHONE
+        }
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            layoutFlag,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = dp(16)
+            y = dp(120)
+        }
+
+        windowManager!!.addView(floatingView, params)
+    }
+
+    /**
+     * 创建展开状态的布局（原有布局）
+     */
+    private fun createExpandedLayout(waiting: String): ViewGroup {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(10), dp(8), dp(10), dp(8))
@@ -322,7 +380,7 @@ class FloatingIdentifyService : Service() {
             }
         }
 
-        // Title row with history toggle
+        // Title row with history toggle and collapse button
         val titleRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, 0, 0, dp(6))
@@ -336,6 +394,18 @@ class FloatingIdentifyService : Service() {
         titleRow.addView(titleText, LinearLayout.LayoutParams(
             0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
         ))
+
+        // 收缩按钮
+        val collapseBtn = TextView(this).apply {
+            text = getString(R.string.editor_floating_collapse)
+            setTextColor(argb(0xFF, 0xFF, 0x95, 0x00))
+            textSize = 12f
+            setPadding(dp(8), 0, 0, 0)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { toggleCollapse() }
+        }
+        titleRow.addView(collapseBtn)
 
         val historyBtn = TextView(this).apply {
             text = getString(R.string.editor_floating_history)
@@ -410,34 +480,34 @@ class FloatingIdentifyService : Service() {
 
         layout.addView(buttonRow)
 
-        // Drag handler
-        layout.setOnTouchListener { view, event ->
-            handleDrag(view, event)
+        return layout
+    }
+
+    /**
+     * 创建收缩状态的布局（图标大小）
+     */
+    private fun createCollapsedLayout(): ViewGroup {
+        val iconSize = dp(48)
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = ViewGroup.LayoutParams(iconSize, iconSize)
+            background = GradientDrawable().apply {
+                setColor(argb(0xE0, 0x00, 0x7A, 0xFF))
+                cornerRadius = dp(24).toFloat()
+            }
+            gravity = Gravity.CENTER
         }
 
-        floatingView = layout
-
-        val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        } else {
-            @Suppress("DEPRECATION")
-            WindowManager.LayoutParams.TYPE_PHONE
+        // 图标 - 使用 ExpandMore 的 Unicode 字符
+        val iconView = TextView(this).apply {
+            text = "▼"
+            textSize = 18f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
         }
+        layout.addView(iconView)
 
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            layoutFlag,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = dp(16)
-            y = dp(120)
-        }
-
-        windowManager!!.addView(floatingView, params)
+        return layout
     }
 
     // ── Toggle between info vs. history ───────────────────────────────
@@ -456,6 +526,25 @@ class FloatingIdentifyService : Service() {
             hc.visibility = vis
         }
         refreshHistoryView()
+    }
+
+    // ── Toggle between expanded and collapsed ────────────────────────
+
+    private fun toggleCollapse() {
+        isCollapsed = !isCollapsed
+        if (isCollapsed) {
+            // 收缩：隐藏展开视图，显示收缩视图
+            expandedView?.visibility = View.GONE
+            collapsedView?.visibility = View.VISIBLE
+        } else {
+            // 展开：显示展开视图，隐藏收缩视图
+            expandedView?.visibility = View.VISIBLE
+            collapsedView?.visibility = View.GONE
+        }
+        // 更新窗口大小以适应新视图
+        floatingView?.let { view ->
+            windowManager?.updateViewLayout(view, view.layoutParams)
+        }
     }
 
     // ── Miuix-style button ────────────────────────────────────────────
@@ -632,7 +721,15 @@ class FloatingIdentifyService : Service() {
                     return true
                 }
             }
-            MotionEvent.ACTION_UP -> { if (isDragging) return true }
+            MotionEvent.ACTION_UP -> {
+                if (isDragging) {
+                    return true
+                } else if (isCollapsed) {
+                    // 收缩状态下，如果不是拖拽，则点击展开
+                    toggleCollapse()
+                    return true
+                }
+            }
         }
         return false
     }

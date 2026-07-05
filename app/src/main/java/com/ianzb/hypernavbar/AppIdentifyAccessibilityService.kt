@@ -30,6 +30,27 @@ class AppIdentifyAccessibilityService : AccessibilityService() {
 
         private const val TAG = "AppIdentify"
         private const val POLL_INTERVAL_MS = 300L
+
+        // 黑名单列表：系统桌面、系统界面、本应用自身
+        private val BLACKLIST_PACKAGES = setOf(
+            "com.miui.home",           // 小米桌面
+            "com.mi.android.globallauncher",  // 小米全球桌面
+            "com.android.launcher3",    // AOSP 桌面
+            "com.android.launcher",     // 旧版 AOSP 桌面
+            "com.ianzb.hypernavbar",   // 本应用自身
+        )
+
+        // 系统UI包名（用于匹配）
+        private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
+
+        /**
+         * 检查包名是否在黑名单中
+         */
+        fun isBlacklisted(packageName: String): Boolean {
+            return BLACKLIST_PACKAGES.contains(packageName) ||
+                   packageName == SYSTEM_UI_PACKAGE ||
+                   packageName.startsWith("com.android.systemui")
+        }
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -189,6 +210,12 @@ class AppIdentifyAccessibilityService : AccessibilityService() {
     }
 
     private fun notifyForegroundApp(pkg: String, appName: String, activity: String) {
+        // 检查黑名单
+        if (isBlacklisted(pkg)) {
+            Log.d(TAG, "Package $pkg is blacklisted, skipping notification")
+            return
+        }
+
         // 直接调用（同进程，更可靠）
         FloatingIdentifyService.notifyForegroundApp(pkg, appName, activity)
 

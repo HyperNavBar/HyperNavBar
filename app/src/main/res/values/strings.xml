@@ -137,12 +137,13 @@
     <!-- Editor – mode labels -->
     <string name="editor_mode_auto">自动模式</string>
     <string name="editor_mode_disabled">禁用模式</string>
-    <string name="editor_mode_color_pick">取色模式</string>
+    <string name="editor_mode_color_pick">视图取色模式</string>
     <string name="editor_mode_float">悬浮模式</string>
 
     <!-- Editor – SF sampling labels -->
     <string name="editor_sf_force_enable">强制启用</string>
     <string name="editor_sf_force_disable">强制禁用</string>
+    <string name="editor_sf_sampling_short">采样取色模式</string>
 
     <!-- Editor – dialog / popup labels -->
     <string name="editor_dialog_view_sampling">视图采样模式</string>
@@ -181,6 +182,9 @@
     <!-- Editor – field editors -->
     <string name="editor_mode_title">沉浸模式</string>
     <string name="editor_mode_summary">mode</string>
+    <string name="editor_activity_name_title">活动名称</string>
+    <string name="editor_activity_name_summary">点击编辑活动标识符</string>
+    <string name="editor_activity_name_exists">该活动名称已存在</string>
     <string name="editor_color_title">导航栏颜色</string>
     <string name="editor_color_summary">color</string>
     <string name="editor_sf_title">SF采样模式</string>

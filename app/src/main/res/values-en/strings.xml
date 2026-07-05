@@ -137,12 +137,13 @@
     <!-- Editor – mode labels -->
     <string name="editor_mode_auto">Auto Mode</string>
     <string name="editor_mode_disabled">Disabled</string>
-    <string name="editor_mode_color_pick">Color Pick</string>
+    <string name="editor_mode_color_pick">View Color Pick</string>
     <string name="editor_mode_float">Floating</string>
 
     <!-- Editor – SF sampling labels -->
     <string name="editor_sf_force_enable">Force Enable</string>
     <string name="editor_sf_force_disable">Force Disable</string>
+    <string name="editor_sf_sampling_short">Sampling Color Pick</string>
 
     <!-- Editor – dialog / popup labels -->
     <string name="editor_dialog_view_sampling">View Sampling</string>
@@ -181,6 +182,9 @@
     <!-- Editor – field editors -->
     <string name="editor_mode_title">Immersive Mode</string>
     <string name="editor_mode_summary">mode</string>
+    <string name="editor_activity_name_title">Activity Name</string>
+    <string name="editor_activity_name_summary">Tap to edit activity identifier</string>
+    <string name="editor_activity_name_exists">This activity name already exists</string>
     <string name="editor_color_title">Navbar Color</string>
     <string name="editor_color_summary">color</string>
     <string name="editor_sf_title">SF Sampling Mode</string>

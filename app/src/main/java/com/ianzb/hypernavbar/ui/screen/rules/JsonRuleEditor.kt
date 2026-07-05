@@ -358,6 +358,35 @@ fun JsonRuleEditorSheet(
         saveRoot()
     }
 
+    /** 重命名当前活动，返回true表示成功 */
+    fun renameActivity(newName: String): Boolean {
+        val app = nbiRules.optJSONObject(selectedPackage) ?: return false
+        val rules = app.optJSONObject("activityRules") ?: return false
+        val trimmedName = newName.trim()
+        
+        // 检查名称是否为空
+        if (trimmedName.isEmpty()) return false
+        
+        // 检查是否与当前名称相同
+        if (trimmedName == selectedActivity) return true
+        
+        // 检查是否与其他活动重名
+        if (rules.has(trimmedName)) return false
+        
+        // 获取当前活动的JSON数据
+        val actJson = rules.optJSONObject(selectedActivity) ?: return false
+        
+        // 创建新的key，复制数据
+        rules.put(trimmedName, JSONObject(actJson.toString()))
+        // 删除旧key
+        rules.remove(selectedActivity)
+        
+        // 更新选中的活动名称
+        selectedActivity = trimmedName
+        saveRoot()
+        return true
+    }
+
 
     // ── Sheet 1: App list (bottom) ────────────────────────────────────
     WindowBottomSheet(
@@ -901,11 +930,28 @@ fun JsonRuleEditorSheet(
                 val modeLabel = mode?.let { m ->
                     modeLabels.getOrNull(MODE_VALUES.indexOf(m))
                 } ?: "—"
+                val sfMode = actJson?.optIntOrNull("sf_sampling_mode") ?: 0
                 val color = actJson?.opt("color")
                 val colorLabel = when (colorTypeFromValue(color)) {
                     COLOR_TYPE_AUTO -> stringResource(R.string.editor_color_auto_short)
                     COLOR_TYPE_CUSTOM -> stringResource(R.string.editor_color_hex_short, (argbFromValue(color) and 0xFFFFFF).toString(16).padStart(6, '0').uppercase())
                     else -> stringResource(R.string.editor_color_default_short)
+                }
+
+                // 构建summary显示逻辑
+                val summary = buildString {
+                    // 如果SF采样模式是强制启用，只显示采样取色模式
+                    if (sfMode == 1) {
+                        append(stringResource(R.string.editor_sf_sampling_short))
+                    } else {
+                        // 否则显示mode
+                        append(modeLabel)
+                        // 如果mode是1（视图取色模式），显示color项
+                        if (mode == 1) {
+                            append(" · ")
+                            append(colorLabel)
+                        }
+                    }
                 }
 
                 Card(
@@ -926,7 +972,7 @@ fun JsonRuleEditorSheet(
                     ) {
                         BasicComponent(
                             title = actName,
-                            summary = "$modeLabel · $colorLabel",
+                            summary = summary,
                             modifier = Modifier.weight(1f),
                         )
                         IconButton(onClick = {
@@ -1029,9 +1075,82 @@ fun JsonRuleEditorSheet(
         ) {
             item {
                 SmallTitle(
-                    text = "$selectedPackage / $selectedActivity",
+                    text = selectedPackage,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+            }
+
+            // ── Activity name editor ──
+            item {
+                var isEditingActName by remember { mutableStateOf(false) }
+                var actNameField by remember(selectedActivity) { mutableStateOf(selectedActivity) }
+                var actNameError by remember { mutableStateOf(false) }
+                val activityRules = nbiRules.optJSONObject(selectedPackage)?.optJSONObject("activityRules") ?: JSONObject()
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                    onClick = { isEditingActName = true },
+                    showIndication = true,
+                ) {
+                    if (isEditingActName) {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            TextField(
+                                value = actNameField,
+                                onValueChange = { 
+                                    actNameField = it
+                                    // 检查是否重名（排除当前名称）
+                                    actNameError = it.trim() != selectedActivity && activityRules.has(it.trim())
+                                },
+                                label = stringResource(R.string.editor_activity_name_title),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            if (actNameError) {
+                                Text(
+                                    text = stringResource(R.string.editor_activity_name_exists),
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = Color(0xFFFF4444),
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                TextButton(
+                                    text = stringResource(R.string.rules_cancel),
+                                    onClick = { 
+                                        isEditingActName = false
+                                        actNameField = selectedActivity
+                                        actNameError = false
+                                    },
+                                    enabled = true,
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                TextButton(
+                                    text = stringResource(R.string.editor_save),
+                                    onClick = {
+                                        if (renameActivity(actNameField)) {
+                                            isEditingActName = false
+                                            actNameError = false
+                                        } else {
+                                            actNameError = true
+                                        }
+                                    },
+                                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                                    enabled = !actNameError && actNameField.trim().isNotEmpty(),
+                                )
+                            }
+                        }
+                    } else {
+                        BasicComponent(
+                            title = stringResource(R.string.editor_activity_name_title),
+                            summary = "$selectedActivity${stringResource(R.string.editor_tap_edit)}",
+                        )
+                    }
+                }
             }
 
             // ── mode spinner ──

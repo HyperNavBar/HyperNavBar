@@ -10,6 +10,9 @@ on:
         description: "版本号"
         required: false
         default: ""
+  push:
+    tags:
+      - "v*.*.*"
 
 permissions:
   contents: write
@@ -23,6 +26,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: true
+          fetch-depth: 0
 
       - name: Setup JDK 25
         uses: actions/setup-java@v5
@@ -53,10 +57,22 @@ jobs:
         id: update_version
         run: |
           $inputVersion = "${{ github.event.inputs.version }}"
+          $tagVersion = if ($env:GITHUB_REF_TYPE -eq "tag") { $env:GITHUB_REF_NAME } else { "" }
           $currentVersionName = "${{ steps.get_version.outputs.version_name }}"
           $currentVersionCode = [int]"${{ steps.get_version.outputs.version_code }}"
           
-          if ([string]::IsNullOrEmpty($inputVersion)) {
+          if (-not [string]::IsNullOrEmpty($tagVersion)) {
+            $tagVersionWithoutPrefix = $tagVersion -replace "^v", ""
+            if ($currentVersionName -ne $tagVersion -and $currentVersionName -ne $tagVersionWithoutPrefix) {
+              Write-Host "Tag 版本 $tagVersion 与项目版本 $currentVersionName 不一致"
+              exit 1
+            }
+
+            Write-Host "使用 tag 版本号: $tagVersion"
+            Write-Output "final_version=$tagVersion" >> $env:GITHUB_OUTPUT
+            Write-Output "version_code=$currentVersionCode" >> $env:GITHUB_OUTPUT
+            Write-Output "version_changed=false" >> $env:GITHUB_OUTPUT
+          } elseif ([string]::IsNullOrEmpty($inputVersion)) {
             Write-Host "未指定版本号，使用当前版本号"
             Write-Output "final_version=$currentVersionName" >> $env:GITHUB_OUTPUT
             Write-Output "version_code=$currentVersionCode" >> $env:GITHUB_OUTPUT
@@ -121,22 +137,88 @@ jobs:
           }
         shell: pwsh
 
+      - name: 准备 Release Notes
+        id: notes
+        run: |
+          $version = "${{ steps.update_version.outputs.final_version }}"
+          $versionWithoutPrefix = $version -replace "^v", ""
+          $notesPath = "release-notes.md"
+          $fallbackNotes = @"
+          ## ${{ env.PROGRAM_NAME }} $version
+
+          ### 下载
+          - **APK**: `${{ env.PROGRAM_NAME }}_$version.apk`
+          - **架构**: arm64-v8a
+          "@
+
+          $changelogPath = @("changelog.md", "docs/changelog.md", "docs/CHANGELOG.md") |
+            Where-Object { Test-Path $_ } |
+            Select-Object -First 1
+
+          if (-not $changelogPath) {
+            $fallbackNotes.Trim() | Set-Content -Path $notesPath -Encoding utf8
+            "notes_path=$notesPath" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          $lines = Get-Content -Path $changelogPath
+          $headingPattern = '^\s*##\s+\[?(?<heading>v?\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)\]?(?:\s|$)'
+          $nextHeadingPattern = '^\s*##\s+'
+          $startIndex = $null
+
+          for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match $headingPattern) {
+              $heading = $Matches.heading
+
+              if ($heading -eq $version -or $heading -eq $versionWithoutPrefix) {
+                $startIndex = $i
+                break
+              }
+            }
+          }
+
+          if ($null -eq $startIndex) {
+            $fallbackNotes.Trim() | Set-Content -Path $notesPath -Encoding utf8
+            "notes_path=$notesPath" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          $endIndex = $lines.Count
+
+          for ($i = $startIndex + 1; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match $nextHeadingPattern) {
+              $endIndex = $i
+              break
+            }
+          }
+
+          $sectionLines = @()
+
+          if ($endIndex -gt ($startIndex + 1)) {
+            $sectionLines = $lines[($startIndex + 1)..($endIndex - 1)]
+          }
+
+          $releaseNotes = ($sectionLines -join [Environment]::NewLine).Trim()
+
+          if ([string]::IsNullOrWhiteSpace($releaseNotes)) {
+            $releaseNotes = $fallbackNotes.Trim()
+          }
+
+          $releaseNotes | Set-Content -Path $notesPath -Encoding utf8
+          "notes_path=$notesPath" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
       - name: 发布 GitHub Release
+        id: github_release
         uses: softprops/action-gh-release@v3
         with:
           name: ${{ steps.update_version.outputs.final_version }}
           tag_name: ${{ steps.update_version.outputs.final_version }}
           files: ${{ env.PROGRAM_NAME }}_${{ steps.update_version.outputs.final_version }}.apk
-          body: |
-            ## ${{ env.PROGRAM_NAME }} ${{ steps.update_version.outputs.final_version }}
-            
-            ### 下载
-            - **APK**: `${{ env.PROGRAM_NAME }}_${{ steps.update_version.outputs.final_version }}.apk`
-            - **架构**: arm64-v8a
+          body_path: ${{ steps.notes.outputs.notes_path }}
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: false
-          generate_release_notes: true
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v7
@@ -150,24 +232,29 @@ jobs:
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           APK_FILE: "${{ github.workspace }}/${{ env.PROGRAM_NAME }}_${{ steps.update_version.outputs.final_version }}.apk"
-          RUNNER_NAME: "${{ github.actor }}"
-          RELEASE_VERSION: "${{ steps.update_version.outputs.final_version }}"
+          ACTOR_NAME: "${{ github.actor }}"
+          RELEASE_URL: "${{ steps.github_release.outputs.url }}"
+          EVENT_NAME: "${{ github.event_name }}"
         run: |
           ESCAPED_CAPTION=$(python3 -c '
           import os, re
 
-          def escape_md_v2(text):
-              return re.sub(r"([_*\[\]()~`>#+\-=|{}.!\\])", r"\\\1", text)
+          def escape_md_v2_code(text):
+              return text.replace("\\", "\\\\").replace("`", "\\`")
 
-          program_name = escape_md_v2(os.environ.get("PROGRAM_NAME", ""))
-          release_version = os.environ.get("RELEASE_VERSION", "")
-          actor = escape_md_v2(os.environ.get("RUNNER_NAME", ""))
+          def escape_md_v2_url(text):
+              return re.sub(r"([)\\])", r"\\\1", text)
 
-          msg_body = (
-              f"*{program_name}* `{release_version}`\n"
-              f"🚀 *New Release*\n"
-              f"Manually released by `{actor}`"
-          )
+          actor = escape_md_v2_code(os.environ.get("ACTOR_NAME", ""))
+          event_name = os.environ.get("EVENT_NAME", "")
+          release_url = escape_md_v2_url(os.environ.get("RELEASE_URL", ""))
+
+          lines = ["*New GitHub Release*"]
+          if release_url:
+              lines.append(f"Release: [View on GitHub]({release_url})")
+          if event_name == "workflow_dispatch":
+              lines.append(f"Manually run by `{actor}`")
+          msg_body = "\n".join(lines)
 
           print(msg_body)
           ')

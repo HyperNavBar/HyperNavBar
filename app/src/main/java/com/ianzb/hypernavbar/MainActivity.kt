@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ianzb.hypernavbar.rules.RulesManager
 import com.ianzb.hypernavbar.ui.component.liquid.IosLiquidGlassNavigationBar
 import com.ianzb.hypernavbar.ui.screen.about.AboutPageContent
 import com.ianzb.hypernavbar.ui.screen.home.HomePageView
@@ -82,6 +83,9 @@ class MainActivity : ComponentActivity() {
         }
 
         val savedSettings = AppSettings.load(this)
+
+        // 首次启动时播种默认订阅（社区规则源在上，官方规则源在下）
+        RulesManager.ensureDefaultConfigs(this)
 
         setContent {
             var themeMode by remember {

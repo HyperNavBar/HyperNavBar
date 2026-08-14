@@ -32,6 +32,12 @@ data class RuleConfigSource(
     }
 
     companion object {
+        /** 官方规则源订阅地址（系统原始配置） */
+        const val PRESET_OFFICIAL_URL = "https://drive.ianzb.cn/code/HyperNavBarRules/official.json"
+
+        /** 社区规则源订阅地址（自定义优化规则） */
+        const val PRESET_COMMUNITY_URL = "https://drive.ianzb.cn/code/HyperNavBarRules/custom.json"
+
         fun fromJson(obj: JSONObject): RuleConfigSource = RuleConfigSource(
             id = obj.optString("id", ""),
             type = try { RuleType.valueOf(obj.optString("type", "CLOUD")) } catch (_: Exception) { RuleType.CLOUD },

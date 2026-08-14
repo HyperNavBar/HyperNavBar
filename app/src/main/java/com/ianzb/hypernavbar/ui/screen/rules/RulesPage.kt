@@ -112,8 +112,8 @@ private fun getEmptyJsonTemplate(context: android.content.Context): String {
 private data class PresetSource(val name: String, val summary: String, val url: String)
 
 private fun getPresetSources(context: android.content.Context): List<PresetSource> = listOf(
-    PresetSource(context.getString(R.string.preset_official_name), context.getString(R.string.preset_official_summary), "https://drive.ianzb.cn/code/HyperNavBarRules/official.json"),
-    PresetSource(context.getString(R.string.preset_community_name), context.getString(R.string.preset_community_summary), "https://drive.ianzb.cn/code/HyperNavBarRules/custom.json"),
+    PresetSource(context.getString(R.string.preset_community_name), context.getString(R.string.preset_community_summary), RuleConfigSource.PRESET_COMMUNITY_URL),
+    PresetSource(context.getString(R.string.preset_official_name), context.getString(R.string.preset_official_summary), RuleConfigSource.PRESET_OFFICIAL_URL),
 )
 
 private fun formatElapsedTime(context: android.content.Context, timestamp: Long, @Suppress("UNUSED_PARAMETER") tick: Int): String {

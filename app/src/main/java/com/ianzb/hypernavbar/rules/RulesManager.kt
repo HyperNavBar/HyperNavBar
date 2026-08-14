@@ -12,6 +12,28 @@ object RulesManager {
     private const val KEY_LAST_APPLY = "last_apply_time"
     private const val KEY_MERGED_COUNT = "applied_count"
     private const val KEY_IS_CUSTOM = "is_custom_applied"
+    private const val KEY_DEFAULTS_SEEDED = "defaults_seeded"
+
+    /**
+     * 首次启动时播种默认订阅：
+     * - 社区规则源在上（低优先级，合并时优先覆盖官方）
+     * - 官方规则源在下（高优先级，作为基底）
+     * 仅在订阅列表为空时执行一次，之后以标记位防止重复播种。
+     */
+    fun ensureDefaultConfigs(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_DEFAULTS_SEEDED, false)) return
+
+        if (loadAll(context).isEmpty()) {
+            // 社区规则源（priority 0，显示在上方，合并时优先）
+            add(context, RuleType.CLOUD, RuleConfigSource.PRESET_COMMUNITY_URL,
+                name = context.getString(com.ianzb.hypernavbar.R.string.preset_community_name))
+            // 官方规则源（priority 1，显示在下方，作为基底）
+            add(context, RuleType.CLOUD, RuleConfigSource.PRESET_OFFICIAL_URL,
+                name = context.getString(com.ianzb.hypernavbar.R.string.preset_official_name))
+        }
+        prefs.edit().putBoolean(KEY_DEFAULTS_SEEDED, true).apply()
+    }
 
     fun saveApplyState(context: Context, time: Long, count: Int, isCustom: Boolean) {
         context.getSharedPreferences(STATE_PREFS_NAME, Context.MODE_PRIVATE)

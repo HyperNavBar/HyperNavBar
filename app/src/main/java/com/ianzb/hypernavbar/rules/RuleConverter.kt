@@ -13,7 +13,6 @@ object RuleConverter {
     }
 
     fun detectOsMode(): OsMode {
-
         val incremental = try {
             Runtime.getRuntime().exec(arrayOf("getprop", "ro.build.version.incremental"))
                 .inputStream.bufferedReader().readLine() ?: ""
@@ -24,8 +23,7 @@ object RuleConverter {
 
         if (jsonFile.exists()) {
             try {
-                val parts = incremental.split(".")
-                val patch = parts.getOrElse(2) { "0" }.toIntOrNull() ?: 0
+                val patch = incremental.split(".").getOrElse(2) { "0" }.toIntOrNull() ?: 0
                 return if (patch >= 300) OsMode.OS33 else OsMode.OS30
             } catch (_: Exception) {
                 return OsMode.OS30
@@ -42,24 +40,17 @@ object RuleConverter {
         OsMode.UNKNOWN -> "/data/system/cloudFeature_navigation_bar_immersive_rules_list.json"
     }
 
-    fun convert(mergedJson: JSONObject, mode: OsMode): String {
-        return when (mode) {
-            OsMode.OS33 -> convertToOS33(mergedJson)
-            OsMode.OS30 -> convertToOS30(mergedJson)
-            OsMode.OS22 -> convertToOS22(mergedJson)
-            OsMode.UNKNOWN -> convertToOS33(mergedJson)
-        }
+    fun convert(mergedJson: JSONObject, mode: OsMode): String = when (mode) {
+        OsMode.OS33 -> convertToOS33(mergedJson)
+        OsMode.OS30 -> convertToOS30(mergedJson)
+        OsMode.OS22 -> convertToOS22(mergedJson)
+        OsMode.UNKNOWN -> convertToOS33(mergedJson)
     }
 
     private fun convertToOS33(json: JSONObject): String {
-        val result = JSONObject()
-        result.put("dataVersion", json.optString("dataVersion", "999999"))
-        result.put("name", json.optString("name", "沉浸规则"))
-        result.put("modules", json.optString("modules", "navigation_bar_immersive_application_config_new"))
-        result.put("modifyApps", json.optString("modifyApps", "modifyApps"))
-
-        val nbiRules = json.optJSONObject("NBIRules") ?: JSONObject()
+        val result = newRoot(json)
         val converted = JSONObject()
+        val nbiRules = json.optJSONObject("NBIRules") ?: JSONObject()
         val keys = nbiRules.keys()
         while (keys.hasNext()) {
             val pkg = keys.next()
@@ -71,8 +62,8 @@ object RuleConverter {
                 app.put("disableVersionCode", appRule.get("disableVersionCode"))
             }
 
-            val activityRules = appRule.optJSONObject("activityRules") ?: JSONObject()
             val convertedActivities = JSONObject()
+            val activityRules = appRule.optJSONObject("activityRules") ?: JSONObject()
             val actKeys = activityRules.keys()
             while (actKeys.hasNext()) {
                 val actName = actKeys.next()
@@ -94,14 +85,9 @@ object RuleConverter {
     }
 
     private fun convertToOS30(json: JSONObject): String {
-        val result = JSONObject()
-        result.put("dataVersion", json.optString("dataVersion", "999999"))
-        result.put("name", json.optString("name", "沉浸规则"))
-        result.put("modules", json.optString("modules", "navigation_bar_immersive_application_config_new"))
-        result.put("modifyApps", json.optString("modifyApps", "modifyApps"))
-
-        val nbiRules = json.optJSONObject("NBIRules") ?: JSONObject()
+        val result = newRoot(json)
         val converted = JSONObject()
+        val nbiRules = json.optJSONObject("NBIRules") ?: JSONObject()
         val keys = nbiRules.keys()
         while (keys.hasNext()) {
             val pkg = keys.next()
@@ -110,8 +96,8 @@ object RuleConverter {
             app.put("name", appRule.optString("name", ""))
             app.put("enable", appRule.optBoolean("enable", true))
 
-            val activityRules = appRule.optJSONObject("activityRules") ?: JSONObject()
             val convertedActivities = JSONObject()
+            val activityRules = appRule.optJSONObject("activityRules") ?: JSONObject()
             val actKeys = activityRules.keys()
             while (actKeys.hasNext()) {
                 val actName = actKeys.next()
@@ -129,6 +115,13 @@ object RuleConverter {
         }
         result.put("NBIRules", converted)
         return result.toString(2)
+    }
+
+    private fun newRoot(json: JSONObject): JSONObject = JSONObject().apply {
+        put("dataVersion", json.optString("dataVersion", "999999"))
+        put("name", json.optString("name", "沉浸规则"))
+        put("modules", json.optString("modules", "navigation_bar_immersive_application_config_new"))
+        put("modifyApps", json.optString("modifyApps", "modifyApps"))
     }
 
     private fun convertToOS22(json: JSONObject): String {

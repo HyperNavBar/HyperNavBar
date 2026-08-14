@@ -91,12 +91,7 @@ object RulesManager {
     }
 
     fun update(context: Context, config: RuleConfigSource) {
-        val configs = loadAll(context).toMutableList()
-        val idx = configs.indexOfFirst { it.id == config.id }
-        if (idx >= 0) {
-            configs[idx] = config
-            saveAll(context, configs)
-        }
+        updateById(context, config.id) { config }
     }
 
     fun remove(context: Context, id: String) {
@@ -124,17 +119,13 @@ object RulesManager {
     }
 
     fun updateRefreshTime(context: Context, id: String, time: Long, appCount: Int = 0, name: String = "", cachedContent: String = "") {
-        val configs = loadAll(context).toMutableList()
-        val idx = configs.indexOfFirst { it.id == id }
-        if (idx >= 0) {
-            val old = configs[idx]
-            configs[idx] = old.copy(
+        updateById(context, id) { old ->
+            old.copy(
                 lastRefreshTime = time,
                 appCount = if (appCount > 0) appCount else old.appCount,
                 name = name.ifEmpty { old.name },
                 cachedContent = cachedContent.ifEmpty { old.cachedContent },
             )
-            saveAll(context, configs)
         }
     }
 
@@ -154,6 +145,15 @@ object RulesManager {
             RuleConfigSource.fromJson(arr.getJSONObject(i))
         }
         saveAll(context, configs)
+    }
+
+    private fun updateById(context: Context, id: String, transform: (RuleConfigSource) -> RuleConfigSource) {
+        val configs = loadAll(context).toMutableList()
+        val idx = configs.indexOfFirst { it.id == id }
+        if (idx >= 0) {
+            configs[idx] = transform(configs[idx])
+            saveAll(context, configs)
+        }
     }
 
     private fun swapPriority(configs: MutableList<RuleConfigSource>, i: Int, j: Int) {

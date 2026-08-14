@@ -16,27 +16,12 @@ object RuleFetcher {
     )
 
     suspend fun fetch(config: RuleConfigSource): Result<FetchResult> = when (config.type) {
-        RuleType.LOCAL -> parseLocal(config.jsonContent)
+        RuleType.LOCAL -> parseJson(config.jsonContent)
         RuleType.CLOUD -> fetchUrl(config.url)
     }
 
-    private fun parseLocal(jsonContent: String): Result<FetchResult> = parseJson(jsonContent)
-
-    fun parseJson(jsonContent: String): Result<FetchResult> {
-        return try {
-            val root = JSONObject(jsonContent)
-            val nbiRules = root.optJSONObject("NBIRules") ?: return Result.failure(Exception("Missing NBIRules"))
-            val appCount = nbiRules.length()
-            val configName = root.optString("name", "沉浸规则")
-            Result.success(FetchResult(
-                rawJson = jsonContent,
-                appCount = appCount,
-                configName = configName,
-                nbiRules = nbiRules,
-            ))
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+    fun parseJson(jsonContent: String): Result<FetchResult> = runCatching {
+        parseJsonContent(jsonContent)
     }
 
     private suspend fun fetchUrl(urlString: String): Result<FetchResult> = withContext(Dispatchers.IO) {
@@ -57,22 +42,23 @@ object RuleFetcher {
             }
 
             val rawJson = conn.inputStream.bufferedReader().use { it.readText() }
-
-            val root = JSONObject(rawJson)
-            val nbiRules = root.optJSONObject("NBIRules") ?: return@withContext Result.failure(Exception("Missing NBIRules"))
-            val appCount = nbiRules.length()
-            val configName = root.optString("name", "沉浸规则")
-
-            Result.success(FetchResult(
-                rawJson = rawJson,
-                appCount = appCount,
-                configName = configName,
-                nbiRules = nbiRules,
-            ))
+            runCatching { parseJsonContent(rawJson) }
         } catch (e: Exception) {
             Result.failure(e)
         } finally {
             conn.disconnect()
         }
+    }
+
+    private fun parseJsonContent(rawJson: String): FetchResult {
+        val root = JSONObject(rawJson)
+        val nbiRules = root.optJSONObject("NBIRules")
+            ?: throw IllegalArgumentException("Missing NBIRules")
+        return FetchResult(
+            rawJson = rawJson,
+            appCount = nbiRules.length(),
+            configName = root.optString("name", "沉浸规则"),
+            nbiRules = nbiRules,
+        )
     }
 }

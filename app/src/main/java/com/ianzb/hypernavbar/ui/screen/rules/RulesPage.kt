@@ -222,6 +222,37 @@ fun RulesPageView(
         if (isCustom) isCustomApplied = true
     }
 
+    /** 解析当前设备的 HyperOS 模式 */
+    fun resolveOsMode(): RuleConverter.OsMode =
+        SystemVersionDetector.getEffectiveOsMode(context)?.let { osmode ->
+            runCatching { RuleConverter.OsMode.valueOf(osmode.name) }
+                .getOrDefault(RuleConverter.detectOsMode())
+        } ?: RuleConverter.detectOsMode()
+
+    /** 合并订阅规则并应用，可选显示结果 Toast */
+    suspend fun doApply(cachedResults: MutableMap<String, RuleFetcher.FetchResult>, showToast: Boolean) {
+        val mergedJson = RuleCombiner.combine(configs.toList(), cachedResults)
+        val mode = resolveOsMode()
+        val targetContent = RuleConverter.convert(mergedJson, mode)
+        val targetPath = RuleConverter.getTargetPath(mode)
+        val totalApps = RuleCombiner.getTotalAppCount(cachedResults)
+        if (hasRoot) {
+            RootApplier.applyRules(targetContent, targetPath, context.cacheDir)
+            isCustomApplied = RootApplier.isCustomRulesApplied(targetPath)
+        }
+        saveApplyState(System.currentTimeMillis(), totalApps, isCustomApplied)
+        if (showToast) {
+            withContext(Dispatchers.Main) {
+                @Suppress("LocalContext")
+                val updateSuccessMsg = context.getString(R.string.rules_update_success, totalApps)
+                Toast.makeText(context, updateSuccessMsg, Toast.LENGTH_SHORT).show()
+                if (!hasRoot) {
+                    Toast.makeText(context, rulesRootRequiredText, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     // Load persisted state
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -272,22 +303,7 @@ fun RulesPageView(
                     try {
                         val cachedResults = fetchAndParseConfigs()
                         if (cachedResults.isNotEmpty()) {
-                            val mergedJson = RuleCombiner.combine(configs.toList(), cachedResults)
-                            val mode = SystemVersionDetector.getEffectiveOsMode(context)?.let { osmode ->
-                                try {
-                                    RuleConverter.OsMode.valueOf(osmode.name)
-                                } catch (_: Exception) {
-                                    RuleConverter.detectOsMode()
-                                }
-                            } ?: RuleConverter.detectOsMode()
-                            val targetContent = RuleConverter.convert(mergedJson, mode)
-                            val targetPath = RuleConverter.getTargetPath(mode)
-                            val totalApps = RuleCombiner.getTotalAppCount(cachedResults)
-                            if (hasRoot) {
-                                RootApplier.applyRules(targetContent, targetPath, context.cacheDir)
-                                isCustomApplied = RootApplier.isCustomRulesApplied(targetPath)
-                            }
-                            saveApplyState(System.currentTimeMillis(), totalApps, isCustomApplied)
+                            doApply(cachedResults, showToast = false)
                         }
                     } finally {
                         isApplying = false
@@ -303,30 +319,7 @@ fun RulesPageView(
             try {
                 val cachedResults = fetchAndParseConfigs()
                 if (cachedResults.isNotEmpty()) {
-                    val mergedJson = RuleCombiner.combine(configs.toList(), cachedResults)
-                    val mode = SystemVersionDetector.getEffectiveOsMode(context)?.let { osmode ->
-                        try {
-                            RuleConverter.OsMode.valueOf(osmode.name)
-                        } catch (_: Exception) {
-                            RuleConverter.detectOsMode()
-                        }
-                    } ?: RuleConverter.detectOsMode()
-                    val targetContent = RuleConverter.convert(mergedJson, mode)
-                    val targetPath = RuleConverter.getTargetPath(mode)
-                    val totalApps = RuleCombiner.getTotalAppCount(cachedResults)
-                    if (hasRoot) {
-                        RootApplier.applyRules(targetContent, targetPath, context.cacheDir)
-                        isCustomApplied = RootApplier.isCustomRulesApplied(targetPath)
-                    }
-                    saveApplyState(System.currentTimeMillis(), totalApps, isCustomApplied)
-                    withContext(Dispatchers.Main) {
-                        @Suppress("LocalContext")
-                        val updateSuccessMsg = context.getString(R.string.rules_update_success, totalApps)
-                        Toast.makeText(context, updateSuccessMsg, Toast.LENGTH_SHORT).show()
-                        if (!hasRoot) {
-                            Toast.makeText(context, rulesRootRequiredText, Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                    doApply(cachedResults, showToast = true)
                 }
             } finally {
                 isApplying = false

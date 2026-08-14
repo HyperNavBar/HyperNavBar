@@ -4,51 +4,55 @@ import org.json.JSONObject
 
 object RuleCombiner {
 
+    private const val DEFAULT_DATA_VERSION = "999999"
+    private const val DEFAULT_NAME = "沉浸规则"
+    private const val MODULES = "navigation_bar_immersive_application_config_new"
+    private const val MODIFY_APPS = "modifyApps"
+
     fun combine(configs: List<RuleConfigSource>, fetchResults: Map<String, RuleFetcher.FetchResult>): JSONObject {
+        // priority 降序: 下方订阅(priority 大)先处理作基底, 上方订阅(priority 小)后处理覆盖 → 上方获胜
         val sortedConfigs = configs.sortedByDescending { it.priority }
 
         val mergedNBIRules = JSONObject()
-        val mergedRoot = JSONObject()
 
         for (config in sortedConfigs) {
-            val result = fetchResults[config.id] ?: continue
-            val nbiRules = result.nbiRules
-
+            val nbiRules = fetchResults[config.id]?.nbiRules ?: continue
             val keys = nbiRules.keys()
             while (keys.hasNext()) {
                 val pkg = keys.next()
                 val appRule = nbiRules.getJSONObject(pkg)
-
                 if (mergedNBIRules.has(pkg)) {
-                    val existing = mergedNBIRules.getJSONObject(pkg)
-                    mergeAppRule(existing, appRule)
+                    mergeAppRule(mergedNBIRules.getJSONObject(pkg), appRule)
                 } else {
                     mergedNBIRules.put(pkg, JSONObject(appRule.toString()))
                 }
             }
         }
 
-        // 元数据 (name/dataVersion/modules/modifyApps) 取自优先级最高（列表最上方、合并中获胜）的订阅。
-        // sortedConfigs 为 priority 降序，从后往前找第一个存在于 fetchResults 的即 priority 最小（列表顶部、合并获胜方）。
+        // 元数据取自优先级最高（列表最上方、合并中获胜）的订阅，与生效规则保持一致
         val winningResult = sortedConfigs.asReversed().firstNotNullOfOrNull { config ->
             fetchResults[config.id]
         }
-        val rootJson = JSONObject(winningResult?.rawJson ?: "{}")
-        mergedRoot.put("dataVersion", rootJson.optString("dataVersion", "999999"))
-        mergedRoot.put("name", rootJson.optString("name", "沉浸规则"))
-        mergedRoot.put("modules", rootJson.optString("modules", "navigation_bar_immersive_application_config_new"))
-        mergedRoot.put("modifyApps", rootJson.optString("modifyApps", "modifyApps"))
+
+        return buildRoot(winningResult?.rawJson, mergedNBIRules)
+    }
+
+    private fun buildRoot(rawJson: String?, mergedNBIRules: JSONObject): JSONObject {
+        val rootJson = JSONObject(rawJson ?: "{}")
+        val mergedRoot = JSONObject()
+        mergedRoot.put("dataVersion", rootJson.optString("dataVersion", DEFAULT_DATA_VERSION))
+        mergedRoot.put("name", rootJson.optString("name", DEFAULT_NAME))
+        mergedRoot.put("modules", rootJson.optString("modules", MODULES))
+        mergedRoot.put("modifyApps", rootJson.optString("modifyApps", MODIFY_APPS))
 
         val sortedNBIRules = JSONObject()
-        val keys = sortedSetOf<String>().also { set ->
+        for (key in sortedSetOf<String>().also { set ->
             val iter = mergedNBIRules.keys()
             while (iter.hasNext()) set.add(iter.next())
-        }
-        for (key in keys) {
+        }) {
             sortedNBIRules.put(key, mergedNBIRules.get(key))
         }
         mergedRoot.put("NBIRules", sortedNBIRules)
-
         return mergedRoot
     }
 
@@ -63,7 +67,7 @@ object RuleCombiner {
                 existingActivities.put(activity, newActivities.get(activity))
             }
         } else if (newActivities != null) {
-            existing.put("activityRules", JSONObject(newActivities.toString()))
+            existing.put("activityRules", newActivities)
         }
 
         if (newRule.has("enable")) {
@@ -77,10 +81,8 @@ object RuleCombiner {
     fun getTotalAppCount(fetchResults: Map<String, RuleFetcher.FetchResult>): Int {
         val allPackages = mutableSetOf<String>()
         for ((_, result) in fetchResults) {
-            val keys = result.nbiRules.keys()
-            while (keys.hasNext()) {
-                allPackages.add(keys.next())
-            }
+            val iter = result.nbiRules.keys()
+            while (iter.hasNext()) allPackages.add(iter.next())
         }
         return allPackages.size
     }

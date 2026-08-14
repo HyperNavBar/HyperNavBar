@@ -40,7 +40,8 @@ data class RuleConfigSource(
 
         fun fromJson(obj: JSONObject): RuleConfigSource = RuleConfigSource(
             id = obj.optString("id", ""),
-            type = try { RuleType.valueOf(obj.optString("type", "CLOUD")) } catch (_: Exception) { RuleType.CLOUD },
+            type = runCatching { RuleType.valueOf(obj.optString("type", "CLOUD")) }
+                .getOrDefault(RuleType.CLOUD),
             url = obj.optString("url", ""),
             jsonContent = obj.optString("jsonContent", ""),
             cachedContent = obj.optString("cachedContent", ""),

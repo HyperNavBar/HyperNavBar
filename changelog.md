@@ -108,7 +108,7 @@
 
 - **多云订阅支持** — 添加云端 JSON 订阅源或本地 JSON，自动拉取并解析 `NBIRules`
 - **优先级合并** — 多订阅源按优先级智能合并，按包名去重
-- **智能格式转换** — 自动检测 HyperOS 版本（OS2.2 / OS3.0 / OS3.3），输出对应格式（XML / JSON）
+- **智能格式转换** — 自动检测 HyperOS 版本（OS2.2 / OS3.0 / OS3.3 +），输出对应格式（XML / JSON）
 - **一键应用 & 热重载** — Root 写文件 + `cmd miui_navigation_bar_immersive update` 即时生效
 - **还原官方规则** — 支持备份 / 恢复系统默认规则
 - **开机自动应用** — 通过 `BootReceiver` 开机后自动应用规则

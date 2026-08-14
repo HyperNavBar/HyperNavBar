@@ -106,18 +106,20 @@ class RuleLogicTest {
                 "com.app&": {
                     "name": "A < B > C",
                     "activityRules": {
-                        "Act\\"D": { "mode": 1, "color": 0 }
+                        "Act\"D": { "mode": 1, "color": 0 }
                     }
                 }
             }
         }""")
         val xml = RuleConverter.convert(json, RuleConverter.OsMode.OS22)
-        assertFalse(xml.contains("com.app&"))
-        assertFalse(xml.contains("A < B > C"))
-        assertFalse(xml.contains("Act\"D"))
-        assertTrue(xml.contains("com.app&amp;"))
-        assertTrue(xml.contains("A &lt; B &gt; C"))
+        // 检查 XML 属性值中的转义结果（使用属性边界避免子串误判）
+        val nameAttr = Regex("name=\"([^\"]*)\"").findAll(xml).map { it.groupValues[1] }.toList()
+        // 包名和 name 字段都转义
+        assertTrue(nameAttr[0] == "com.app&amp;")
+        assertTrue(nameAttr[1] == "A &lt; B &gt; C")
         assertTrue(xml.contains("Act&quot;D"))
+        // activityRule 不包含未转义的双引号
+        assertFalse(Regex("Act\"D").containsMatchIn(xml))
     }
 
     private fun ruleConfig(id: String, priority: Int, json: String) = RuleConfigSource(

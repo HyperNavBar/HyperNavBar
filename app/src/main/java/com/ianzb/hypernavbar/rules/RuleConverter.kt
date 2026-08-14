@@ -152,14 +152,30 @@ object RuleConverter {
                 val color = if (rule.has("color") && !rule.isNull("color") && rule.opt("color") != 1) {
                     ":${rule.opt("color")}"
                 } else ""
-                activityParts.add("$actName:$mode$color")
+                // 对活动名单独转义，避免后续整体转义造成双重转义
+                activityParts.add("${escapeXml(actName)}:$mode$color")
             }
             val activityRuleStr = activityParts.joinToString(",")
 
-            sb.append("   <package name=\"$pkg\" enable=\"$enable\" activityRule=\"$activityRuleStr\" />\n")
+            val name = appRule.optString("name", "")
+            val nameAttr = if (name.isNotEmpty()) " name=\"${escapeXml(name)}\"" else ""
+            sb.append("   <package name=\"${escapeXml(pkg)}\"$nameAttr enable=\"$enable\" activityRule=\"$activityRuleStr\" />\n")
         }
 
         sb.append("</NBIRules>")
         return sb.toString()
+    }
+
+    private fun escapeXml(input: String): String = buildString {
+        for (c in input) {
+            when (c) {
+                '&' -> append("&amp;")
+                '<' -> append("&lt;")
+                '>' -> append("&gt;")
+                '"' -> append("&quot;")
+                '\'' -> append("&apos;")
+                else -> append(c)
+            }
+        }
     }
 }

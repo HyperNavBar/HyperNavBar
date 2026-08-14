@@ -28,11 +28,12 @@ object RuleCombiner {
             }
         }
 
-        val firstResult = sortedConfigs.firstNotNullOfOrNull { config ->
+        // 元数据 (name/dataVersion/modules/modifyApps) 取自优先级最高（列表最上方、合并中获胜）的订阅。
+        // sortedConfigs 为 priority 降序，从后往前找第一个存在于 fetchResults 的即 priority 最小（列表顶部、合并获胜方）。
+        val winningResult = sortedConfigs.asReversed().firstNotNullOfOrNull { config ->
             fetchResults[config.id]
         }
-
-        val rootJson = JSONObject(firstResult?.rawJson ?: "{}")
+        val rootJson = JSONObject(winningResult?.rawJson ?: "{}")
         mergedRoot.put("dataVersion", rootJson.optString("dataVersion", "999999"))
         mergedRoot.put("name", rootJson.optString("name", "沉浸规则"))
         mergedRoot.put("modules", rootJson.optString("modules", "navigation_bar_immersive_application_config_new"))

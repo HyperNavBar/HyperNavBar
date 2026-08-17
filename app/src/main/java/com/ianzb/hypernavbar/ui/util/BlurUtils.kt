@@ -15,6 +15,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -25,9 +26,10 @@ import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -35,6 +37,28 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 val LocalEnableBlur: ProvidableCompositionLocal<Boolean> = staticCompositionLocalOf { false }
 
 val LocalIsWideScreen: ProvidableCompositionLocal<Boolean> = staticCompositionLocalOf { false }
+
+/**
+ * 顶栏渐进模糊（Progressive Blur）统一参数。
+ *
+ * 所有页面的顶栏模糊都从这里读取，修改后重新编译即可全局生效。
+ */
+object TopBarBlurConfig {
+    /** 模糊半径（dp），模糊最强处的强度 */
+    const val BlurRadius: Float = 15f
+
+    /** 渐变曲线指数：1 = 线性；>1 让模糊更快衰减到清晰端（示例为 2.2） */
+    const val GradientCurve: Float = 10f
+
+    /** 顶栏 surface 背景混合透明度（0~1），越大栏越实 */
+    const val SurfaceAlpha: Float = 0.3f
+
+    /**
+     * 滚动渐显距离（dp）：内容下滑该距离内，模糊从透明渐显到完整。
+     * 0 = 顶栏常驻完整模糊（推荐，各页面顶部即可见模糊）。
+     */
+    val ScrollFadeDistance: Dp = 0.dp
+}
 
 @Composable
 fun rememberBlurBackdrop(): LayerBackdrop? {
@@ -59,24 +83,38 @@ fun isInDarkTheme(): Boolean {
 fun BlurredBar(
     backdrop: LayerBackdrop?,
     blurEnabled: Boolean,
+    scrollBehavior: ScrollBehavior? = null,
     content: @Composable () -> Unit,
 ) {
-    Box(
-        modifier = if (blurEnabled && backdrop != null) {
-            Modifier.textureBlur(
-                backdrop = backdrop,
-                shape = RectangleShape,
-                blurRadius = 25f,
-                colors = BlurDefaults.blurColors(
-                    blendColors = listOf(
-                        BlendColorEntry(color = MiuixTheme.colorScheme.surface.copy(0.8f)),
+    val blurActive = blurEnabled && backdrop != null
+    val scrollFadePx = with(LocalDensity.current) { TopBarBlurConfig.ScrollFadeDistance.toPx() }
+    Box {
+        if (blurActive) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .graphicsLayer {
+                        alpha = if (scrollFadePx > 0f) {
+                            scrollBehavior?.state
+                                ?.let { (-it.contentOffset / scrollFadePx).coerceIn(0f, 1f) }
+                                ?: 1f
+                        } else {
+                            1f
+                        }
+                    }
+                    .progressiveTextureBlur(
+                        backdrop = backdrop,
+                        shape = RectangleShape,
+                        gradient = ProgressiveBlur.Top.copy(curve = TopBarBlurConfig.GradientCurve),
+                        blurRadius = TopBarBlurConfig.BlurRadius,
+                        colors = BlurDefaults.blurColors(
+                            blendColors = listOf(
+                                BlendColorEntry(color = MiuixTheme.colorScheme.surface.copy(TopBarBlurConfig.SurfaceAlpha)),
+                            ),
+                        ),
                     ),
-                ),
             )
-        } else {
-            Modifier
-        },
-    ) {
+        }
         content()
     }
 }

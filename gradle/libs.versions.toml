@@ -9,7 +9,9 @@ activityCompose = "1.13.0"
 kotlin = "2.4.10"
 composeBom = "2026.08.00"
 
-miuix = "0.9.3"
+miuix = "0.9.4-rc01"
+# miuix-navigation3-ui 未随 0.9.4-rc01 发布，保留 0.9.3
+miuixNavigation = "0.9.3"
 
 
 [libraries]
@@ -35,7 +37,7 @@ miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur-android", ver
 miuix-preference = { group = "top.yukonga.miuix.kmp", name = "miuix-preference-android", version.ref = "miuix" }
 miuix-icons = { group = "top.yukonga.miuix.kmp", name = "miuix-icons-android", version.ref = "miuix" }
 miuix-squircle = { group = "top.yukonga.miuix.kmp", name = "miuix-squircle-android", version.ref = "miuix" }
-miuix-navigation = { group = "top.yukonga.miuix.kmp", name = "miuix-navigation3-ui-android", version.ref = "miuix" }
+miuix-navigation = { group = "top.yukonga.miuix.kmp", name = "miuix-navigation3-ui-android", version.ref = "miuixNavigation" }
 material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 
 [plugins]

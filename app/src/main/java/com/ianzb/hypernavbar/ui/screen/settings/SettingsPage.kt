@@ -172,7 +172,7 @@ fun SettingsPageView(
 
     Scaffold(
         topBar = {
-            BlurredBar(backdrop, blurActive) {
+            BlurredBar(backdrop, blurActive, scrollBehavior) {
                 TopAppBar(
                     title = title,
                     color = barColor,

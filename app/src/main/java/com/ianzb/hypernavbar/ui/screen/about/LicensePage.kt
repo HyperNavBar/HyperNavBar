@@ -62,7 +62,7 @@ fun LicensePageContent(
 
     Scaffold(
         topBar = {
-            BlurredBar(backdrop, blurActive) {
+            BlurredBar(backdrop, blurActive, topAppBarScrollBehavior) {
                 TopAppBar(
                     title = stringResource(R.string.third_party_licenses_title),
                     color = barColor,

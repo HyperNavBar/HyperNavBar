@@ -2,6 +2,7 @@ package com.ianzb.hypernavbar.rules
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Build
 import androidx.core.content.edit
 
 object SystemVersionDetector {
@@ -11,6 +12,10 @@ object SystemVersionDetector {
     private const val MODE_AUTO = "auto"
 
     enum class OsMode { OS22, OS30, OS33 }
+
+    fun getMarketName(): String {
+        return getProp("ro.product.marketname").ifEmpty { Build.MODEL }
+    }
 
     @Suppress("unused")
     fun getHyperVersion(): String {

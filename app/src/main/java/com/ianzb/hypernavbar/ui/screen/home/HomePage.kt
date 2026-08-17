@@ -79,7 +79,7 @@ fun HomePageView(
     val context = LocalContext.current
     val scrollBehavior = MiuixScrollBehavior()
     val title = stringResource(R.string.tab_home)
-    val deviceModel = Build.MODEL.ifEmpty { "Unknown" }
+    val deviceModel = SystemVersionDetector.getMarketName().ifEmpty { "Unknown" }
     val deviceName = Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
         ?: deviceModel
     val systemVersion = "Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})"

@@ -48,7 +48,7 @@ Pull Request 前建议在本地进行验证，提交时确保已填写更新日�
 |------------------------|---------|-----------------|---------|-------------------|
 | **name**               | string  | 任意字符串           | -       | 应用显示名称（仅用于方便管理） |
 | **enable**             | boolean | `true`, `false` | `false` | 基础启用标志            |
-| **disableVersionCode** | long    | 数字或 `null`      | `null`  | 当应用版本号大于等于此值时禁用规则 |
+| **disableVersionCode** | long    | 数字或 `null`      | `null`  | 当应用版本号小于等于此值时禁用规则 |
 
 **启用逻辑：** `最终启用状态 = enable OR enable31`，只要有一个为 true 就启用，两个都为 false 才禁用。实际使用时建议只使用 `enable`。
 
@@ -201,7 +201,7 @@ HyperNavBar 通过替换系统内的导航栏沉浸规则配置文件来实现�
 2. 活动名称不正确
 3. 被系统云控覆盖
 4. 配置文件格式错误
-5. 应用版本号超过 `disableVersionCode`
+5. 应用版本号未超过 `disableVersionCode`
 
 ### 通配符 `*` 会覆盖具体活动规则吗？
 

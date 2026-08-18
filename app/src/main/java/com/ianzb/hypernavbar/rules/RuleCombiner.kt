@@ -6,7 +6,7 @@ object RuleCombiner {
 
     private const val DEFAULT_DATA_VERSION = "999999"
     private const val DEFAULT_NAME = "沉浸规则"
-    private const val MODULES = "navigation_bar_immersive_application_config_new"
+    private const val NEW_FORMAT_MODULES = "HyperNavBar_config"
     private const val MODIFY_APPS = "modifyApps"
 
     fun combine(configs: List<RuleConfigSource>, fetchResults: Map<String, RuleFetcher.FetchResult>): JSONObject {
@@ -14,9 +14,18 @@ object RuleCombiner {
         val sortedConfigs = configs.sortedByDescending { it.priority }
 
         val mergedNBIRules = JSONObject()
+        // 记录每个订阅源（可能归一化后）的完整 root，供 buildRoot 提取元数据
+        val normalizedRawJson = mutableMapOf<String, String>()
 
         for (config in sortedConfigs) {
-            val nbiRules = fetchResults[config.id]?.nbiRules ?: continue
+            val result = fetchResults[config.id] ?: continue
+            // 旧格式订阅源（modules != HyperNavBar_config）在合并前归一化为内部新格式，
+            // 其 NBIRules 内 activity 已是 style 形态；新格式源保持原样
+            val root = JSONObject(result.rawJson)
+            val normalizedRoot = if (RuleConverter.isNewFormat(root)) root else RuleConverter.normalizeFromOfficial(root)
+            normalizedRawJson[config.id] = normalizedRoot.toString()
+
+            val nbiRules = normalizedRoot.optJSONObject("NBIRules") ?: continue
             val keys = nbiRules.keys()
             while (keys.hasNext()) {
                 val pkg = keys.next()
@@ -30,11 +39,11 @@ object RuleCombiner {
         }
 
         // 元数据取自优先级最高（列表最上方、合并中获胜）的订阅，与生效规则保持一致
-        val winningResult = sortedConfigs.asReversed().firstNotNullOfOrNull { config ->
-            fetchResults[config.id]
+        val winningRawJson = sortedConfigs.asReversed().firstNotNullOfOrNull { config ->
+            normalizedRawJson[config.id]
         }
 
-        return buildRoot(winningResult?.rawJson, mergedNBIRules)
+        return buildRoot(winningRawJson, mergedNBIRules)
     }
 
     private fun buildRoot(rawJson: String?, mergedNBIRules: JSONObject): JSONObject {
@@ -42,7 +51,8 @@ object RuleCombiner {
         val mergedRoot = JSONObject()
         mergedRoot.put("dataVersion", rootJson.optString("dataVersion", DEFAULT_DATA_VERSION))
         mergedRoot.put("name", rootJson.optString("name", DEFAULT_NAME))
-        mergedRoot.put("modules", rootJson.optString("modules", MODULES))
+        // 内部统一新格式：根级 modules 固定写 HyperNavBar_config，与 RuleConverter.isNewFormat 判定一致
+        mergedRoot.put("modules", NEW_FORMAT_MODULES)
         mergedRoot.put("modifyApps", rootJson.optString("modifyApps", MODIFY_APPS))
 
         val sortedNBIRules = JSONObject()

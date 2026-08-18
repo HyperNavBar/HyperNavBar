@@ -47,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ianzb.hypernavbar.R
 import com.ianzb.hypernavbar.RootHelper
+import com.ianzb.hypernavbar.rules.RuleConverter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -79,18 +80,13 @@ import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 // ── Option definitions ────────────────────────────────────────────────
-private val MODE_VALUES = listOf(-1, 0, 1, 2)
-private val SF_SAMPLING_VALUES = listOf(0, 1, 255)
+private val STYLE_VALUES = listOf("disabled", "floating", "sf", "view", "color", "default")
 private val DIALOG_POPUP_VALUES = listOf(0, 1, 2)
-
-private const val COLOR_TYPE_DEFAULT = 0
-private const val COLOR_TYPE_AUTO = 1
-private const val COLOR_TYPE_CUSTOM = 2
 
 private const val EMPTY_JSON = """{
     "dataVersion": "999999",
     "name": "沉浸规则",
-    "modules": "navigation_bar_immersive_application_config_new",
+    "modules": "HyperNavBar_config",
     "modifyApps": "modifyApps",
     "NBIRules": {}
 }"""
@@ -120,7 +116,8 @@ fun formatNbiJson(jsonStr: String): String {
         // Root key order: name, dataVersion, modules, modifyApps, NBIRules
         if (root.has("name")) sortedRoot.put("name", root.optString("name"))
         sortedRoot.put("dataVersion", root.optString("dataVersion", defaultDate))
-        sortedRoot.put("modules", root.optString("modules", "navigation_bar_immersive_application_config_new"))
+        // 内部统一新格式：根级 modules 固定为 HyperNavBar_config
+        sortedRoot.put("modules", "HyperNavBar_config")
         sortedRoot.put("modifyApps", root.optString("modifyApps", "modifyApps"))
         val sortedNbi = JSONObject()
         nbiRules.keys().asSequence().sorted().forEach { pkg ->
@@ -148,23 +145,25 @@ fun formatNbiJson(jsonStr: String): String {
     }
 }
 
-/**
- * Determine the color-type index from the JSON color value:
- *   0 = null (default), 1 = sentinel 1 (auto-detect), 2 = ARGB integer.
- */
-private fun colorTypeFromValue(color: Any?): Int = when {
-    color == null || color == JSONObject.NULL -> COLOR_TYPE_DEFAULT
-    color is Int && color == 1 -> COLOR_TYPE_AUTO
-    else -> COLOR_TYPE_CUSTOM
+/** hex 颜色字符串（RGBA 序 #RRGGBBAA）→ ARGB int；支持 #RRGGBBAA/#RRGGBB/无#号，6 位补 AA=FF。 */
+private fun hexColorToArgb(hex: String): Int {
+    val cleaned = hex.removePrefix("#")
+    val padded = if (cleaned.length == 6) cleaned + "FF" else cleaned
+    val r = padded.substring(0, 2).toIntOrNull(16) ?: 0
+    val g = padded.substring(2, 4).toIntOrNull(16) ?: 0
+    val b = padded.substring(4, 6).toIntOrNull(16) ?: 0
+    val a = if (padded.length >= 8) padded.substring(6, 8).toIntOrNull(16) ?: 0 else 0xFF
+    // Kotlin Int 有符号，按位或直接得到正确的有符号 ARGB int
+    return (a shl 24) or (r shl 16) or (g shl 8) or b
 }
 
-/**
- * The ARGB int stored in JSON, or 0xFF000000 (black) when no custom
- * color has been chosen yet.
- */
-private fun argbFromValue(color: Any?): Int = when (color) {
-    is Int -> color
-    else -> 0xFF000000.toInt()
+/** ARGB int → hex 颜色字符串（RGBA 序 "#RRGGBBAA"，对齐 RuleConverter.argbToHex）。 */
+private fun argbToHexColor(argb: Int): String {
+    val a = (argb ushr 24) and 0xFF
+    val r = (argb ushr 16) and 0xFF
+    val g = (argb ushr 8) and 0xFF
+    val b = argb and 0xFF
+    return String.format("#%02X%02X%02X%02X", r, g, b, a)
 }
 
 // ── Main editor (three stacked sheets) ────────────────────────────────
@@ -182,11 +181,19 @@ fun JsonRuleEditorSheet(
     var stagingJsonStr by remember { mutableStateOf(jsonInput) }    // volatile: changes during edits, reset per sheet
     var editVersion by remember { mutableIntStateOf(0) }
 
-    // Reset editingJsonStr to jsonInput every time the editor opens
+    // Reset editingJsonStr to jsonInput every time the editor opens;
+    // 旧格式输入（modules != HyperNavBar_config）先归一化为内部新格式
     LaunchedEffect(show) {
         if (show) {
-            editingJsonStr = jsonInput
-            stagingJsonStr = jsonInput
+            val parsed = parseJsonSafe(jsonInput)
+            if (!RuleConverter.isNewFormat(parsed)) {
+                val normalized = RuleConverter.normalizeFromOfficial(parsed).toString(2)
+                editingJsonStr = normalized
+                stagingJsonStr = normalized
+            } else {
+                editingJsonStr = jsonInput
+                stagingJsonStr = jsonInput
+            }
             editVersion = 0
         }
     }
@@ -236,7 +243,8 @@ fun JsonRuleEditorSheet(
                 if (!RootHelper.isAccessibilityServiceEnabled(ctx)) {
                     RootHelper.enableAccessibilityService(ctx)
                 }
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+            }
         }
         val intent = Intent(context, FloatingIdentifyService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -290,12 +298,7 @@ fun JsonRuleEditorSheet(
         val rules = nbiRules.optJSONObject(pkg)?.optJSONObject("activityRules")
         if (rules != null && !rules.has(activityName)) {
             rules.put(activityName, JSONObject().apply {
-                put("mode", 0)
-                put("color", JSONObject.NULL)
-                put("sf_sampling_mode", 0)
-                put("dialogMode", 1)
-                put("popupMode", 1)
-                put("appNavColorDisabled", 0)
+                put("style", "disabled")
             })
         }
 
@@ -331,7 +334,10 @@ fun JsonRuleEditorSheet(
         }
         onDispose {
             FloatingIdentifyService.pendingQuickAdd = null
-            try { context.unregisterReceiver(receiver) } catch (_: Exception) { }
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -363,24 +369,24 @@ fun JsonRuleEditorSheet(
         val app = nbiRules.optJSONObject(selectedPackage) ?: return false
         val rules = app.optJSONObject("activityRules") ?: return false
         val trimmedName = newName.trim()
-        
+
         // 检查名称是否为空
         if (trimmedName.isEmpty()) return false
-        
+
         // 检查是否与当前名称相同
         if (trimmedName == selectedActivity) return true
-        
+
         // 检查是否与其他活动重名
         if (rules.has(trimmedName)) return false
-        
+
         // 获取当前活动的JSON数据
         val actJson = rules.optJSONObject(selectedActivity) ?: return false
-        
+
         // 创建新的key，复制数据
         rules.put(trimmedName, JSONObject(actJson.toString()))
         // 删除旧key
         rules.remove(selectedActivity)
-        
+
         // 更新选中的活动名称
         selectedActivity = trimmedName
         saveRoot()
@@ -435,7 +441,10 @@ fun JsonRuleEditorSheet(
         }
 
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().scrollEndHaptic().overScrollVertical(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .scrollEndHaptic()
+                .overScrollVertical(),
         ) {
             // Search bar
             item {
@@ -479,7 +488,9 @@ fun JsonRuleEditorSheet(
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
                                 horizontalArrangement = Arrangement.End,
                             ) {
                                 TextButton(
@@ -516,7 +527,9 @@ fun JsonRuleEditorSheet(
             }
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(
@@ -568,7 +581,9 @@ fun JsonRuleEditorSheet(
                     showIndication = true,
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         BasicComponent(
@@ -596,8 +611,8 @@ fun JsonRuleEditorSheet(
                     Modifier.padding(
                         bottom = WindowInsets.navigationBars.asPaddingValues()
                             .calculateBottomPadding() +
-                            WindowInsets.captionBar.asPaddingValues()
-                                .calculateBottomPadding(),
+                                WindowInsets.captionBar.asPaddingValues()
+                                    .calculateBottomPadding(),
                     )
                 )
             }
@@ -626,7 +641,9 @@ fun JsonRuleEditorSheet(
             singleLine = true,
         )
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             TextButton(
@@ -671,7 +688,9 @@ fun JsonRuleEditorSheet(
             singleLine = true,
         )
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             TextButton(
@@ -690,12 +709,7 @@ fun JsonRuleEditorSheet(
                         ?: JSONObject().also { app?.put("activityRules", it) }
                     if (!rules.has(actName)) {
                         val newAct = JSONObject()
-                        newAct.put("mode", 0)
-                        newAct.put("color", JSONObject.NULL)
-                        newAct.put("sf_sampling_mode", 0)
-                        newAct.put("dialogMode", 1)
-                        newAct.put("popupMode", 1)
-                        newAct.put("appNavColorDisabled", 0)
+                        newAct.put("style", "disabled")
                         rules.put(actName, newAct)
                         saveRoot()
                     }
@@ -748,8 +762,8 @@ fun JsonRuleEditorSheet(
                 },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
-                )
-            }
+            )
+        }
     }
     // ── Sheet 2: Activity list ────────────────────────────────────────
     WindowBottomSheet(
@@ -797,7 +811,10 @@ fun JsonRuleEditorSheet(
         }
 
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().scrollEndHaptic().overScrollVertical(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .scrollEndHaptic()
+                .overScrollVertical(),
         ) {
             item {
                 SmallTitle(
@@ -847,7 +864,9 @@ fun JsonRuleEditorSheet(
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
                                 horizontalArrangement = Arrangement.End,
                             ) {
                                 TextButton(
@@ -902,7 +921,9 @@ fun JsonRuleEditorSheet(
                         newActName = ""
                         showAddActivityDialog = true
                     },
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
                     colors = ButtonDefaults.textButtonColorsPrimary(),
                 )
             }
@@ -920,39 +941,23 @@ fun JsonRuleEditorSheet(
 
             items(filteredActKeys) { actName ->
                 val actJson = activityRules.optJSONObject(actName)
-                val mode = actJson?.optIntOrNull("mode")
-                val modeLabels = listOf(
-                    stringResource(R.string.editor_mode_auto),
-                    stringResource(R.string.editor_mode_disabled),
-                    stringResource(R.string.editor_mode_color_pick),
-                    stringResource(R.string.editor_mode_float),
-                )
-                val modeLabel = mode?.let { m ->
-                    modeLabels.getOrNull(MODE_VALUES.indexOf(m))
-                } ?: "—"
-                val sfMode = actJson?.optIntOrNull("sf_sampling_mode") ?: 0
-                val color = actJson?.opt("color")
-                val colorLabel = when (colorTypeFromValue(color)) {
-                    COLOR_TYPE_AUTO -> stringResource(R.string.editor_color_auto_short)
-                    COLOR_TYPE_CUSTOM -> stringResource(R.string.editor_color_hex_short, (argbFromValue(color) and 0xFFFFFF).toString(16).padStart(6, '0').uppercase())
-                    else -> stringResource(R.string.editor_color_default_short)
-                }
 
-                // 构建summary显示逻辑
-                val summary = buildString {
-                    // 如果SF采样模式是强制启用，只显示采样取色模式
-                    if (sfMode == 1) {
-                        append(stringResource(R.string.editor_sf_sampling_short))
-                    } else {
-                        // 否则显示mode
-                        append(modeLabel)
-                        // 如果mode是1（视图取色模式），显示color项
-                        if (mode == 1) {
-                            append(" · ")
-                            append(colorLabel)
-                        }
+                // 按 style 生成摘要：sf→采样取色；color→hex 短标签；floating→悬浮；
+                // view→取色；default→自动；disabled/无 style→禁用
+                val style = actJson?.optString("style", "") ?: ""
+                val styleSummary = when (style) {
+                    "sf" -> stringResource(R.string.editor_style_sf)
+                    "color" -> {
+                        val hex = (actJson?.optString("color", "") ?: "").removePrefix("#").take(6).uppercase()
+                        stringResource(R.string.editor_color_hex_short, hex)
                     }
+
+                    "floating" -> stringResource(R.string.editor_mode_float)
+                    "view" -> stringResource(R.string.editor_style_view)
+                    "default" -> stringResource(R.string.editor_mode_auto)
+                    else -> stringResource(R.string.editor_mode_disabled)
                 }
+                val summary = buildString { append(styleSummary) }
 
                 Card(
                     modifier = Modifier
@@ -967,7 +972,9 @@ fun JsonRuleEditorSheet(
                     showIndication = true,
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         BasicComponent(
@@ -1005,8 +1012,8 @@ fun JsonRuleEditorSheet(
                     Modifier.padding(
                         bottom = WindowInsets.navigationBars.asPaddingValues()
                             .calculateBottomPadding() +
-                            WindowInsets.captionBar.asPaddingValues()
-                                .calculateBottomPadding(),
+                                WindowInsets.captionBar.asPaddingValues()
+                                    .calculateBottomPadding(),
                     )
                 )
             }
@@ -1052,15 +1059,13 @@ fun JsonRuleEditorSheet(
         val currentAct = getActivityJson() ?: JSONObject()
         val act = currentAct
 
-        val mode = act.optIntOrNull("mode") ?: -1
-        val modeIdx = MODE_VALUES.indexOf(mode).coerceAtLeast(0)
+        // style 六值：default/view/sf/color/floating/disabled，缺失回退 disabled
+        val style = act.optString("style", "disabled")
+        val styleIdx = STYLE_VALUES.indexOf(style).let { if (it >= 0) it else STYLE_VALUES.size - 1 }
 
-        val color = act.opt("color")
-        val colorType = colorTypeFromValue(color)
-        val argb = argbFromValue(color)
-
-        val sfMode = act.optIntOrNull("sf_sampling_mode") ?: 0
-        val sfIdx = SF_SAMPLING_VALUES.indexOf(sfMode).coerceAtLeast(0)
+        // style=color 时颜色以 RGBA hex 字符串（#RRGGBBAA）存储
+        val colorHex = act.optString("color", "#000000FF")
+        val argb = hexColorToArgb(colorHex)
 
         val dialogMode = act.optIntOrNull("dialogMode") ?: 1
         val dialogIdx = DIALOG_POPUP_VALUES.indexOf(dialogMode).coerceAtLeast(0)
@@ -1071,7 +1076,10 @@ fun JsonRuleEditorSheet(
         val appNavDisabled = act.optInt("appNavColorDisabled", 0) == 1
 
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().scrollEndHaptic().overScrollVertical(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .scrollEndHaptic()
+                .overScrollVertical(),
         ) {
             item {
                 SmallTitle(
@@ -1098,7 +1106,7 @@ fun JsonRuleEditorSheet(
                         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             TextField(
                                 value = actNameField,
-                                onValueChange = { 
+                                onValueChange = {
                                     actNameField = it
                                     // 检查是否重名（排除当前名称）
                                     actNameError = it.trim() != selectedActivity && activityRules.has(it.trim())
@@ -1116,12 +1124,14 @@ fun JsonRuleEditorSheet(
                                 )
                             }
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
                                 horizontalArrangement = Arrangement.End,
                             ) {
                                 TextButton(
                                     text = stringResource(R.string.rules_cancel),
-                                    onClick = { 
+                                    onClick = {
                                         isEditingActName = false
                                         actNameField = selectedActivity
                                         actNameError = false
@@ -1153,16 +1163,18 @@ fun JsonRuleEditorSheet(
                 }
             }
 
-            // ── mode spinner ──
+            // ── style dropdown ──
             item {
-                val modeLabels = listOf(
-                    stringResource(R.string.editor_mode_auto),
-                    stringResource(R.string.editor_mode_disabled),
-                    stringResource(R.string.editor_mode_color_pick),
-                    stringResource(R.string.editor_mode_float),
+                val styleLabels = listOf(
+                    stringResource(R.string.editor_mode_disabled),    // disabled
+                    stringResource(R.string.editor_mode_float),       // floating
+                    stringResource(R.string.editor_style_sf),         // sf
+                    stringResource(R.string.editor_style_view),       // view
+                    stringResource(R.string.editor_color_custom),     // color
+                    stringResource(R.string.editor_mode_auto),        // default
                 )
-                val modeItems = modeLabels.mapIndexed { i, text ->
-                    DropdownItem(text = text, summary = MODE_VALUES[i].toString())
+                val styleItems = styleLabels.mapIndexed { i, text ->
+                    DropdownItem(text = text, summary = STYLE_VALUES[i])
                 }
                 Card(
                     modifier = Modifier
@@ -1170,129 +1182,98 @@ fun JsonRuleEditorSheet(
                         .padding(bottom = 6.dp),
                 ) {
                     WindowDropdownPreference(
-                        title = stringResource(R.string.editor_mode_title),
-                        summary = stringResource(R.string.editor_mode_summary),
-                        entry = DropdownEntry(modeItems.mapIndexed { i, item ->
+                        title = stringResource(R.string.editor_style_title),
+                        summary = stringResource(R.string.editor_style_summary),
+                        entry = DropdownEntry(styleItems.mapIndexed { i, item ->
                             item.copy(
-                                selected = i == modeIdx,
-                                onClick = { updateActivityField("mode", MODE_VALUES[i]) },
+                                selected = i == styleIdx,
+                                onClick = { updateActivityField("style", STYLE_VALUES[i]) },
                             )
                         }),
                     )
                 }
             }
 
-            // ── color ──
+            // ── color（仅 style=color 时显示）──
             item {
-                var pickerColor by remember(argb) { mutableStateOf(Color(argb)) }
-                val aVal = (argb ushr 24) and 0xFF
-                val rVal = (argb ushr 16) and 0xFF
-                val gVal = (argb ushr 8) and 0xFF
-                val bVal = argb and 0xFF
-                var rgbaInput by remember(argb) { mutableStateOf("$rVal, $gVal, $bVal, $aVal") }
-                var hexInput by remember(argb) {
-                    mutableStateOf("#${rVal.toString(16).padStart(2, '0')}${gVal.toString(16).padStart(2, '0')}${bVal.toString(16).padStart(2, '0')}${aVal.toString(16).padStart(2, '0')}".uppercase())
-                }
-                var showColorPicker by remember(colorType) { mutableStateOf(colorType == COLOR_TYPE_CUSTOM) }
-    var showScreenColorPicker by remember { mutableStateOf(false) }
-    var screenColorResult by remember { mutableStateOf<Int?>(null) }
-
-    // ── Screen color picker: start service + register callback ────────
-    LaunchedEffect(showScreenColorPicker) {
-        if (!showScreenColorPicker) return@LaunchedEffect
-        // Register callback to receive color result
-        ScreenColorPickerService.pendingColorResult = { colorArgb ->
-            screenColorResult = colorArgb
-        }
-        // Start the service
-        val ctx = context
-        withContext(Dispatchers.IO) {
-            try {
-                if (!RootHelper.isRootAvailable && !RootHelper.checkRoot()) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(ctx, ctx.getString(R.string.editor_floating_identify_root_required), Toast.LENGTH_SHORT).show()
-                    }
-                    return@withContext
-                }
-                if (!RootHelper.isOverlayPermissionGranted(ctx)) {
-                    RootHelper.grantOverlayPermission(ctx)
-                }
-            } catch (_: Exception) {}
-        }
-        val intent = Intent(context, ScreenColorPickerService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            @Suppress("DEPRECATION")
-            context.startService(intent)
-        }
-        showScreenColorPicker = false
-    }
-
-                /** Sync both inputs and picker from ARGB int */
-                fun syncFromArgb(newArgb: Int) {
-                    pickerColor = Color(newArgb)
-                    updateActivityField("color", newArgb)
-                    val r = (newArgb ushr 16) and 0xFF
-                    val g = (newArgb ushr 8) and 0xFF
-                    val b = newArgb and 0xFF
-                    val a = (newArgb ushr 24) and 0xFF
-                    rgbaInput = "$r, $g, $b, $a"
-                    hexInput = "#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}${a.toString(16).padStart(2, '0')}".uppercase()
-                }
-
-                // Handle screen color picker result
-                LaunchedEffect(screenColorResult) {
-                    screenColorResult?.let { colorArgb ->
-                        syncFromArgb(colorArgb)
-                        screenColorResult = null
-                    }
-                }
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp),
+                AnimatedVisibility(
+                    visible = style == "color",
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut(),
                 ) {
                     Column {
-                        val colorTypeLabels = listOf(
-                            stringResource(R.string.editor_color_default),
-                            stringResource(R.string.editor_color_auto),
-                            stringResource(R.string.editor_color_custom),
-                        )
-                        val colorTypeSummaries = listOf(
-                            "null",
-                            "1",
-                            stringResource(R.string.editor_color_custom_value),
-                        )
-                        val colorTypeItems = colorTypeLabels.mapIndexed { i, text ->
-                            DropdownItem(text = text, summary = colorTypeSummaries[i])
+                        var pickerColor by remember(argb) { mutableStateOf(Color(argb)) }
+                        val aVal = (argb ushr 24) and 0xFF
+                        val rVal = (argb ushr 16) and 0xFF
+                        val gVal = (argb ushr 8) and 0xFF
+                        val bVal = argb and 0xFF
+                        var rgbaInput by remember(argb) { mutableStateOf("$rVal, $gVal, $bVal, $aVal") }
+                        var hexInput by remember(argb) {
+                            mutableStateOf("#${rVal.toString(16).padStart(2, '0')}${gVal.toString(16).padStart(2, '0')}${bVal.toString(16).padStart(2, '0')}${aVal.toString(16).padStart(2, '0')}".uppercase())
                         }
-                        WindowDropdownPreference(
-                            title = stringResource(R.string.editor_color_title),
-                            summary = stringResource(R.string.editor_color_summary),
-                            entry = DropdownEntry(colorTypeItems.mapIndexed { i, item ->
-                                item.copy(
-                                    selected = i == colorType,
-                                    onClick = {
-                                        when (i) {
-                                            COLOR_TYPE_DEFAULT -> updateActivityField("color", JSONObject.NULL)
-                                            COLOR_TYPE_AUTO -> updateActivityField("color", 1)
-                                            COLOR_TYPE_CUSTOM -> updateActivityField("color", 0xFF000000.toInt())
+                        var showScreenColorPicker by remember { mutableStateOf(false) }
+                        var screenColorResult by remember { mutableStateOf<Int?>(null) }
+
+                        // ── Screen color picker: start service + register callback ────────
+                        LaunchedEffect(showScreenColorPicker) {
+                            if (!showScreenColorPicker) return@LaunchedEffect
+                            // Register callback to receive color result
+                            ScreenColorPickerService.pendingColorResult = { colorArgb ->
+                                screenColorResult = colorArgb
+                            }
+                            // Start the service
+                            val ctx = context
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    if (!RootHelper.isRootAvailable && !RootHelper.checkRoot()) {
+                                        withContext(Dispatchers.Main) {
+                                            Toast.makeText(ctx, ctx.getString(R.string.editor_floating_identify_root_required), Toast.LENGTH_SHORT).show()
                                         }
-                                        showColorPicker = (i == COLOR_TYPE_CUSTOM)
-                                    },
-                                )
-                            }),
-                        )
-                        // Custom color editor - animated appearance
-                        AnimatedVisibility(
-                            visible = showColorPicker && colorType == COLOR_TYPE_CUSTOM,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut(),
+                                        return@withContext
+                                    }
+                                    if (!RootHelper.isOverlayPermissionGranted(ctx)) {
+                                        RootHelper.grantOverlayPermission(ctx)
+                                    }
+                                } catch (_: Exception) {
+                                }
+                            }
+                            val intent = Intent(context, ScreenColorPickerService::class.java)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(intent)
+                            } else {
+                                @Suppress("DEPRECATION")
+                                context.startService(intent)
+                            }
+                            showScreenColorPicker = false
+                        }
+
+                        /** Sync both inputs and picker from ARGB int；写回 RGBA hex 字符串 */
+                        fun syncFromArgb(newArgb: Int) {
+                            pickerColor = Color(newArgb)
+                            updateActivityField("color", argbToHexColor(newArgb))
+                            val r = (newArgb ushr 16) and 0xFF
+                            val g = (newArgb ushr 8) and 0xFF
+                            val b = newArgb and 0xFF
+                            val a = (newArgb ushr 24) and 0xFF
+                            rgbaInput = "$r, $g, $b, $a"
+                            hexInput = "#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}${a.toString(16).padStart(2, '0')}".uppercase()
+                        }
+
+                        // Handle screen color picker result
+                        LaunchedEffect(screenColorResult) {
+                            screenColorResult?.let { colorArgb ->
+                                syncFromArgb(colorArgb)
+                                screenColorResult = null
+                            }
+                        }
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 6.dp),
                         ) {
                             Column {
-                                // Color preview + ARGB display
+                                // Color preview + hex display
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1308,7 +1289,7 @@ fun JsonRuleEditorSheet(
                                     )
                                     Column(modifier = Modifier.padding(start = 12.dp)) {
                                         Text(
-                                            text = "ARGB: $argb",
+                                            text = "HEX: $hexInput",
                                             style = MiuixTheme.textStyles.body2,
                                             color = MiuixTheme.colorScheme.onSurface,
                                         )
@@ -1360,7 +1341,8 @@ fun JsonRuleEditorSheet(
                                                     val a = if (hex.length == 8) hex.substring(6, 8).toInt(16) else 255
                                                     val newArgb = (a shl 24) or (r shl 16) or (g shl 8) or b
                                                     syncFromArgb(newArgb)
-                                                } catch (_: Exception) {}
+                                                } catch (_: Exception) {
+                                                }
                                             }
                                         },
                                         label = stringResource(R.string.editor_hex_hint),
@@ -1393,105 +1375,78 @@ fun JsonRuleEditorSheet(
                 }
             }
 
-            // ── sf_sampling_mode spinner ──
+            // ── 高级设置：dialogMode / popupMode / appNavColorDisabled ──
             item {
-                val sfLabels = listOf(
-                    stringResource(R.string.editor_mode_auto),
-                    stringResource(R.string.editor_sf_force_enable),
-                    stringResource(R.string.editor_sf_force_disable),
-                )
-                val sfItems = sfLabels.mapIndexed { i, text ->
-                    DropdownItem(text = text, summary = SF_SAMPLING_VALUES[i].toString())
-                }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp),
-                ) {
-                    WindowDropdownPreference(
-                        title = stringResource(R.string.editor_sf_title),
-                        summary = stringResource(R.string.editor_sf_summary),
-                        entry = DropdownEntry(sfItems.mapIndexed { i, item ->
-                            item.copy(
-                                selected = i == sfIdx,
-                                onClick = { updateActivityField("sf_sampling_mode", SF_SAMPLING_VALUES[i]) },
-                            )
-                        }),
+                Column {
+                    SmallTitle(
+                        text = stringResource(R.string.editor_advanced_settings),
+                        modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
                     )
-                }
-            }
-
-            // ── dialogMode spinner ──
-            item {
-                val dialogLabels = listOf(
-                    stringResource(R.string.editor_mode_disabled),
-                    stringResource(R.string.editor_dialog_view_sampling),
-                    stringResource(R.string.editor_dialog_sf_sampling),
-                )
-                val dialogItems = dialogLabels.mapIndexed { i, text ->
-                    DropdownItem(text = text, summary = DIALOG_POPUP_VALUES[i].toString())
-                }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp),
-                ) {
-                    WindowDropdownPreference(
-                        title = stringResource(R.string.editor_dialog_title),
-                        summary = stringResource(R.string.editor_dialog_summary),
-                        entry = DropdownEntry(dialogItems.mapIndexed { i, item ->
-                            item.copy(
-                                selected = i == dialogIdx,
-                                onClick = { updateActivityField("dialogMode", DIALOG_POPUP_VALUES[i]) },
-                            )
-                        }),
+                    // dialogMode spinner
+                    val dialogLabels = listOf(
+                        stringResource(R.string.editor_mode_disabled),
+                        stringResource(R.string.editor_dialog_view_sampling),
+                        stringResource(R.string.editor_dialog_sf_sampling),
                     )
-                }
-            }
-
-            // ── popupMode spinner ──
-            item {
-                val popupLabels = listOf(
-                    stringResource(R.string.editor_mode_disabled),
-                    stringResource(R.string.editor_dialog_view_sampling),
-                    stringResource(R.string.editor_dialog_sf_sampling),
-                )
-                val popupItems = popupLabels.mapIndexed { i, text ->
-                    DropdownItem(text = text, summary = DIALOG_POPUP_VALUES[i].toString())
-                }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp),
-                ) {
-                    WindowDropdownPreference(
-                        title = stringResource(R.string.editor_popup_title),
-                        summary = stringResource(R.string.editor_popup_summary),
-                        entry = DropdownEntry(popupItems.mapIndexed { i, item ->
-                            item.copy(
-                                selected = i == popupIdx,
-                                onClick = { updateActivityField("popupMode", DIALOG_POPUP_VALUES[i]) },
-                            )
-                        }),
+                    val dialogItems = dialogLabels.mapIndexed { i, text ->
+                        DropdownItem(text = text, summary = DIALOG_POPUP_VALUES[i].toString())
+                    }
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp),
+                    ) {
+                        WindowDropdownPreference(
+                            title = stringResource(R.string.editor_dialog_title),
+                            summary = stringResource(R.string.editor_dialog_summary),
+                            entry = DropdownEntry(dialogItems.mapIndexed { i, item ->
+                                item.copy(
+                                    selected = i == dialogIdx,
+                                    onClick = { updateActivityField("dialogMode", DIALOG_POPUP_VALUES[i]) },
+                                )
+                            }),
+                        )
+                    }
+                    // popupMode spinner
+                    val popupLabels = listOf(
+                        stringResource(R.string.editor_mode_disabled),
+                        stringResource(R.string.editor_dialog_view_sampling),
+                        stringResource(R.string.editor_dialog_sf_sampling),
                     )
-                }
-            }
-
-            // ── appNavColorDisabled ──
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp),
-                ) {
-                    SwitchPreference(
-                        checked = appNavDisabled,
-                        onCheckedChange = { checked ->
-                            updateActivityField("appNavColorDisabled", if (checked) 1 else 0)
-                        },
-                        title = stringResource(R.string.editor_disable_app_nav_color),
-                        summary = stringResource(R.string.editor_disable_app_nav_color_summary),
-                    )
+                    val popupItems = popupLabels.mapIndexed { i, text ->
+                        DropdownItem(text = text, summary = DIALOG_POPUP_VALUES[i].toString())
+                    }
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp),
+                    ) {
+                        WindowDropdownPreference(
+                            title = stringResource(R.string.editor_popup_title),
+                            summary = stringResource(R.string.editor_popup_summary),
+                            entry = DropdownEntry(popupItems.mapIndexed { i, item ->
+                                item.copy(
+                                    selected = i == popupIdx,
+                                    onClick = { updateActivityField("popupMode", DIALOG_POPUP_VALUES[i]) },
+                                )
+                            }),
+                        )
+                    }
+                    // appNavColorDisabled
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp),
+                    ) {
+                        SwitchPreference(
+                            checked = appNavDisabled,
+                            onCheckedChange = { checked ->
+                                updateActivityField("appNavColorDisabled", if (checked) 1 else 0)
+                            },
+                            title = stringResource(R.string.editor_disable_app_nav_color),
+                            summary = stringResource(R.string.editor_disable_app_nav_color_summary),
+                        )
+                    }
                 }
             }
 
@@ -1512,8 +1467,8 @@ fun JsonRuleEditorSheet(
                     Modifier.padding(
                         bottom = WindowInsets.navigationBars.asPaddingValues()
                             .calculateBottomPadding() +
-                            WindowInsets.captionBar.asPaddingValues()
-                                .calculateBottomPadding(),
+                                WindowInsets.captionBar.asPaddingValues()
+                                    .calculateBottomPadding(),
                     )
                 )
             }

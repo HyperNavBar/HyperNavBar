@@ -135,19 +135,13 @@
     <string name="rules_time_second">%d秒</string>
 
     <!-- Editor – mode labels -->
-    <string name="editor_mode_auto">自动模式</string>
-    <string name="editor_mode_disabled">禁用模式</string>
-    <string name="editor_mode_color_pick">视图取色模式</string>
-    <string name="editor_mode_float">悬浮模式</string>
-
-    <!-- Editor – SF sampling labels -->
-    <string name="editor_sf_force_enable">强制启用</string>
-    <string name="editor_sf_force_disable">强制禁用</string>
-    <string name="editor_sf_sampling_short">采样取色模式</string>
+    <string name="editor_mode_auto">自动</string>
+    <string name="editor_mode_disabled">禁用</string>
+    <string name="editor_mode_float">悬浮</string>
 
     <!-- Editor – dialog / popup labels -->
-    <string name="editor_dialog_view_sampling">视图采样模式</string>
-    <string name="editor_dialog_sf_sampling">SF采样模式</string>
+    <string name="editor_dialog_view_sampling">视图采样</string>
+    <string name="editor_dialog_sf_sampling">采样取色</string>
 
     <!-- Editor – color labels -->
     <string name="editor_color_default">默认</string>
@@ -180,15 +174,11 @@
     <string name="editor_color_hex_short">取色:#%s</string>
 
     <!-- Editor – field editors -->
-    <string name="editor_mode_title">沉浸模式</string>
-    <string name="editor_mode_summary">mode</string>
     <string name="editor_activity_name_title">活动名称</string>
     <string name="editor_activity_name_summary">点击编辑活动标识符</string>
     <string name="editor_activity_name_exists">该活动名称已存在</string>
     <string name="editor_color_title">导航栏颜色</string>
     <string name="editor_color_summary">color</string>
-    <string name="editor_sf_title">SF采样模式</string>
-    <string name="editor_sf_summary">sf_sampling_mode</string>
     <string name="editor_dialog_title">对话框模式</string>
     <string name="editor_dialog_summary">dialogMode</string>
     <string name="editor_popup_title">弹窗模式</string>
@@ -267,4 +257,11 @@
 
     <!-- Default rule name -->
     <string name="default_rule_name">沉浸规则</string>
+
+    <!-- Editor – style (unified new format) -->
+    <string name="editor_style_title">样式</string>
+    <string name="editor_style_summary">style</string>
+    <string name="editor_style_view">视图取色</string>
+    <string name="editor_style_sf">采样取色</string>
+    <string name="editor_advanced_settings">高级设置</string>
 </resources>

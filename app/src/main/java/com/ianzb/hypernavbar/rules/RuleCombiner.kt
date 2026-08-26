@@ -4,7 +4,6 @@ import org.json.JSONObject
 
 object RuleCombiner {
 
-    private const val DEFAULT_DATA_VERSION = "999999"
     private const val DEFAULT_NAME = "沉浸规则"
     private const val NEW_FORMAT_MODULES = "HyperNavBar_config"
     private const val MODIFY_APPS = "modifyApps"
@@ -49,7 +48,8 @@ object RuleCombiner {
     private fun buildRoot(rawJson: String?, mergedNBIRules: JSONObject): JSONObject {
         val rootJson = JSONObject(rawJson ?: "{}")
         val mergedRoot = JSONObject()
-        mergedRoot.put("dataVersion", rootJson.optString("dataVersion", DEFAULT_DATA_VERSION))
+        // 合并后替换前，版本号统一更新为当天日期，确保系统将合并结果识别为最新配置
+        mergedRoot.put("dataVersion", RuleConverter.todayDataVersion())
         mergedRoot.put("name", rootJson.optString("name", DEFAULT_NAME))
         // 内部统一新格式：根级 modules 固定写 HyperNavBar_config，与 RuleConverter.isNewFormat 判定一致
         mergedRoot.put("modules", NEW_FORMAT_MODULES)

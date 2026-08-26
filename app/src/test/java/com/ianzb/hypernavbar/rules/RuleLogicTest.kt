@@ -97,7 +97,8 @@ class RuleLogicTest {
         val merged = RuleCombiner.combine(listOf(official), results)
         // 旧格式源归一化后，合并结果根级 modules 固定为内部新格式
         assertEquals("HyperNavBar_config", merged.getString("modules"))
-        assertEquals("1", merged.getString("dataVersion"))
+        // 合并后版本号统一更新为当天日期
+        assertEquals(RuleConverter.todayDataVersion(), merged.getString("dataVersion"))
         assertEquals("Official", merged.getString("name"))
         // activity 已归一化为 style 形态
         val act = merged.getJSONObject("NBIRules").getJSONObject("com.app").getJSONObject("activityRules").getJSONObject("A")
@@ -336,6 +337,46 @@ class RuleLogicTest {
         assertEquals(1, act.getInt("mode"))
         assertEquals(1, act.getInt("color"))
         assertEquals(0, act.getInt("sf_sampling_mode"))
+    }
+
+    @Test
+    fun todayDataVersion_usesYyMMddFormat() {
+        val version = RuleConverter.todayDataVersion()
+        assertTrue(Regex("""\d{6}""").matches(version))
+    }
+
+    @Test
+    fun withDataVersion_overwritesRootVersion() {
+        val json = """{
+            "name": "Test",
+            "dataVersion": "260630",
+            "modules": "HyperNavBar_config",
+            "NBIRules": {}
+        }"""
+        val out = RuleConverter.withDataVersion(json, "260826")
+        val root = JSONObject(out)
+        assertEquals("260826", root.getString("dataVersion"))
+        assertEquals("Test", root.getString("name"))
+    }
+
+    @Test
+    fun withDataVersion_returnsInputWhenParseFails() {
+        assertEquals("not json", RuleConverter.withDataVersion("not json", "260826"))
+    }
+
+    @Test
+    fun combiner_alwaysSetsDataVersionToToday() {
+        val cfg = ruleConfig("low", 0, """{
+            "modules": "HyperNavBar_config",
+            "dataVersion": "260101",
+            "NBIRules": {
+                "com.app": {
+                    "activityRules": { "A": { "style": "view" } }
+                }
+            }
+        }""")
+        val merged = RuleCombiner.combine(listOf(cfg), resultsFor(cfg))
+        assertEquals(RuleConverter.todayDataVersion(), merged.getString("dataVersion"))
     }
 
     private fun ruleConfig(id: String, priority: Int, json: String) = RuleConfigSource(

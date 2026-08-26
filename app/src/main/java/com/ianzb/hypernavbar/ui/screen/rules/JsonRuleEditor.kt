@@ -108,7 +108,7 @@ private fun parseJsonSafe(jsonStr: String): JSONObject {
  * sort activity rules by activity name A-Z.
  */
 fun formatNbiJson(jsonStr: String): String {
-    val defaultDate = java.text.SimpleDateFormat("yyMMdd", java.util.Locale.US).format(java.util.Date())
+    val defaultDate = RuleConverter.todayDataVersion()
     return try {
         val root = JSONObject(jsonStr.trim().ifEmpty { return jsonStr })
         val nbiRules = root.optJSONObject("NBIRules") ?: return root.toString(4)

@@ -98,7 +98,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 private fun getEmptyJsonTemplate(context: android.content.Context): String {
-    val date = java.text.SimpleDateFormat("yyMMdd", java.util.Locale.US).format(java.util.Date())
+    val date = RuleConverter.todayDataVersion()
     val name = context.getString(R.string.default_rule_name)
     return """{
     "name": "$name",
@@ -399,10 +399,12 @@ fun RulesPageView(
                     }
 
                     RuleType.LOCAL -> {
-                        val jsonContent = formatNbiJson(jsonInput.trim())
+                        var jsonContent = formatNbiJson(jsonInput.trim())
                         if (jsonContent.isEmpty()) {
                             return@launch
                         }
+                        // 本地规则保存时，将版本号更新为当天日期
+                        jsonContent = RuleConverter.withDataVersion(jsonContent, RuleConverter.todayDataVersion())
 
                         RuleFetcher.fetch(RuleConfigSource(id = "", jsonContent = jsonContent, type = RuleType.LOCAL))
                             .fold(
@@ -456,7 +458,11 @@ fun RulesPageView(
             try {
                 val dialog = editingConfig ?: return@launch
 
-                val formattedJson = formatNbiJson(jsonInput.trim())
+                var formattedJson = formatNbiJson(jsonInput.trim())
+                // 本地规则编辑后最终保存时，将版本号更新为当天日期
+                if (dialog.type == RuleType.LOCAL && formattedJson.isNotEmpty()) {
+                    formattedJson = RuleConverter.withDataVersion(formattedJson, RuleConverter.todayDataVersion())
+                }
                 val contentToParse = formattedJson.ifEmpty {
                     if (dialog.type == RuleType.CLOUD) dialog.cachedContent else dialog.jsonContent
                 }
@@ -1035,8 +1041,8 @@ fun RulesPageView(
                                 title = "${index + 1}. ${config.name.ifEmpty { config.url.ifEmpty { stringResource(R.string.rules_local_rule) } }}",
                                 summary = buildString {
                                     append(if (config.type == RuleType.LOCAL) stringResource(R.string.rules_local_prefix) else stringResource(R.string.rules_cloud_prefix))
-                                    // Show dataVersion
-                                    val content = config.cachedContent.ifEmpty { config.jsonContent }
+                                    // Show dataVersion: 本地规则以 jsonContent 为准（cachedContent 仅云端缓存的镜像，编辑后可能滞后）
+                                    val content = if (config.type == RuleType.LOCAL) config.jsonContent else config.cachedContent.ifEmpty { config.jsonContent }
                                     if (content.isNotEmpty()) {
                                         try {
                                             val json = JSONObject(content)

@@ -2,6 +2,9 @@ package com.ianzb.hypernavbar.rules
 
 import org.json.JSONObject
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 object RuleConverter {
 
@@ -43,6 +46,19 @@ object RuleConverter {
     /** 根级 modules == "HyperNavBar_config" 视为内部统一新格式，否则为官方格式。 */
     fun isNewFormat(rootJson: JSONObject): Boolean =
         rootJson.optString("modules", "") == "HyperNavBar_config"
+
+    /** 以当天日期作为规则版本号（yyMMdd，如 260826）。 */
+    fun todayDataVersion(): String =
+        SimpleDateFormat("yyMMdd", Locale.US).format(Date())
+
+    /** 覆盖 JSON 根级 dataVersion，保留原缩进格式；解析失败时原样返回。 */
+    fun withDataVersion(jsonStr: String, version: String): String = try {
+        val root = JSONObject(jsonStr)
+        root.put("dataVersion", version)
+        root.toString(4)
+    } catch (_: Exception) {
+        jsonStr
+    }
 
     fun convert(mergedJson: JSONObject, mode: OsMode): String = when (mode) {
         OsMode.OS33 -> convertToOS33(mergedJson)

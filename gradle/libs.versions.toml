@@ -1,13 +1,13 @@
 [versions]
-agp = "9.3.2"
+agp = "9.4.0"
 coreKtx = "1.19.0"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.11.0"
 activityCompose = "1.13.0"
-kotlin = "2.4.10"
-composeBom = "2026.08.00"
+kotlin = "2.4.20"
+composeBom = "2026.09.00"
 
 miuix = "0.9.4-rc01"
 # miuix-navigation3-ui 未随 0.9.4-rc01 发布，保留 0.9.3

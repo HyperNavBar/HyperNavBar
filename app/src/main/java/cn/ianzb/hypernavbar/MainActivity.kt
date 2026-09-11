@@ -1,0 +1,521 @@
+package cn.ianzb.hypernavbar
+
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.EaseInOut
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.MutatePriority
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import cn.ianzb.hypernavbar.rules.RulesManager
+import cn.ianzb.hypernavbar.ui.component.liquid.IosLiquidGlassNavigationBar
+import cn.ianzb.hypernavbar.ui.screen.about.AboutPageContent
+import cn.ianzb.hypernavbar.ui.screen.home.HomePageView
+import cn.ianzb.hypernavbar.ui.screen.rules.RulesPageView
+import cn.ianzb.hypernavbar.ui.screen.settings.SettingsPageView
+import cn.ianzb.hypernavbar.ui.theme.AppTheme
+import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
+import cn.ianzb.hypernavbar.ui.util.shouldExpandNavigationRail
+import cn.ianzb.hypernavbar.ui.util.shouldShowSplitPane
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
+import top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults
+import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.basic.NavigationItem
+import top.yukonga.miuix.kmp.basic.NavigationRail
+import top.yukonga.miuix.kmp.basic.NavigationRailItem
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurDefaults
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.highlight.Highlight
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Home
+import top.yukonga.miuix.kmp.icon.extended.Info
+import top.yukonga.miuix.kmp.icon.extended.ListView
+import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.theme.ColorSchemeMode
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import kotlin.math.abs
+
+class MainActivity : ComponentActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        val language = LocaleHelper.getSavedLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.wrapContext(newBase, language))
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
+
+        val savedSettings = AppSettings.load(this)
+
+        // 首次启动时播种默认订阅（社区规则源在上，官方规则源在下）
+        RulesManager.ensureDefaultConfigs(this)
+
+        setContent {
+            var themeMode by remember {
+                mutableStateOf(
+                    try { ColorSchemeMode.valueOf(savedSettings.themeMode) }
+                    catch (_: Exception) { ColorSchemeMode.System }
+                )
+            }
+            var isFloatingNavbar by remember { mutableStateOf(savedSettings.isFloatingNavbar) }
+            var isLiquidGlass by remember { mutableStateOf(savedSettings.isLiquidGlass) }
+            var isBlurEnabled by remember { mutableStateOf(savedSettings.isBlurEnabled) }
+            var applyIntervalMinutes by remember { mutableIntStateOf(savedSettings.applyIntervalMinutes) }
+            var autoApplyAfterEdit by remember { mutableStateOf(savedSettings.autoApplyAfterEdit) }
+
+            var hasRoot by remember { mutableStateOf(false) }
+            var rootChecked by remember { mutableStateOf(false) }
+            val scope = rememberCoroutineScope()
+
+            LaunchedEffect(Unit) {
+                withContext(Dispatchers.IO) {
+                    hasRoot = RootHelper.checkRoot()
+                }
+                rootChecked = true
+            }
+
+            fun persistState() {
+                AppSettings.save(
+                    this@MainActivity,
+                    AppSettings(
+                        themeMode = themeMode.name,
+                        isFloatingNavbar = isFloatingNavbar,
+                        isLiquidGlass = isLiquidGlass,
+                        isBlurEnabled = isBlurEnabled,
+                        applyIntervalMinutes = applyIntervalMinutes,
+                        autoApplyAfterEdit = autoApplyAfterEdit,
+                    )
+                )
+            }
+
+            AppTheme(themeMode = themeMode) {
+                MainScreen(
+                    hasRoot = hasRoot,
+                    rootChecked = rootChecked,
+                    themeMode = themeMode,
+                    isFloatingNavbar = isFloatingNavbar,
+                    isLiquidGlass = isLiquidGlass,
+                    isBlurEnabled = isBlurEnabled,
+                    applyIntervalMinutes = applyIntervalMinutes,
+                    autoApplyAfterEdit = autoApplyAfterEdit,
+                    onRetryRootCheck = {
+                        scope.launch {
+                            rootChecked = false
+                            withContext(Dispatchers.IO) {
+                                hasRoot = RootHelper.checkRoot()
+                            }
+                            rootChecked = true
+                        }
+                    },
+                    onThemeModeChange = { themeMode = it; persistState() },
+                    onFloatingNavbarChange = { isFloatingNavbar = it; persistState() },
+                    onLiquidGlassChange = { isLiquidGlass = it; persistState() },
+                    onBlurEnabledChange = { isBlurEnabled = it; persistState() },
+                    onApplyIntervalChange = { applyIntervalMinutes = it; persistState() },
+                    onAutoApplyAfterEditChange = { autoApplyAfterEdit = it; persistState() },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MainScreen(
+    hasRoot: Boolean,
+    rootChecked: Boolean,
+    themeMode: ColorSchemeMode,
+    isFloatingNavbar: Boolean,
+    isLiquidGlass: Boolean,
+    isBlurEnabled: Boolean,
+    applyIntervalMinutes: Int,
+    autoApplyAfterEdit: Boolean,
+    onRetryRootCheck: () -> Unit,
+    onThemeModeChange: (ColorSchemeMode) -> Unit,
+    onFloatingNavbarChange: (Boolean) -> Unit,
+    onLiquidGlassChange: (Boolean) -> Unit,
+    onBlurEnabledChange: (Boolean) -> Unit,
+    onApplyIntervalChange: (Int) -> Unit,
+    onAutoApplyAfterEditChange: (Boolean) -> Unit,
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val pagerState = rememberPagerState(pageCount = { 4 })
+    var selectedIndex by remember { mutableIntStateOf(0) }
+    var isNavigating by remember { mutableStateOf(false) }
+    var navJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var homeRefreshKey by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
+    val items = listOf(
+        stringResource(R.string.tab_home),
+        stringResource(R.string.tab_rules),
+        stringResource(R.string.tab_settings),
+        stringResource(R.string.tab_about)
+    )
+    val icons = listOf(
+        MiuixIcons.Home,
+        MiuixIcons.ListView,
+        MiuixIcons.Settings,
+        MiuixIcons.Info
+    )
+
+    LaunchedEffect(pagerState.currentPage) {
+        if (!isNavigating && selectedIndex != pagerState.currentPage) {
+            selectedIndex = pagerState.currentPage
+            homeRefreshKey++
+        }
+    }
+
+    val surfaceColor = MiuixTheme.colorScheme.surface
+    val backdrop = rememberLayerBackdrop {
+        drawRect(surfaceColor)
+        drawContent()
+    }
+    val blurActive = isBlurEnabled
+
+    val navBarMode = if (!isFloatingNavbar) 0 else if (!isLiquidGlass) 1 else 2
+    val isWideScreen = shouldShowSplitPane()
+    // 横屏时仅普通底栏改为左侧 NavigationRail；悬浮栏与液态玻璃保留底部。
+    val useNavigationRail = isWideScreen && navBarMode == 0
+
+    val railState = rememberNavigationRailState()
+    val expandRail = shouldExpandNavigationRail()
+    LaunchedEffect(expandRail) {
+        if (expandRail) railState.expand() else railState.collapse()
+    }
+
+    val onItemSelected: (Int) -> Unit = select@{ index ->
+        if (index == selectedIndex) return@select
+        homeRefreshKey++
+        navJob?.cancel()
+        selectedIndex = index
+        isNavigating = true
+        navJob = scope.launch {
+            val myJob = coroutineContext.job
+            try {
+                pagerState.scroll(MutatePriority.UserInput) {
+                    val distance = abs(index - pagerState.currentPage).coerceAtLeast(2)
+                    val duration = 100 * distance + 100
+                    val layoutInfo = pagerState.layoutInfo
+                    val pageSize = layoutInfo.pageSize + layoutInfo.pageSpacing
+                    val currentDistanceInPages = index - pagerState.currentPage - pagerState.currentPageOffsetFraction
+                    val scrollPixels = currentDistanceInPages * pageSize
+                    var previousValue = 0f
+                    animate(
+                        initialValue = 0f,
+                        targetValue = scrollPixels,
+                        animationSpec = tween(easing = EaseInOut, durationMillis = duration),
+                    ) { currentValue, _ ->
+                        previousValue += scrollBy(currentValue - previousValue)
+                    }
+                }
+                if (pagerState.currentPage != index) {
+                    pagerState.scrollToPage(index)
+                }
+            } finally {
+                if (navJob == myJob) {
+                    isNavigating = false
+                    if (pagerState.currentPage != index) {
+                        selectedIndex = pagerState.currentPage
+                    }
+                }
+            }
+        }
+    }
+
+    val pagerContent: @Composable (Dp, PaddingValues) -> Unit = { navBarHeight, pagerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(Modifier.layerBackdrop(backdrop))
+                .background(surfaceColor)
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                beyondViewportPageCount = 1,
+                contentPadding = pagerPadding,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                when (page) {
+                    0 -> HomePageView(
+                        hasRoot = hasRoot,
+                        rootChecked = rootChecked,
+                        onRetryRootCheck = onRetryRootCheck,
+                        isBlurEnabled = isBlurEnabled,
+                        refreshKey = homeRefreshKey,
+                        extraBottomPadding = navBarHeight,
+                    )
+                    1 -> RulesPageView(
+                        applyIntervalMinutes = applyIntervalMinutes,
+                        autoApplyAfterEdit = autoApplyAfterEdit,
+                        isBlurEnabled = isBlurEnabled,
+                        extraBottomPadding = navBarHeight,
+                    )
+                    2 -> SettingsPageView(
+                        currentMode = themeMode,
+                        onModeChange = onThemeModeChange,
+                        isFloatingNavbar = isFloatingNavbar,
+                        onFloatingNavbarChange = onFloatingNavbarChange,
+                        isLiquidGlass = isLiquidGlass,
+                        onLiquidGlassChange = onLiquidGlassChange,
+                        isBlurEnabled = isBlurEnabled,
+                        onBlurEnabledChange = onBlurEnabledChange,
+                        applyIntervalMinutes = applyIntervalMinutes,
+                        onApplyIntervalChange = onApplyIntervalChange,
+                        autoApplyAfterEdit = autoApplyAfterEdit,
+                        onAutoApplyAfterEditChange = onAutoApplyAfterEditChange,
+                        extraBottomPadding = navBarHeight,
+                    )
+                    3 -> AboutPageContent(
+                        openLicensePage = {
+                            context.startActivity(Intent(context, LicenseActivity::class.java))
+                        },
+                        isBlurEnabled = isBlurEnabled,
+                    )
+                }
+            }
+        }
+    }
+
+    if (useNavigationRail) {
+        val navigationBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val density = LocalDensity.current
+        var railWidthPx by remember { mutableIntStateOf(0) }
+        val railWidth = with(density) { railWidthPx.toDp() }
+        // 内容整体右移一个左栏宽度：当前页保持可读不被遮挡，
+        // 上一页的右缘则正好落在左栏正后方，供磨砂采样。
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .consumeWindowInsets(
+                        WindowInsets.systemBars
+                            .add(WindowInsets.displayCutout)
+                            .only(WindowInsetsSides.Start)
+                    )
+            ) {
+                pagerContent(navigationBarBottom, PaddingValues(start = railWidth))
+            }
+            NavigationRail(
+                modifier = Modifier
+                    .onSizeChanged { railWidthPx = it.width }
+                    .then(
+                        if (blurActive) {
+                            Modifier.textureBlur(
+                                backdrop = backdrop,
+                                shape = RectangleShape,
+                                blurRadius = 25f,
+                                colors = BlurDefaults.blurColors(
+                                    blendColors = listOf(
+                                        BlendColorEntry(color = MiuixTheme.colorScheme.surface.copy(0.5f)),
+                                    ),
+                                ),
+                            )
+                        } else {
+                            Modifier
+                        }
+                    ),
+                color = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface,
+                state = railState,
+            ) {
+                items.forEachIndexed { index, label ->
+                    NavigationRailItem(
+                        selected = selectedIndex == index,
+                        onClick = { onItemSelected(index) },
+                        icon = icons[index],
+                        label = label,
+                    )
+                }
+            }
+        }
+    } else {
+        Scaffold(
+            popupHost = { },
+            bottomBar = {
+                BottomNavigationBar(
+                    mode = navBarMode,
+                    items = items,
+                    icons = icons,
+                    selectedIndex = selectedIndex,
+                    backdrop = backdrop,
+                    blurActive = blurActive,
+                    onItemSelected = onItemSelected,
+                )
+            }
+        ) { globalPadding ->
+            pagerContent(globalPadding.calculateBottomPadding(), PaddingValues(0.dp))
+        }
+    }
+}
+
+@Composable
+private fun BottomNavigationBar(
+    mode: Int,
+    items: List<String>,
+    icons: List<androidx.compose.ui.graphics.vector.ImageVector>,
+    selectedIndex: Int,
+    backdrop: LayerBackdrop?,
+    blurActive: Boolean,
+    onItemSelected: (Int) -> Unit,
+) {
+    when (mode) {
+        2 -> {
+            val navigationItems = remember(items, icons) {
+                List(items.size) { i -> NavigationItem(items[i], icons[i]) }
+            }
+            // 始终限制液态玻璃底栏宽度并居中，保持与手机竖屏一致的小尺寸。
+            val liquidModifier = Modifier
+                .padding(horizontal = 12.dp)
+                .widthIn(max = 440.dp)
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                IosLiquidGlassNavigationBar(
+                    modifier = liquidModifier,
+                    items = navigationItems,
+                    selectedIndex = selectedIndex,
+                    onItemClick = { index ->
+                        onItemSelected(index)
+                    },
+                    backdrop = backdrop,
+                    isBlurActive = blurActive,
+                )
+            }
+        }
+        1 -> {
+            val floatingBarColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surfaceContainer
+            val floatingBarShape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius)
+            val isDark = isInDarkTheme()
+            val floatingHighlight = remember(isDark) {
+                if (isDark) Highlight.GlassStrokeMiddleDark else Highlight.GlassStrokeMiddleLight
+            }
+            FloatingNavigationBar(
+                modifier = if (blurActive) {
+                    Modifier.textureBlur(
+                        backdrop = backdrop!!,
+                        shape = floatingBarShape,
+                        blurRadius = 25f,
+                        colors = BlurDefaults.blurColors(
+                            blendColors = listOf(
+                                BlendColorEntry(color = MiuixTheme.colorScheme.surfaceContainer.copy(0.4f)),
+                            ),
+                        ),
+                        highlight = floatingHighlight,
+                    )
+                } else {
+                    Modifier
+                },
+                color = floatingBarColor,
+            ) {
+                items.forEachIndexed { index, label ->
+                    FloatingNavigationBarItem(
+                        selected = selectedIndex == index,
+                        onClick = { onItemSelected(index) },
+                        icon = icons[index],
+                        label = label,
+                        enabled = true
+                    )
+                }
+            }
+        }
+        else -> {
+            val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
+            Box(
+                modifier = Modifier
+                    .then(
+                        if (blurActive) {
+                            Modifier.textureBlur(
+                                backdrop = backdrop!!,
+                                shape = RectangleShape,
+                                blurRadius = 25f,
+                                colors = BlurDefaults.blurColors(
+                                    blendColors = listOf(
+                                        BlendColorEntry(color = MiuixTheme.colorScheme.surface.copy(0.5f)),
+                                    ),
+                                ),
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .background(barColor)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {},
+                    )
+            ) {
+                NavigationBar(
+                    color = barColor,
+                ) {
+                    items.forEachIndexed { index, label ->
+                        NavigationBarItem(
+                            selected = selectedIndex == index,
+                            onClick = { onItemSelected(index) },
+                            icon = icons[index],
+                            label = label,
+                            enabled = true
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

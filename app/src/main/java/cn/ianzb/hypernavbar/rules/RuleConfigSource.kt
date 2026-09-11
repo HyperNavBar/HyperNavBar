@@ -1,0 +1,56 @@
+package cn.ianzb.hypernavbar.rules
+
+import org.json.JSONObject
+
+enum class RuleType { CLOUD, LOCAL }
+
+data class RuleConfigSource(
+    val id: String,
+    val type: RuleType = RuleType.CLOUD,
+    val url: String = "",
+    val jsonContent: String = "",
+    val cachedContent: String = "",
+    val name: String = "",
+    val priority: Int = 0,
+    val lastRefreshTime: Long = 0L,
+    val refreshIntervalMs: Long = 60_000L,
+    val appCount: Int = 0,
+    val enabled: Boolean = true,
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("id", id)
+        put("type", type.name)
+        put("url", url)
+        put("jsonContent", jsonContent)
+        put("cachedContent", cachedContent)
+        put("name", name)
+        put("priority", priority)
+        put("lastRefreshTime", lastRefreshTime)
+        put("refreshIntervalMs", refreshIntervalMs)
+        put("appCount", appCount)
+        put("enabled", enabled)
+    }
+
+    companion object {
+        /** 官方规则源订阅地址（系统原始配置） */
+        const val PRESET_OFFICIAL_URL = "https://drive.ianzb.cn/code/HyperNavBarRules/official.json"
+
+        /** 社区规则源订阅地址（自定义优化规则） */
+        const val PRESET_COMMUNITY_URL = "https://drive.ianzb.cn/code/HyperNavBarRules/custom.json"
+
+        fun fromJson(obj: JSONObject): RuleConfigSource = RuleConfigSource(
+            id = obj.optString("id", ""),
+            type = runCatching { RuleType.valueOf(obj.optString("type", "CLOUD")) }
+                .getOrDefault(RuleType.CLOUD),
+            url = obj.optString("url", ""),
+            jsonContent = obj.optString("jsonContent", ""),
+            cachedContent = obj.optString("cachedContent", ""),
+            name = obj.optString("name", ""),
+            priority = obj.optInt("priority", 0),
+            lastRefreshTime = obj.optLong("lastRefreshTime", 0L),
+            refreshIntervalMs = obj.optLong("refreshIntervalMs", 60_000L),
+            appCount = obj.optInt("appCount", 0),
+            enabled = obj.optBoolean("enabled", true),
+        )
+    }
+}

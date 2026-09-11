@@ -5,4 +5,4 @@
     android:accessibilityFlags="flagIncludeNotImportantViews"
     android:canRetrieveWindowContent="true"
     android:notificationTimeout="200"
-    android:settingsActivity="com.ianzb.hypernavbar.MainActivity" />
+    android:settingsActivity="cn.ianzb.hypernavbar.MainActivity" />

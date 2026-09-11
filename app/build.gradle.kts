@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "com.ianzb.hypernavbar"
+    namespace = "cn.ianzb.hypernavbar"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.ianzb.hypernavbar"
+        applicationId = "cn.ianzb.hypernavbar"
         minSdk = 35
         targetSdk = 37
         versionCode = 12

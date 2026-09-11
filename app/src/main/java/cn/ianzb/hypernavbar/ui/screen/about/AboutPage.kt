@@ -31,18 +31,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.ui.component.effect.BgEffectBackground
 import cn.ianzb.hypernavbar.ui.util.BlurredBar
@@ -188,6 +189,13 @@ private fun AboutContent(
     var logoHeightDp by remember { mutableStateOf(300.dp) }
     val appName = stringResource(R.string.app_name)
     val ctx = LocalContext.current
+    // 直接读取应用启动图标，保证与桌面图标始终一致。
+    val appIcon = remember(ctx, density) {
+        val iconSizePx = with(density) { 100.dp.roundToPx() }
+        ctx.packageManager.getApplicationIcon(ctx.applicationInfo)
+            .toBitmap(iconSizePx, iconSizePx)
+            .asImageBitmap()
+    }
     val versionName = try {
         ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "1.0"
     } catch (_: Exception) { "1.0" }
@@ -228,7 +236,7 @@ private fun AboutContent(
             ) {
                 Image(
                     modifier = Modifier.size(100.dp),
-                    painter = painterResource(R.drawable.ic_about_logo),
+                    bitmap = appIcon,
                     contentDescription = null,
                 )
             }

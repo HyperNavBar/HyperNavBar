@@ -104,6 +104,12 @@ fun HomePageView(
     LaunchedEffect(Unit) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             hyperOSVersion = SystemVersionDetector.getSystemVersionIncremental()
+        }
+    }
+    // Root 状态变化（如授权后点击卡片重试）时重新检测沉浸支持状态，
+    // 避免授权成功后卡片仍停留在无 Root 时的旧状态。
+    LaunchedEffect(rootChecked, hasRoot) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             refreshImmersionStatus()
         }
     }

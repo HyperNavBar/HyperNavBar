@@ -14,6 +14,7 @@ data class AppSettings(
     val isBlurEnabled: Boolean = true,
     val applyIntervalMinutes: Int = 1,
     val autoApplyAfterEdit: Boolean = true,
+    val checkUpdateOnLaunch: Boolean = true,
     val language: String = "",
     val forcedMode: String = "auto",
     val rulesConfigsJson: String = "",
@@ -26,6 +27,7 @@ data class AppSettings(
         json.put("isBlurEnabled", isBlurEnabled)
         json.put("applyIntervalMinutes", applyIntervalMinutes)
         json.put("autoApplyAfterEdit", autoApplyAfterEdit)
+        json.put("checkUpdateOnLaunch", checkUpdateOnLaunch)
         json.put("language", language)
         json.put("forcedMode", forcedMode)
         json.put("rulesConfigs", JSONArray(rulesConfigsJson.ifEmpty { "[]" }))
@@ -43,6 +45,7 @@ data class AppSettings(
                     isBlurEnabled = obj.optBoolean("isBlurEnabled", true),
                     applyIntervalMinutes = obj.optInt("applyIntervalMinutes", 1),
                     autoApplyAfterEdit = obj.optBoolean("autoApplyAfterEdit", true),
+                    checkUpdateOnLaunch = obj.optBoolean("checkUpdateOnLaunch", true),
                     language = obj.optString("language", ""),
                     forcedMode = obj.optString("forcedMode", "auto"),
                     rulesConfigsJson = obj.optJSONArray("rulesConfigs")?.toString() ?: "",
@@ -59,6 +62,7 @@ data class AppSettings(
         private const val KEY_BLUR_ENABLED = "blur_enabled"
         private const val KEY_APPLY_INTERVAL = "apply_interval"
         private const val KEY_AUTO_APPLY_AFTER_EDIT = "auto_apply_after_edit"
+        private const val KEY_CHECK_UPDATE_ON_LAUNCH = "check_update_on_launch"
 
         fun load(context: Context): AppSettings {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -71,6 +75,7 @@ data class AppSettings(
                 isBlurEnabled = prefs.getBoolean(KEY_BLUR_ENABLED, true),
                 applyIntervalMinutes = prefs.getInt(KEY_APPLY_INTERVAL, 1),
                 autoApplyAfterEdit = prefs.getBoolean(KEY_AUTO_APPLY_AFTER_EDIT, true),
+                checkUpdateOnLaunch = prefs.getBoolean(KEY_CHECK_UPDATE_ON_LAUNCH, true),
                 language = language,
                 forcedMode = forcedMode,
             )
@@ -84,6 +89,7 @@ data class AppSettings(
                 putBoolean(KEY_BLUR_ENABLED, settings.isBlurEnabled)
                 putInt(KEY_APPLY_INTERVAL, settings.applyIntervalMinutes)
                 putBoolean(KEY_AUTO_APPLY_AFTER_EDIT, settings.autoApplyAfterEdit)
+                putBoolean(KEY_CHECK_UPDATE_ON_LAUNCH, settings.checkUpdateOnLaunch)
             }
             // Restore language
             val lang = LocaleHelper.Language.entries.find { it.code == settings.language } ?: LocaleHelper.Language.SYSTEM

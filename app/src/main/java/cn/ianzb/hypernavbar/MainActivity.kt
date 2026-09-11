@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -46,10 +47,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.rules.RulesManager
+import cn.ianzb.hypernavbar.ui.component.UpdateDialog
 import cn.ianzb.hypernavbar.ui.component.liquid.IosLiquidGlassNavigationBar
 import cn.ianzb.hypernavbar.ui.screen.about.AboutPageContent
 import cn.ianzb.hypernavbar.ui.screen.home.HomePageView
@@ -120,6 +123,11 @@ class MainActivity : ComponentActivity() {
             var isBlurEnabled by remember { mutableStateOf(savedSettings.isBlurEnabled) }
             var applyIntervalMinutes by remember { mutableIntStateOf(savedSettings.applyIntervalMinutes) }
             var autoApplyAfterEdit by remember { mutableStateOf(savedSettings.autoApplyAfterEdit) }
+            var checkUpdateOnLaunch by remember { mutableStateOf(savedSettings.checkUpdateOnLaunch) }
+
+            var updateInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
+            var isCheckingUpdate by remember { mutableStateOf(false) }
+            val uriHandler = LocalUriHandler.current
 
             var hasRoot by remember { mutableStateOf(false) }
             var rootChecked by remember { mutableStateOf(false) }
@@ -132,6 +140,42 @@ class MainActivity : ComponentActivity() {
                 rootChecked = true
             }
 
+            LaunchedEffect(Unit) {
+                if (checkUpdateOnLaunch) {
+                    UpdateChecker.checkForUpdate(this@MainActivity)
+                        .onSuccess { info -> if (info.hasUpdate) updateInfo = info }
+                }
+            }
+
+            fun checkUpdate() {
+                if (isCheckingUpdate) return
+                isCheckingUpdate = true
+                scope.launch {
+                    val result = UpdateChecker.checkForUpdate(this@MainActivity)
+                    isCheckingUpdate = false
+                    result.fold(
+                        onSuccess = { info ->
+                            if (info.hasUpdate) {
+                                updateInfo = info
+                            } else {
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    getString(R.string.update_latest),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
+                        onFailure = {
+                            Toast.makeText(
+                                this@MainActivity,
+                                getString(R.string.update_check_failed),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                    )
+                }
+            }
+
             fun persistState() {
                 AppSettings.save(
                     this@MainActivity,
@@ -142,6 +186,7 @@ class MainActivity : ComponentActivity() {
                         isBlurEnabled = isBlurEnabled,
                         applyIntervalMinutes = applyIntervalMinutes,
                         autoApplyAfterEdit = autoApplyAfterEdit,
+                        checkUpdateOnLaunch = checkUpdateOnLaunch,
                     )
                 )
             }
@@ -156,6 +201,8 @@ class MainActivity : ComponentActivity() {
                     isBlurEnabled = isBlurEnabled,
                     applyIntervalMinutes = applyIntervalMinutes,
                     autoApplyAfterEdit = autoApplyAfterEdit,
+                    checkUpdateOnLaunch = checkUpdateOnLaunch,
+                    isCheckingUpdate = isCheckingUpdate,
                     onRetryRootCheck = {
                         scope.launch {
                             rootChecked = false
@@ -171,7 +218,20 @@ class MainActivity : ComponentActivity() {
                     onBlurEnabledChange = { isBlurEnabled = it; persistState() },
                     onApplyIntervalChange = { applyIntervalMinutes = it; persistState() },
                     onAutoApplyAfterEditChange = { autoApplyAfterEdit = it; persistState() },
+                    onCheckUpdateOnLaunchChange = { checkUpdateOnLaunch = it; persistState() },
+                    onCheckUpdate = { checkUpdate() },
                 )
+
+                updateInfo?.let { info ->
+                    UpdateDialog(
+                        info = info,
+                        onDismissRequest = { updateInfo = null },
+                        onConfirm = {
+                            updateInfo = null
+                            runCatching { uriHandler.openUri(info.releaseUrl) }
+                        },
+                    )
+                }
             }
         }
     }
@@ -187,6 +247,8 @@ private fun MainScreen(
     isBlurEnabled: Boolean,
     applyIntervalMinutes: Int,
     autoApplyAfterEdit: Boolean,
+    checkUpdateOnLaunch: Boolean,
+    isCheckingUpdate: Boolean,
     onRetryRootCheck: () -> Unit,
     onThemeModeChange: (ColorSchemeMode) -> Unit,
     onFloatingNavbarChange: (Boolean) -> Unit,
@@ -194,6 +256,8 @@ private fun MainScreen(
     onBlurEnabledChange: (Boolean) -> Unit,
     onApplyIntervalChange: (Int) -> Unit,
     onAutoApplyAfterEditChange: (Boolean) -> Unit,
+    onCheckUpdateOnLaunchChange: (Boolean) -> Unit,
+    onCheckUpdate: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val pagerState = rememberPagerState(pageCount = { 4 })
@@ -320,6 +384,10 @@ private fun MainScreen(
                         onApplyIntervalChange = onApplyIntervalChange,
                         autoApplyAfterEdit = autoApplyAfterEdit,
                         onAutoApplyAfterEditChange = onAutoApplyAfterEditChange,
+                        checkUpdateOnLaunch = checkUpdateOnLaunch,
+                        onCheckUpdateOnLaunchChange = onCheckUpdateOnLaunchChange,
+                        onCheckUpdate = onCheckUpdate,
+                        isCheckingUpdate = isCheckingUpdate,
                         extraBottomPadding = navBarHeight,
                     )
                     3 -> AboutPageContent(

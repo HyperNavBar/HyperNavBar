@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.AppSettings
 import cn.ianzb.hypernavbar.LocaleHelper
 import cn.ianzb.hypernavbar.R
+import cn.ianzb.hypernavbar.UpdateChecker
 import cn.ianzb.hypernavbar.ui.screen.rules.FloatingIdentifyService
 import cn.ianzb.hypernavbar.ui.screen.rules.ScreenColorPickerService
 import cn.ianzb.hypernavbar.ui.util.BlurredBar
@@ -80,6 +81,10 @@ fun SettingsPageView(
     onApplyIntervalChange: (Int) -> Unit,
     autoApplyAfterEdit: Boolean,
     onAutoApplyAfterEditChange: (Boolean) -> Unit,
+    checkUpdateOnLaunch: Boolean,
+    onCheckUpdateOnLaunchChange: (Boolean) -> Unit,
+    onCheckUpdate: () -> Unit,
+    isCheckingUpdate: Boolean,
     extraBottomPadding: Dp = 0.dp,
 ) {
     val context = LocalContext.current
@@ -326,6 +331,30 @@ fun SettingsPageView(
                                 },
                                 onExpandedChange = { langExpanded = it }
                             )
+                        }
+
+                        SmallTitle(text = stringResource(R.string.settings_update))
+                        Card(
+                            modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)
+                        ) {
+                            Column {
+                                SwitchPreference(
+                                    title = stringResource(R.string.check_update_on_launch),
+                                    summary = stringResource(R.string.check_update_on_launch_summary),
+                                    checked = checkUpdateOnLaunch,
+                                    onCheckedChange = onCheckUpdateOnLaunchChange,
+                                )
+
+                                ArrowPreference(
+                                    title = stringResource(R.string.check_update),
+                                    summary = if (isCheckingUpdate) {
+                                        stringResource(R.string.check_update_checking)
+                                    } else {
+                                        stringResource(R.string.check_update_summary, UpdateChecker.currentVersion(context))
+                                    },
+                                    onClick = onCheckUpdate,
+                                )
+                            }
                         }
 
                         SmallTitle(text = stringResource(R.string.settings_data))

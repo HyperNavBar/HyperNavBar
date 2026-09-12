@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 深色模式窗口背景，与 Miuix 深色 surface 一致，避免启动白屏闪烁 -->
+    <color name="window_background">#FF000000</color>
+</resources>

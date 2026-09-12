@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import cn.ianzb.hypernavbar.ui.screen.about.LicensePageContent
 import cn.ianzb.hypernavbar.ui.theme.AppTheme
+import cn.ianzb.hypernavbar.ui.util.applyWindowBackground
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 
 class LicenseActivity : ComponentActivity() {
@@ -27,6 +28,8 @@ class LicenseActivity : ComponentActivity() {
             ColorSchemeMode.System
         }
         val isBlurEnabled = savedSettings.isBlurEnabled
+
+        applyWindowBackground(savedSettings.themeMode)
 
         setContent {
             AppTheme(themeMode = themeMode) {

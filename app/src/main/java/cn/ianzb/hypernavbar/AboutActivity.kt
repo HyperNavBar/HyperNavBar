@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import cn.ianzb.hypernavbar.ui.screen.about.AboutPageContent
 import cn.ianzb.hypernavbar.ui.theme.AppTheme
+import cn.ianzb.hypernavbar.ui.util.applyWindowBackground
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 
 class AboutActivity : ComponentActivity() {
@@ -27,6 +28,8 @@ class AboutActivity : ComponentActivity() {
         } catch (_: Exception) {
             ColorSchemeMode.System
         }
+
+        applyWindowBackground(savedSettings.themeMode)
 
         setContent {
             AppTheme(themeMode = themeMode) {

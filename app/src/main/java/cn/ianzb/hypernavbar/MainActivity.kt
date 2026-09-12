@@ -59,6 +59,7 @@ import cn.ianzb.hypernavbar.ui.screen.home.HomePageView
 import cn.ianzb.hypernavbar.ui.screen.rules.RulesPageView
 import cn.ianzb.hypernavbar.ui.screen.settings.SettingsPageView
 import cn.ianzb.hypernavbar.ui.theme.AppTheme
+import cn.ianzb.hypernavbar.ui.util.applyWindowBackground
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
 import cn.ianzb.hypernavbar.ui.util.shouldExpandNavigationRail
 import cn.ianzb.hypernavbar.ui.util.shouldShowSplitPane
@@ -110,6 +111,9 @@ class MainActivity : ComponentActivity() {
 
         // 首次启动时播种默认订阅（社区规则源在上，官方规则源在下）
         RulesManager.ensureDefaultConfigs(this)
+
+        // 覆盖 XML 主题的窗口背景，兼容「系统浅色但应用内手动强制深色」的情况，避免启动白屏闪烁。
+        applyWindowBackground(savedSettings.themeMode)
 
         setContent {
             var themeMode by remember {

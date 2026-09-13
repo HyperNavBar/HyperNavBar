@@ -13,6 +13,8 @@ miuix = "0.9.4-rc01"
 # miuix-navigation3-ui 未随 0.9.4-rc01 发布，保留 0.9.3
 miuixNavigation = "0.9.3"
 
+haze = "1.7.3"
+
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -39,6 +41,8 @@ miuix-icons = { group = "top.yukonga.miuix.kmp", name = "miuix-icons-android", v
 miuix-squircle = { group = "top.yukonga.miuix.kmp", name = "miuix-squircle-android", version.ref = "miuix" }
 miuix-navigation = { group = "top.yukonga.miuix.kmp", name = "miuix-navigation3-ui-android", version.ref = "miuixNavigation" }
 material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+
+haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -47,9 +47,10 @@ import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.rules.RulesManager
 import cn.ianzb.hypernavbar.rules.SystemVersionDetector
 import cn.ianzb.hypernavbar.ui.util.BlurredBar
+import cn.ianzb.hypernavbar.ui.util.blurSource
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
+import cn.ianzb.hypernavbar.ui.util.rememberBlurState
 import cn.ianzb.hypernavbar.ui.util.shouldShowSplitPane
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
@@ -59,7 +60,6 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -130,13 +130,13 @@ fun HomePageView(
         }
     }
 
-    val backdrop = rememberBlurBackdrop()
-    val blurActive = isBlurEnabled && backdrop != null
+    val hazeState = rememberBlurState()
+    val blurActive = isBlurEnabled && hazeState != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     Scaffold(
         topBar = {
-            BlurredBar(backdrop, blurActive, scrollBehavior) {
+            BlurredBar(hazeState, blurActive, scrollBehavior) {
                 TopAppBar(
                     title = title,
                     color = barColor,
@@ -147,7 +147,7 @@ fun HomePageView(
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
         Box(
-            modifier = if (isBlurEnabled && backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier
+            modifier = Modifier.blurSource(if (isBlurEnabled) hazeState else null)
         ) {
             LazyColumn(
                 modifier = Modifier

@@ -45,8 +45,9 @@ import cn.ianzb.hypernavbar.UpdateChecker
 import cn.ianzb.hypernavbar.ui.screen.rules.FloatingIdentifyService
 import cn.ianzb.hypernavbar.ui.screen.rules.ScreenColorPickerService
 import cn.ianzb.hypernavbar.ui.util.BlurredBar
+import cn.ianzb.hypernavbar.ui.util.blurSource
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
+import cn.ianzb.hypernavbar.ui.util.rememberBlurState
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -55,7 +56,6 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
@@ -92,8 +92,8 @@ fun SettingsPageView(
     val scrollBehavior = MiuixScrollBehavior()
     val title = stringResource(R.string.tab_settings)
 
-    val backdrop = rememberBlurBackdrop()
-    val blurActive = isBlurEnabled && backdrop != null
+    val hazeState = rememberBlurState()
+    val blurActive = isBlurEnabled && hazeState != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     var showIntervalDialog by remember { mutableStateOf(false) }
@@ -177,7 +177,7 @@ fun SettingsPageView(
 
     Scaffold(
         topBar = {
-            BlurredBar(backdrop, blurActive, scrollBehavior) {
+            BlurredBar(hazeState, blurActive, scrollBehavior) {
                 TopAppBar(
                     title = title,
                     color = barColor,
@@ -188,7 +188,7 @@ fun SettingsPageView(
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
         Box(
-            modifier = if (isBlurEnabled && backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier
+            modifier = Modifier.blurSource(if (isBlurEnabled) hazeState else null)
         ) {
             LazyColumn(
                 modifier = Modifier

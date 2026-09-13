@@ -13,22 +13,25 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeProgressive
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
-import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
-import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -47,19 +50,49 @@ object TopBarBlurConfig {
     /** 模糊半径（dp），模糊最强处的强度 */
     const val BlurRadius: Float = 15f
 
-    /** 渐变曲线指数：1 = 线性；>1 让模糊更快衰减到清晰端（示例为 2.2） */
-    const val GradientCurve: Float = 10f
-
-    /** 顶栏 surface 背景混合透明度（0~1），越大栏越实 */
+    /** 顶栏 surface 着色叠加在模糊之上的透明度（0~1），越大栏越实 */
     const val SurfaceAlpha: Float = 0.3f
+
+    /**
+     * 顶部保持满强度模糊的比例（0~1）。
+     *
+     * 该比例之上为满强度模糊，其下线性渐隐到底边。这样内容在整个顶栏内都被充分模糊，
+     * 只在底边平滑过渡到清晰，而不会在顶栏下半部分留下清晰内容。
+     */
+    const val FullStrengthFraction: Float = 0.55f
 
     /**
      * 滚动渐显距离（dp）：内容下滑该距离内，模糊从透明渐显到完整。
      * 0 = 顶栏常驻完整模糊（推荐，各页面顶部即可见模糊）。
      */
     val ScrollFadeDistance: Dp = 0.dp
+
+    /** 顶部满强度模糊 → 底边渐隐的渐进遮罩。 */
+    val progressive: HazeProgressive = HazeProgressive.Brush(
+        Brush.verticalGradient(
+            0f to Color.Black,
+            FullStrengthFraction to Color.Black,
+            1f to Color.Black.copy(alpha = 0f),
+        )
+    )
 }
 
+/**
+ * 创建顶栏模糊所需的 [HazeState]；设备不支持运行时着色器时返回 null（不启用模糊）。
+ */
+@Composable
+fun rememberBlurState(): HazeState? {
+    val supported = isRuntimeShaderSupported() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    return if (supported) rememberHazeState() else null
+}
+
+/** 把内容节点登记为 Haze 的模糊来源（[state] 为 null 时不登记）。 */
+fun Modifier.blurSource(state: HazeState?): Modifier =
+    if (state != null) this.hazeSource(state) else this
+
+/**
+ * Miuix [LayerBackdrop]（用于底栏 / 动态背景等非顶栏模糊，与 Haze 顶栏模糊并存）。
+ */
 @Composable
 fun rememberBlurBackdrop(): LayerBackdrop? {
     if (!isRuntimeShaderSupported() || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
@@ -81,38 +114,42 @@ fun isInDarkTheme(): Boolean {
 
 @Composable
 fun BlurredBar(
-    backdrop: LayerBackdrop?,
+    state: HazeState?,
     blurEnabled: Boolean,
     scrollBehavior: ScrollBehavior? = null,
     content: @Composable () -> Unit,
 ) {
-    val blurActive = blurEnabled && backdrop != null
+    val blurActive = blurEnabled && state != null
     val scrollFadePx = with(LocalDensity.current) { TopBarBlurConfig.ScrollFadeDistance.toPx() }
+    val surfaceColor = MiuixTheme.colorScheme.surface
     Box {
         if (blurActive) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .graphicsLayer {
-                        alpha = if (scrollFadePx > 0f) {
-                            scrollBehavior?.state
-                                ?.let { (-it.contentOffset / scrollFadePx).coerceIn(0f, 1f) }
-                                ?: 1f
+                    .then(
+                        if (scrollFadePx > 0f) {
+                            Modifier.graphicsLayer {
+                                alpha = scrollBehavior?.state
+                                    ?.let { (-it.contentOffset / scrollFadePx).coerceIn(0f, 1f) }
+                                    ?: 1f
+                            }
                         } else {
-                            1f
+                            Modifier
                         }
-                    }
-                    .progressiveTextureBlur(
-                        backdrop = backdrop,
-                        shape = RectangleShape,
-                        gradient = ProgressiveBlur.Top.copy(curve = TopBarBlurConfig.GradientCurve),
-                        blurRadius = TopBarBlurConfig.BlurRadius,
-                        colors = BlurDefaults.blurColors(
-                            blendColors = listOf(
-                                BlendColorEntry(color = MiuixTheme.colorScheme.surface.copy(TopBarBlurConfig.SurfaceAlpha)),
-                            ),
-                        ),
-                    ),
+                    )
+                    .hazeEffect(state = state) {
+                        blurRadius = TopBarBlurConfig.BlurRadius.dp
+                        // 关键：模糊层必须不透明。Haze 会先原样绘制一遍来源内容，再叠加模糊副本；
+                        // 若模糊层透明，卡片等硬边缘会从模糊层中透出，看起来像「组件盖在模糊之上」。
+                        backgroundColor = surfaceColor
+                        noiseFactor = 0f
+                        // surface 着色叠加在模糊之上，控制顶栏实度。
+                        tints = listOf(
+                            HazeTint(surfaceColor.copy(alpha = TopBarBlurConfig.SurfaceAlpha))
+                        )
+                        progressive = TopBarBlurConfig.progressive
+                    },
             )
         }
         content()

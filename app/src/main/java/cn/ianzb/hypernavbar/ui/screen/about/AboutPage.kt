@@ -48,10 +48,12 @@ import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.ui.component.effect.BgEffectBackground
 import cn.ianzb.hypernavbar.ui.util.BlurredBar
 import cn.ianzb.hypernavbar.ui.util.ColorBlendToken
+import cn.ianzb.hypernavbar.ui.util.blurSource
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
 import cn.ianzb.hypernavbar.ui.util.pageContentPadding
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
+import cn.ianzb.hypernavbar.ui.util.rememberBlurState
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -93,9 +95,9 @@ fun AboutPageContent(
         }
     }
 
-    val backdrop = rememberBlurBackdrop()
+    val hazeState = rememberBlurState()
     val collapsed by remember { derivedStateOf { scrollProgress == 1f } }
-    val blurActive by remember(backdrop, isBlurEnabled) { derivedStateOf { isBlurEnabled && backdrop != null && scrollProgress == 1f } }
+    val blurActive by remember(hazeState, isBlurEnabled) { derivedStateOf { isBlurEnabled && hazeState != null && scrollProgress == 1f } }
 
     Scaffold(
         topBar = {
@@ -107,7 +109,7 @@ fun AboutPageContent(
             val titleColor = colorScheme.onSurface.copy(
                 alpha = ((scrollProgress - 0.35f) / 0.65f).coerceIn(0f, 1f),
             )
-            BlurredBar(backdrop, blurActive) {
+            BlurredBar(hazeState, blurActive) {
                 SmallTopAppBar(
                     title = stringResource(R.string.about),
                     scrollBehavior = topAppBarScrollBehavior,
@@ -119,7 +121,7 @@ fun AboutPageContent(
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
-        Box(modifier = if (isBlurEnabled && backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
+        Box(modifier = Modifier.blurSource(if (isBlurEnabled) hazeState else null)) {
             AboutContent(
                 padding = PaddingValues(
                     top = innerPadding.calculateTopPadding(),

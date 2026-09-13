@@ -60,8 +60,9 @@ import cn.ianzb.hypernavbar.rules.RuleType
 import cn.ianzb.hypernavbar.rules.RulesManager
 import cn.ianzb.hypernavbar.rules.SystemVersionDetector
 import cn.ianzb.hypernavbar.ui.util.BlurredBar
+import cn.ianzb.hypernavbar.ui.util.blurSource
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
+import cn.ianzb.hypernavbar.ui.util.rememberBlurState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -81,7 +82,6 @@ import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Backup
@@ -186,8 +186,8 @@ fun RulesPageView(
     var draggedOriginalIndex by remember { mutableStateOf(-1) }
     var dragOffsetY by remember { mutableStateOf(0f) }
 
-    val backdrop = rememberBlurBackdrop()
-    val blurActive = isBlurEnabled && backdrop != null
+    val hazeState = rememberBlurState()
+    val blurActive = isBlurEnabled && hazeState != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     fun reloadConfigs() {
@@ -583,7 +583,7 @@ fun RulesPageView(
 
     Scaffold(
         topBar = {
-            BlurredBar(backdrop, blurActive, scrollBehavior) {
+            BlurredBar(hazeState, blurActive, scrollBehavior) {
                 TopAppBar(
                     title = title,
                     color = barColor,
@@ -896,7 +896,7 @@ fun RulesPageView(
         )
 
         // Main content
-        Box(modifier = if (isBlurEnabled && backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
+        Box(modifier = Modifier.blurSource(if (isBlurEnabled) hazeState else null)) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()

@@ -13,7 +13,7 @@ android {
         applicationId = "cn.ianzb.hypernavbar"
         minSdk = 35
         targetSdk = 37
-        versionCode = 15
+        versionCode = 16
         versionName = "2.1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -86,6 +86,7 @@ dependencies {
     implementation(libs.material.icons.extended)
     implementation(libs.haze)
 }
+
 
 
 

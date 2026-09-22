@@ -286,6 +286,21 @@ private fun AboutContent(
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
             )
+            // Based on 标注：依据 MiuixGuiTemplate 脚手架约定保留（版本号随脚手架同步更新）。
+            MiuixText(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        val versionCodeProgress = ((scrollProgressProvider() - 0.05f) / 0.15f).coerceIn(0f, 1f)
+                        alpha = 1 - versionCodeProgress
+                        scaleX = 1 - (versionCodeProgress * 0.05f)
+                        scaleY = 1 - (versionCodeProgress * 0.05f)
+                    },
+                color = colorScheme.onSurfaceVariantSummary,
+                text = stringResource(R.string.about_based_on),
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+            )
         }
 
         // Scrollable content
@@ -384,9 +399,9 @@ private fun AboutContent(
                         ),
                     ) {
                         ArrowPreference(
-                            title = stringResource(R.string.license_apache),
-                            summary = stringResource(R.string.license_apache_summary),
-                            onClick = { uriHandler.openUri("https://www.apache.org/licenses/LICENSE-2.0.txt") },
+                            title = stringResource(R.string.license_lgpl),
+                            summary = stringResource(R.string.license_lgpl_summary),
+                            onClick = { uriHandler.openUri("https://www.gnu.org/licenses/lgpl-3.0.txt") },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.about_dependencies),

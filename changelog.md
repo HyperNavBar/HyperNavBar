@@ -1,5 +1,19 @@
 # 更新日志
 
+## 2.1.2
+
+> 发布于 2026-09-22
+
+### 变更
+
+- **开源协议调整为 LGPL-3.0**：本项目基于 MiuixGuiTemplate 脚手架开发，仓库同时包含 LGPL-3.0 与 Apache-2.0（自 miuix 引入的文件保留原始声明）许可的代码，按传染性要求整体以 LGPL-3.0 授权分发
+- 依赖升级：Miuix `0.9.4-rc01` → `0.9.4`；`miuix-navigation3-ui` 更换为 `miuix-nav`
+- 主页 Pager 统一为 **Cross-Axis** 拦截模式（`pagerGestureOverride` + `springAnimateToPage`），列表惯性滚动 / 回弹期间可横滑切页
+
+### 新增
+
+- **Based on 标注**：依据 MiuixGuiTemplate 脚手架约定，在 `README.md` 与「关于」页标注 `Based on MiuixGuiTemplate 0.3.0`
+
 ## 2.1.1
 
 > 发布于 2026-09-13

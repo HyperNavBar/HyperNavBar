@@ -112,9 +112,10 @@
     <string name="about_source_code_summary">https://github.com/HyperNavBar/HyperNavBar</string>
     <string name="about_telegram">Telegram Group</string>
     <string name="about_telegram_summary">https://t.me/HyperNavBar</string>
-    <string name="about_dependencies">Third Party Licenses</string>
-    <string name="license_apache">Apache License 2.0</string>
-    <string name="license_apache_summary">View full license text</string>
+    <string name="about_dependencies">Third Party Licenses &amp; Credits</string>
+    <string name="about_based_on">Based on MiuixGuiTemplate 0.3.0</string>
+    <string name="license_lgpl">GNU LGPL v3.0</string>
+    <string name="license_lgpl_summary">View full license text</string>
     <string name="third_party_licenses_title">Third Party Licenses</string>
     <string name="tl_miuix">compose-miuix-ui (miuix library)</string>
     <string name="tl_miuix_summary">Apache-2.0</string>
@@ -128,6 +129,9 @@
     <string name="tl_coroutines_summary">Apache-2.0</string>
     <string name="tl_material_icons">Material Icons Extended</string>
     <string name="tl_material_icons_summary">Apache-2.0</string>
+    <string name="tl_hyperceiler">HyperCeiler</string>
+    <string name="tl_hyperceiler_summary">AGPL-3.0</string>
+    <string name="tl_hyperlight">HyperLight</string>
 
     <!-- Rule editor – general -->
     <string name="rules_local_rule">Local Rule</string>

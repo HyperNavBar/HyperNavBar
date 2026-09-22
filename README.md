@@ -14,6 +14,8 @@
 
 **HyperNavBar** 是一款小米 HyperOS 导航栏沉浸规则管理应用，通过 Root 权限自定义应用的小白条行为。
 
+> Based on [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.3.0
+
 规则数据由 [HyperNavBar Rules](https://github.com/HyperNavBar/HyperNavBarRules) 仓库维护，欢迎前往贡献。
 
 <br>
@@ -98,16 +100,29 @@ cd HyperNavBar
 
 # 第三方库
 
-- [Miuix](https://github.com/YuKongA/Miuix) — HyperOS 风格 Compose UI 组件库
+- [Miuix](https://github.com/compose-miuix-ui/miuix) — HyperOS 风格 Compose UI 组件库
 - [AndroidX Compose](https://developer.android.com/jetpack/compose) — 声明式 UI 框架
 - [AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) — 液态玻璃导航栏效果参考
 - [Kotlin Coroutines](https://github.com/Kotlin/kotlinx.coroutines) — 异步支持
 
 <br>
 
+# 参考与致谢
+
+本项目的模块架构与界面实现参考了以下开源项目，谨向所有作者与贡献者致谢：
+
+- [HyperCeiler](https://github.com/ReChronoRain/HyperCeiler)
+- [HyperLight](https://github.com/KiminonawaResa/HyperLight)
+
+本项目基于 [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.3.0 脚手架开发，遵循其 Based on 约定。
+
+<br>
+
 # 许可证
 
-本项目基于 [Apache License 2.0](LICENSE) 开源。
+本项目基于 [GNU Lesser General Public License v3.0](LICENSE) 开源。
+
+仓库同时包含 Apache-2.0 许可的第三方代码（自 [miuix](https://github.com/compose-miuix-ui/miuix) 等引入的文件保留其原始版权与许可声明）。按照 LGPL-3.0 的传染性要求，本项目整体以 LGPL-3.0 授权分发；衍生作品须以 LGPL-3.0 或 GPL-3.0 授权公开，并保留上述「参考与致谢」与 [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 的 Based on 标注。
 
 <br>
 

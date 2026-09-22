@@ -109,6 +109,9 @@ fun LicensePageContent(
         val coroutinesSummary = stringResource(R.string.tl_coroutines_summary)
         val materialIconsName = stringResource(R.string.tl_material_icons)
         val materialIconsSummary = stringResource(R.string.tl_material_icons_summary)
+        val hyperCeilerName = stringResource(R.string.tl_hyperceiler)
+        val hyperCeilerSummary = stringResource(R.string.tl_hyperceiler_summary)
+        val hyperLightName = stringResource(R.string.tl_hyperlight)
 
         val libraries = remember {
             listOf(
@@ -118,6 +121,8 @@ fun LicensePageContent(
                 LibraryInfo(androidxName, androidxSummary, "https://developer.android.com/jetpack/androidx"),
                 LibraryInfo(coroutinesName, coroutinesSummary, "https://github.com/Kotlin/kotlinx.coroutines"),
                 LibraryInfo(materialIconsName, materialIconsSummary, "https://developer.android.com/jetpack/androidx/compose/material-icons"),
+                LibraryInfo(hyperCeilerName, hyperCeilerSummary, "https://github.com/ReChronoRain/HyperCeiler"),
+                LibraryInfo(hyperLightName, "", "https://github.com/KiminonawaResa/HyperLight"),
             )
         }
 
@@ -149,7 +154,11 @@ fun LicensePageContent(
                     ) {
                         ArrowPreference(
                             title = library.name,
-                            summary = "${library.artifactVersion} · ${library.website}",
+                            summary = if (library.artifactVersion.isBlank()) {
+                                library.website
+                            } else {
+                                "${library.artifactVersion} · ${library.website}"
+                            },
                             onClick = {
                                 uriHandler.openUri(library.website)
                             },

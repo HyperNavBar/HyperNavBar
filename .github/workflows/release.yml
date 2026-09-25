@@ -235,6 +235,7 @@ jobs:
           ACTOR_NAME: "${{ github.actor }}"
           RELEASE_URL: "${{ steps.github_release.outputs.url }}"
           EVENT_NAME: "${{ github.event_name }}"
+          MESSAGE_THREAD_ID: ${{ secrets.MESSAGE_THREAD_ID }}
         run: |
           ESCAPED_CAPTION=$(python3 -c '
           import os, re
@@ -259,10 +260,16 @@ jobs:
           print(msg_body)
           ')
 
+          THREAD_ARG=""
+          if [ -n "${MESSAGE_THREAD_ID}" ]; then
+            THREAD_ARG="-F message_thread_id=${MESSAGE_THREAD_ID}"
+          fi
+
           curl -v -F chat_id=${CHANNEL_ID} \
                   -F document=@"${APK_FILE}" \
                   -F parse_mode="MarkdownV2" \
                   -F caption="${ESCAPED_CAPTION}" \
+                  ${THREAD_ARG} \
                   https://api.telegram.org/bot${BOT_TOKEN}/sendDocument
 
       - name: 显示构建信息

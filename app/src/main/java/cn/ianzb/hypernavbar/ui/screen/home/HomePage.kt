@@ -25,9 +25,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircleOutline
-import androidx.compose.material.icons.rounded.ErrorOutline
+import cn.ianzb.hypernavbar.ui.icons.CheckCircleOutlineIcon
+import cn.ianzb.hypernavbar.ui.icons.ErrorOutlineIcon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -389,9 +388,9 @@ private fun StatusCard(
                 Icon(
                     modifier = Modifier.size(iconSize),
                     imageVector = if (hasRoot && immersionSupported)
-                        Icons.Rounded.CheckCircleOutline
+                        CheckCircleOutlineIcon
                     else
-                        Icons.Rounded.ErrorOutline,
+                        ErrorOutlineIcon,
                     tint = iconTint,
                     contentDescription = null
                 )

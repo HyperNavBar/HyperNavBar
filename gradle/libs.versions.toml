@@ -10,6 +10,7 @@ kotlin = "2.4.20"
 composeBom = "2026.09.00"
 
 miuix = "0.9.4"
+materialIcons = "1.7.8"
 
 haze = "1.7.3"
 
@@ -38,7 +39,7 @@ miuix-preference = { group = "top.yukonga.miuix.kmp", name = "miuix-preference-a
 miuix-icons = { group = "top.yukonga.miuix.kmp", name = "miuix-icons-android", version.ref = "miuix" }
 miuix-squircle = { group = "top.yukonga.miuix.kmp", name = "miuix-squircle-android", version.ref = "miuix" }
 miuix-navigation = { group = "top.yukonga.miuix.kmp", name = "miuix-nav-android", version.ref = "miuix" }
-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+material-icons-core = { group = "androidx.compose.material", name = "material-icons-core", version.ref = "materialIcons" }
 
 haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 

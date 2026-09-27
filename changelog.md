@@ -22,6 +22,7 @@
 
 - 规则生效不再需要 Root：Root 权限仅用于批量重启应用与清空 DexKit 缓存
 - 首次启动默认订阅仅播种社区规则源；官方规则由系统实时提供
+- **Hook 版本门禁**：全部 NBI Hook 增加 `HyperOS >= 4.0` 门禁，非 OS4（HyperOS 3.x / 2.x、MIUI、原生）主动跳过（不安装、不计入失败）；「旧版残留还原 / 清理」不设门禁，旧系统同样安全
 - Release 构建关闭 R8 混淆（Hook 依赖反射加载入口）
 - 依赖升级：新增 `libxposed 102.0.0`、`DexKit 2.2.0`；`Based on` 标注更新为 `MiuixGuiTemplate 0.4.2`
 

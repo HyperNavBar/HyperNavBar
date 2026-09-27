@@ -34,6 +34,8 @@ class ForceFullscreenHook : BaseHook() {
 
     override val key: String get() = HookKeys.FORCE_FULLSCREEN
 
+    override val versionGate = NbiHookSupport.OS4_GATE
+
     override fun init() {
         val loader = target.classLoader
         val clazz = Reflect.findClass("com.android.internal.policy.NavigationBarImmersiveController", loader)

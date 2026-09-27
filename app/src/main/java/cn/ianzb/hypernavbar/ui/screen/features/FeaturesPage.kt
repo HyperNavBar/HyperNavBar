@@ -1,9 +1,16 @@
 package cn.ianzb.hypernavbar.ui.screen.features
 
 import android.content.Intent
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -19,6 +26,12 @@ import cn.ianzb.hypernavbar.ui.component.pref.HookSection
 import cn.ianzb.hypernavbar.ui.screen.safemode.SafeModeActivity
 import cn.ianzb.hypernavbar.ui.screen.scope.ScopeListActivity
 import cn.ianzb.hypernavbar.xposed.XposedServiceManager
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Info
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 /**
  * 功能页：Hook 相关功能的统一入口。
@@ -50,6 +63,7 @@ fun FeaturesPageView(
         sections = sections,
         isBlurEnabled = isBlurEnabled,
         extraBottomPadding = extraBottomPadding,
+        topContent = { FeatureNotice() },
         onArrowClick = { spec ->
             when (spec.key) {
                 "feature_scope" -> context.startActivity(Intent(context, ScopeListActivity::class.java))
@@ -57,6 +71,36 @@ fun FeaturesPageView(
             }
         },
     )
+}
+
+/** 顶部提示：说明 Hook 的系统版本要求（HyperOS 4.0+）。 */
+@Composable
+private fun FeatureNotice() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .padding(top = 12.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Icon(
+                imageVector = MiuixIcons.Info,
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.width(12.dp))
+            MiuixText(
+                text = stringResource(R.string.features_notice),
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = MiuixTheme.textStyles.body2,
+            )
+        }
+    }
 }
 
 private fun featureSections(specs: List<OptionSpec>): List<HookSection> = listOf(

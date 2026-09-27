@@ -18,6 +18,8 @@ class ForceNbiEnableHook : BaseHook() {
 
     override val key: String get() = HookKeys.MASTER
 
+    override val versionGate = NbiHookSupport.OS4_GATE
+
     override fun init() {
         val loader = target.classLoader
         val decorClass = Reflect.findClass("com.android.internal.policy.DecorView", loader)

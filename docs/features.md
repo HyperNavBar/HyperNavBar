@@ -19,6 +19,20 @@ HyperNavBar 不再改写系统规则文件，而是通过 LSPosed Hook 在运行
 
 <br>
 
+## 系统版本要求
+
+**本模块的全部 Hook 仅适配 HyperOS 4.0 及以上**（手机 / 平板通用）。
+
+- 所有 NBI 相关 Hook 共用同一个版本门禁：`hyperOs >= 4.0`。
+- 门禁命中时的行为是**主动跳过**（不安装、不计入失败），因此在 HyperOS 3.x / 2.x、MIUI、Android 原生系统上，模块**不会产生任何 Hook 行为**，只保留规则数据的解析与编辑能力。
+- 这组 Hook 依赖的类（`com.android.nbi.*`、`com.android.internal.policy.NavigationBarImmersiveController` / `MiuiNBIManagerImpl` / `DecorViewImmersiveImpl`）为 HyperOS 4 专属，旧系统上并不存在。
+
+> 版本识别来自系统属性 `ro.mi.os.version.name`（如 `OS4.0`）。比较时会去掉 `OS` 前缀归一化为数字版本（`4.0`），因此门禁写作 `hyperOs { ge("4.0") }` 即可正确区分 `OS4.0` 与 `OS3.3`。
+
+**唯一例外**：「旧版残留还原 / 清理」不设门禁。它只做文件层面的 `.bak` 还原与标记删除，不依赖任何 HyperOS 4 专属类，在旧系统上同样安全有效，用于把曾被旧版模块覆盖的规则文件恢复为官方状态。
+
+<br>
+
 ## 强制生效
 
 官方代码在满足一系列条件后才会执行沉浸规则。这一组开关就是把这些「跳过执行」的条件逐个拆掉，让模块规则在原本不生效的场景里真正跑起来。

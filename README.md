@@ -51,6 +51,8 @@
 - Root 权限（可选）：仅用于批量重启应用 / 清空 DexKit 缓存
 - Android 15+（minSdk 35）
 
+> 全部 Hook 仅适配 **HyperOS 4.0+**（门禁 `hyperOs >= 4.0`）。在 HyperOS 3.x / 2.x、MIUI 或原生系统上，Hook 会**主动跳过**（不安装、不报错），仅保留规则编辑能力。详见 [docs/features.md](docs/features.md#系统版本要求)。
+
 <br>
 
 # 下载

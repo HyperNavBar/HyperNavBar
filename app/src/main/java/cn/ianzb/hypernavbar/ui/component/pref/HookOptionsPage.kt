@@ -119,6 +119,7 @@ fun hookSectionTitle(section: HookSection): String = buildString {
  * @param subPages 子页面入口：把子页面（及其嵌套子页面）内的配置项并入搜索（不渲染在本页）。
  * @param isBlurEnabled 是否启用背景模糊。
  * @param extraBottomPadding 额外底部内边距（用于底部导航栏遮挡）。
+ * @param topContent 页面顶部提示区（显示在搜索栏上方，搜索展开时隐藏）；为空则不显示。
  * @param onArrowClick 箭头卡片点击回调，参数为被点击的 [OptionSpec]。
  * @param customActionPackages 额外注入重启应用的包名（供二次开发直接暴露自定义应用）。
  * @param topBarActions 顶栏右侧扩展槽（显示在自动生成的「重启应用」按钮之前），为空则不显示。
@@ -130,6 +131,7 @@ fun HookOptionsPage(
     subPages: List<HookSubPage> = emptyList(),
     isBlurEnabled: Boolean = true,
     extraBottomPadding: Dp = 0.dp,
+    topContent: (@Composable () -> Unit)? = null,
     onArrowClick: (OptionSpec) -> Unit = {},
     customActionPackages: List<String> = emptyList(),
     topBarActions: (@Composable () -> Unit)? = null,
@@ -226,6 +228,9 @@ fun HookOptionsPage(
                     bottom = innerPadding.calculateBottomPadding() + extraBottomPadding,
                 ),
             ) {
+                if (!expanded && topContent != null) {
+                    item(key = "top_content") { topContent() }
+                }
                 item {
                     SearchBar(
                         inputField = {

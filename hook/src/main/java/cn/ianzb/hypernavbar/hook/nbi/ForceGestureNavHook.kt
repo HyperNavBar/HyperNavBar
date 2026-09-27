@@ -16,6 +16,8 @@ class ForceGestureNavHook : BaseHook() {
 
     override val key: String get() = HookKeys.FORCE_GESTURE
 
+    override val versionGate = NbiHookSupport.OS4_GATE
+
     override fun init() {
         val clazz = Reflect.findClass("com.android.internal.policy.MiuiNBIManagerImpl", target.classLoader)
         val fullScreenGesture = Reflect.findMethod(clazz, "isFullScreenGestureNavCached")

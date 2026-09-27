@@ -17,6 +17,8 @@ class ForceBypassVirtualDisplayHook : BaseHook() {
 
     override val key: String get() = HookKeys.BYPASS_VIRTUAL_DISPLAY
 
+    override val versionGate = NbiHookSupport.OS4_GATE
+
     override fun init() {
         val immersive = Reflect.findClass("com.android.internal.policy.DecorViewImmersiveImpl", target.classLoader)
         val method = Reflect.findMethod(immersive, "isVirtualDisplay", Context::class.java)

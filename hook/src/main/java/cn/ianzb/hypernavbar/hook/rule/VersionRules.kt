@@ -84,9 +84,23 @@ data class VersionContext(
 ) {
     internal fun valueOf(source: VersionSource): String = when (source) {
         VersionSource.ANDROID -> androidSdk.toString()
-        VersionSource.HYPER_OS -> hyperOs
+        VersionSource.HYPER_OS -> normalizeHyperOs(hyperOs)
         VersionSource.MIUI -> miui
         VersionSource.APP -> appVersionName
+    }
+
+    /**
+     * 归一化 HyperOS 版本号：`ro.mi.os.version.name` 形如 `OS4.0`，
+     * 去掉前缀 `OS` 后得到 `4.0`，使 `hyperOs { ge("4.0") }` 等门禁可直接按数字比较
+     * （[Version] 中数字段小于文本段，若保留 `OS` 前缀会导致 `OS3.3` 被误判为大于 `4.0`）。
+     */
+    private fun normalizeHyperOs(raw: String): String {
+        val trimmed = raw.trim()
+        return if (trimmed.startsWith("OS", ignoreCase = true)) {
+            trimmed.substring(2).trimStart('.', '-', '_', ' ')
+        } else {
+            trimmed
+        }
     }
 
     override fun toString(): String =

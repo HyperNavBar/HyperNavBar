@@ -10,6 +10,9 @@ import java.io.File
  * 旧版 HyperNavBar 会直接覆盖系统规则文件并留下 `.bak`。这里在 system_server 启动早期
  * 把 `.bak` 还原回目标文件、删除 `.bak` 与标记文件，使系统磁盘恢复为官方规则；
  * 运行时再由规则注入 hook 覆盖，因此卸载模块后自动回到官方规则。
+ *
+ * 本 hook 不设版本门禁：它只做文件层面的还原/清理，不依赖任何 HyperOS 4 专属类，
+ * 在旧系统上同样安全且有效（见 [NbiHookSupport.OS4_GATE]）。
  */
 class NbiLegacyCleanupHook : BaseHook() {
 

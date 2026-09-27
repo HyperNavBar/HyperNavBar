@@ -285,6 +285,7 @@
 
     <!-- 功能标签页 / Hook 模块 -->
     <string name="tab_features">功能</string>
+    <string name="features_notice">本模块的全部 Hook 仅适配 HyperOS 4.0 及以上。更低版本系统会自动跳过（不注入、不报错），仅保留规则编辑能力。</string>
     <string name="settings_module">模块</string>
     <string name="section_force">强制生效</string>
     <string name="section_scope_expand">适配范围</string>

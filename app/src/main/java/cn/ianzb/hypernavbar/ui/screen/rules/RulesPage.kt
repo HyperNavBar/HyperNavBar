@@ -51,18 +51,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.RootHelper
-import cn.ianzb.hypernavbar.rules.RootApplier
+import cn.ianzb.hypernavbar.prefs.HookBlacklist
+import cn.ianzb.hypernavbar.rules.HookRulePublisher
 import cn.ianzb.hypernavbar.rules.RuleCombiner
 import cn.ianzb.hypernavbar.rules.RuleConfigSource
 import cn.ianzb.hypernavbar.rules.RuleConverter
 import cn.ianzb.hypernavbar.rules.RuleFetcher
 import cn.ianzb.hypernavbar.rules.RuleType
 import cn.ianzb.hypernavbar.rules.RulesManager
-import cn.ianzb.hypernavbar.rules.SystemVersionDetector
 import cn.ianzb.hypernavbar.ui.util.BlurredBar
 import cn.ianzb.hypernavbar.ui.util.blurSource
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import cn.ianzb.hypernavbar.ui.util.rememberBlurState
+import cn.ianzb.hypernavbar.xposed.XposedServiceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -113,7 +114,6 @@ private data class PresetSource(val name: String, val summary: String, val url: 
 
 private fun getPresetSources(context: android.content.Context): List<PresetSource> = listOf(
     PresetSource(context.getString(R.string.preset_community_name), context.getString(R.string.preset_community_summary), RuleConfigSource.PRESET_COMMUNITY_URL),
-    PresetSource(context.getString(R.string.preset_official_name), context.getString(R.string.preset_official_summary), RuleConfigSource.PRESET_OFFICIAL_URL),
 )
 
 private fun formatElapsedTime(context: android.content.Context, timestamp: Long, @Suppress("UNUSED_PARAMETER") tick: Int): String {
@@ -222,33 +222,24 @@ fun RulesPageView(
         if (isCustom) isCustomApplied = true
     }
 
-    /** 解析当前设备的 HyperOS 模式 */
-    fun resolveOsMode(): RuleConverter.OsMode =
-        SystemVersionDetector.getEffectiveOsMode(context)?.let { osmode ->
-            runCatching { RuleConverter.OsMode.valueOf(osmode.name) }
-                .getOrDefault(RuleConverter.detectOsMode())
-        } ?: RuleConverter.detectOsMode()
-
-    /** 合并订阅规则并应用，可选显示结果 Toast */
+    /** 合并订阅规则并发布给 Hook 进程，可选显示结果 Toast */
     suspend fun doApply(cachedResults: MutableMap<String, RuleFetcher.FetchResult>, showToast: Boolean) {
         val mergedJson = RuleCombiner.combine(configs.toList(), cachedResults)
-        val mode = resolveOsMode()
-        val targetContent = RuleConverter.convert(mergedJson, mode)
-        val targetPath = RuleConverter.getTargetPath(mode)
         val totalApps = RuleCombiner.getTotalAppCount(cachedResults)
-        if (hasRoot) {
-            RootApplier.applyRules(targetContent, targetPath, context.cacheDir)
-            isCustomApplied = RootApplier.isCustomRulesApplied(targetPath)
-        }
+        val published = withContext(Dispatchers.IO) { HookRulePublisher.publish(mergedJson) }
+        // 规则中标记 hookExcluded 的应用：从 LSPosed 作用域移除，不再注入
+        val excluded = HookRulePublisher.excludedPackages()
+        if (excluded.isNotEmpty()) XposedServiceManager.removeScope(excluded.toList())
+        // 为其余规则涉及的应用申请 LSPosed 作用域（框架 Hook 只对作用域内进程生效）
+        val toScope = HookBlacklist.filter(published)
+        if (toScope.isNotEmpty()) XposedServiceManager.ensureScope(toScope)
+        isCustomApplied = published.isNotEmpty()
         saveApplyState(System.currentTimeMillis(), totalApps, isCustomApplied)
         if (showToast) {
             withContext(Dispatchers.Main) {
                 @Suppress("LocalContext")
                 val updateSuccessMsg = context.getString(R.string.rules_update_success, totalApps)
                 Toast.makeText(context, updateSuccessMsg, Toast.LENGTH_SHORT).show()
-                if (!hasRoot) {
-                    Toast.makeText(context, rulesRootRequiredText, Toast.LENGTH_SHORT).show()
-                }
             }
         }
     }

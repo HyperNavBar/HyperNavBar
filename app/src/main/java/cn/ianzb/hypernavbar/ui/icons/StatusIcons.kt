@@ -76,3 +76,35 @@ val ErrorOutlineIcon: ImageVector
     }
 
 private var _errorOutline: ImageVector? = null
+
+val RemoveCircleOutlineIcon: ImageVector
+    get() {
+        if (_removeCircleOutline != null) return _removeCircleOutline!!
+        _removeCircleOutline = materialIcon(name = "Rounded.RemoveCircleOutline") {
+            materialPath {
+                moveTo(7.0f, 12.0f)
+                curveToRelative(0.0f, 0.55f, 0.45f, 1.0f, 1.0f, 1.0f)
+                horizontalLineToRelative(8.0f)
+                curveToRelative(0.55f, 0.0f, 1.0f, -0.45f, 1.0f, -1.0f)
+                reflectiveCurveToRelative(-0.45f, -1.0f, -1.0f, -1.0f)
+                lineTo(8.0f, 11.0f)
+                curveToRelative(-0.55f, 0.0f, -1.0f, 0.45f, -1.0f, 1.0f)
+                close()
+                moveTo(12.0f, 2.0f)
+                curveTo(6.48f, 2.0f, 2.0f, 6.48f, 2.0f, 12.0f)
+                reflectiveCurveToRelative(4.48f, 10.0f, 10.0f, 10.0f)
+                reflectiveCurveToRelative(10.0f, -4.48f, 10.0f, -10.0f)
+                reflectiveCurveTo(17.52f, 2.0f, 12.0f, 2.0f)
+                close()
+                moveTo(12.0f, 20.0f)
+                curveToRelative(-4.41f, 0.0f, -8.0f, -3.59f, -8.0f, -8.0f)
+                reflectiveCurveToRelative(3.59f, -8.0f, 8.0f, -8.0f)
+                reflectiveCurveToRelative(8.0f, 3.59f, 8.0f, 8.0f)
+                reflectiveCurveToRelative(-3.59f, 8.0f, -8.0f, 8.0f)
+                close()
+            }
+        }
+        return _removeCircleOutline!!
+    }
+
+private var _removeCircleOutline: ImageVector? = null

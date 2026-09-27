@@ -128,6 +128,7 @@ fun formatNbiJson(jsonStr: String): String {
             if (app.has("enable31")) sortedApp.put("enable31", app.optBoolean("enable31"))
             if (app.has("disableVersionCode") && !app.isNull("disableVersionCode"))
                 sortedApp.put("disableVersionCode", app.optLong("disableVersionCode"))
+            if (app.has("hookExcluded")) sortedApp.put("hookExcluded", app.optBoolean("hookExcluded"))
             val activityRules = app.optJSONObject("activityRules")
             if (activityRules != null) {
                 val sortedActivities = JSONObject()
@@ -284,6 +285,7 @@ fun JsonRuleEditorSheet(
             nbiRules.put(pkg, JSONObject().apply {
                 put("enable", true)
                 put("name", appName)
+                put("hookExcluded", false)
                 put("activityRules", JSONObject())
             })
         } else if (appJson.optString("name", "").isEmpty() && appName.isNotEmpty()) {
@@ -661,6 +663,7 @@ fun JsonRuleEditorSheet(
                         val newApp = JSONObject()
                         newApp.put("name", newName.trim())
                         newApp.put("enable", true)
+                        newApp.put("hookExcluded", false)
                         newApp.put("activityRules", JSONObject())
                         nbiRules.put(pkg, newApp)
                         saveRoot()
@@ -911,6 +914,29 @@ fun JsonRuleEditorSheet(
                         },
                         title = stringResource(R.string.editor_app_enable),
                         summary = stringResource(R.string.editor_app_enable_summary),
+                    )
+                }
+            }
+            // App-level hook exclusion toggle
+            item {
+                val hookExcluded = appForSelected?.optBoolean("hookExcluded", false) ?: false
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                ) {
+                    SwitchPreference(
+                        checked = hookExcluded,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                appForSelected?.put("hookExcluded", true)
+                            } else {
+                                appForSelected?.put("hookExcluded", false)
+                            }
+                            saveRoot()
+                        },
+                        title = stringResource(R.string.editor_hook_excluded),
+                        summary = stringResource(R.string.editor_hook_excluded_summary),
                     )
                 }
             }

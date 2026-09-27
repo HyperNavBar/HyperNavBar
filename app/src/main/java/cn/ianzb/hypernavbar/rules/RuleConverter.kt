@@ -289,6 +289,66 @@ object RuleConverter {
 
     private data class StyleExpansion(val mode: Int, val color: Any?, val sfSamplingMode: Int)
 
+    /**
+     * 新格式合并规则 → Hook 注入载荷：包名 → 官方字段格式的 activityRules JSON。
+     */
+    fun buildHookPayloads(merged: JSONObject): Map<String, String> {
+        val result = LinkedHashMap<String, String>()
+        val nbi = merged.optJSONObject("NBIRules") ?: return result
+        val pkgKeys = nbi.keys()
+        while (pkgKeys.hasNext()) {
+            val pkg = pkgKeys.next()
+            val app = nbi.optJSONObject(pkg) ?: continue
+            // 标记为排除的应用不生成注入载荷（不参与 Hook）
+            if (app.optBoolean("hookExcluded", false)) continue
+            val activities = app.optJSONObject("activityRules") ?: continue
+            if (activities.length() == 0) continue
+            val payload = JSONObject()
+            val actKeys = activities.keys()
+            while (actKeys.hasNext()) {
+                val name = actKeys.next()
+                val rule = activities.optJSONObject(name) ?: continue
+                payload.put(name, activityToOfficial(rule))
+            }
+            if (payload.length() > 0) result[pkg] = payload.toString()
+        }
+        return result
+    }
+
+    /**
+     * 收集被标记为排除 Hook 的应用集合（应用级 `hookExcluded = true`）。
+     */
+    fun excludedPackages(merged: JSONObject): Set<String> {
+        val result = LinkedHashSet<String>()
+        val nbi = merged.optJSONObject("NBIRules") ?: return result
+        val keys = nbi.keys()
+        while (keys.hasNext()) {
+            val pkg = keys.next()
+            val app = nbi.optJSONObject(pkg) ?: continue
+            if (app.optBoolean("hookExcluded", false)) result.add(pkg)
+        }
+        return result
+    }
+
+    /** 单个新格式活动规则 → 官方字段对象。 */
+    private fun activityToOfficial(rule: JSONObject): JSONObject {
+        val out = JSONObject()
+        val expansion = expandStyle(rule)
+        out.put("mode", expansion.mode)
+        out.put("color", expansion.color ?: JSONObject.NULL)
+        out.put("sf_sampling_mode", expansion.sfSamplingMode)
+        // sf_sampling_mode 高级字段仅在值为 -1 / 255 时覆盖展开输出
+        if (rule.has("sf_sampling_mode")) {
+            val advanced = rule.optInt("sf_sampling_mode", 0)
+            if (advanced == -1 || advanced == 255) out.put("sf_sampling_mode", advanced)
+        }
+        out.put("dialogMode", rule.optInt("dialogMode", 1))
+        out.put("popupMode", rule.optInt("popupMode", 1))
+        out.put("appNavColorDisabled", rule.optInt("appNavColorDisabled", 0))
+        if (rule.has("viewRules")) out.put("viewRules", rule.get("viewRules"))
+        return out
+    }
+
     /** 新格式 style → 官方 mode/color/sf_sampling_mode 展开；未知/缺失 style 回退 disabled。 */
     private fun expandStyle(rule: JSONObject): StyleExpansion {
         val style = rule.optString("style", "disabled")

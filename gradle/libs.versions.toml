@@ -14,6 +14,8 @@ materialIcons = "1.7.8"
 
 haze = "1.7.3"
 
+libxposed = "102.0.0"
+dexkit = "2.2.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -43,7 +45,12 @@ material-icons-core = { group = "androidx.compose.material", name = "material-ic
 
 haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 
+libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposed" }
+libxposed-service = { group = "io.github.libxposed", name = "service", version.ref = "libxposed" }
+dexkit = { group = "org.luckypray", name = "dexkit", version.ref = "dexkit" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 

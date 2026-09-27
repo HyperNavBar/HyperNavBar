@@ -15,5 +15,6 @@
 /.idea
 local.properties
 /app/build
+/hook/build
 /.omo
 /release.keystore

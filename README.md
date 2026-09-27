@@ -4,7 +4,7 @@
 
 ### 小米 HyperOS 小白条沉浸规则管理工具
 
-[使用教程](docs/usage.md) | [适配文档](docs/tutorial.md) | [更新日志](changelog.md) | [规则仓库](https://github.com/HyperNavBar/HyperNavBarRules) | [Telegram 群组](https://t.me/HyperNavBar)
+[使用教程](docs/usage.md) | [功能说明](docs/features.md) | [适配文档](docs/tutorial.md) | [更新日志](changelog.md) | [规则仓库](https://github.com/HyperNavBar/HyperNavBarRules) | [Telegram 群组](https://t.me/HyperNavBar)
 
 [![GitHub License](https://img.shields.io/github/license/HyperNavBar/HyperNavBar)](LICENSE)
 [![GitHub Issues](https://img.shields.io/github/issues/HyperNavBar/HyperNavBar)](https://github.com/HyperNavBar/HyperNavBar/issues)
@@ -14,7 +14,7 @@
 
 **HyperNavBar** 是一款小米 HyperOS 导航栏沉浸规则管理应用，通过 Root 权限自定义应用的小白条行为。
 
-> Based on [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.3.0
+> Based on [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.4.2
 
 规则数据由 [HyperNavBar Rules](https://github.com/HyperNavBar/HyperNavBarRules) 仓库维护，欢迎前往贡献。
 
@@ -34,7 +34,10 @@
 - **可视化编辑** — 对缓存规则进行可视化编辑，支持按包名 / 应用名 / 活动 ID 搜索过滤
 - **悬浮窗工具** — 一键识别前台应用信息（包名、应用名、活动 ID），支持屏幕取色
 - **智能格式转换** — 自动检测 HyperOS 版本（OS2.2 / OS3.0 / OS3.3+），输出 XML / JSON 格式
-- **一键应用** — Root 写文件即时生效，修改后自动应用（可配置）
+- **Hook 规则注入** — 基于 LSPosed 在运行期用模块规则覆盖合并官方规则，无需 Root、不改写系统文件
+- **强制生效** — 可绕过官方版本阈值 / 强制边到边 / 虚拟显示 / 导航方式 / 非全屏等限制，让规则在更多场景生效
+- **安全模式** — 目标应用反复崩溃时自动跳过 Hook，避免系统应用崩溃导致无法开机
+- **自动应用** — 修改后自动应用，生效时间可配置
 - **导航栏样式** — 标准 / 悬浮 / 液态玻璃（iOS 风格毛玻璃效果）
 - **多种主题** — 系统跟随 / 浅色 / 深色 / Monet 跟随 / Monet 浅色 / Monet 深色
 - **备份还原** — 规则备份恢复，设置导入导出，开机自动应用
@@ -43,8 +46,9 @@
 
 # 系统要求
 
-- 搭载 **HyperOS 2.2 ~ 4.0** 的小米设备
-- **Root 权限**（Magisk / KernelSU / APatch）
+- 搭载 **HyperOS 4** 的小米设备（手机 / 平板）
+- 已安装 **LSPosed**（支持 libxposed API 102），模块作用域需包含系统框架与 system_server
+- Root 权限（可选）：仅用于批量重启应用 / 清空 DexKit 缓存
 - Android 15+（minSdk 35）
 
 <br>
@@ -81,6 +85,7 @@ cd HyperNavBar
 ### 相关信息
 
 [点击此处](docs/usage.md) 查看使用教程  
+[点击此处](docs/features.md) 查看功能说明  
 [点击此处](docs/tutorial.md) 查看规则适配与格式说明  
 [点击此处](changelog.md) 查看更新日志  
 [点击此处](https://github.com/HyperNavBar/HyperNavBarRules) 查看规则仓库  
@@ -114,7 +119,7 @@ cd HyperNavBar
 - [HyperCeiler](https://github.com/ReChronoRain/HyperCeiler)
 - [HyperLight](https://github.com/KiminonawaResa/HyperLight)
 
-本项目基于 [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.3.0 脚手架开发，遵循其 Based on 约定。
+本项目基于 [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.4.2 脚手架开发，遵循其 Based on 约定。
 
 <br>
 

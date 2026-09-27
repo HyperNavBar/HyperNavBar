@@ -16,8 +16,7 @@ object RulesManager {
 
     /**
      * 首次启动时播种默认订阅：
-     * - 社区规则源在上（低优先级，合并时优先覆盖官方）
-     * - 官方规则源在下（高优先级，作为基底）
+     * - 仅播种社区规则源（官方规则作为基底由系统实时提供，无需用户订阅）
      * 仅在订阅列表为空时执行一次，之后以标记位防止重复播种。
      */
     fun ensureDefaultConfigs(context: Context) {
@@ -25,12 +24,8 @@ object RulesManager {
         if (prefs.getBoolean(KEY_DEFAULTS_SEEDED, false)) return
 
         if (loadAll(context).isEmpty()) {
-            // 社区规则源（priority 0，显示在上方，合并时优先）
             add(context, RuleType.CLOUD, RuleConfigSource.PRESET_COMMUNITY_URL,
                 name = context.getString(cn.ianzb.hypernavbar.R.string.preset_community_name))
-            // 官方规则源（priority 1，显示在下方，作为基底）
-            add(context, RuleType.CLOUD, RuleConfigSource.PRESET_OFFICIAL_URL,
-                name = context.getString(cn.ianzb.hypernavbar.R.string.preset_official_name))
         }
         prefs.edit().putBoolean(KEY_DEFAULTS_SEEDED, true).apply()
     }

@@ -51,6 +51,7 @@ import cn.ianzb.hypernavbar.rules.RulesManager
 import cn.ianzb.hypernavbar.ui.component.UpdateDialog
 import cn.ianzb.hypernavbar.ui.component.liquid.IosLiquidGlassNavigationBar
 import cn.ianzb.hypernavbar.ui.screen.about.AboutPageContent
+import cn.ianzb.hypernavbar.ui.screen.features.FeaturesPageView
 import cn.ianzb.hypernavbar.ui.screen.home.HomePageView
 import cn.ianzb.hypernavbar.ui.screen.rules.RulesPageView
 import cn.ianzb.hypernavbar.ui.screen.settings.SettingsPageView
@@ -85,6 +86,7 @@ import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Info
 import top.yukonga.miuix.kmp.icon.extended.ListView
 import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PagerGestureNestedScrollConnection
@@ -263,7 +265,7 @@ private fun MainScreen(
     onCheckUpdate: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val pagerState = rememberPagerState(pageCount = { 4 })
+    val pagerState = rememberPagerState(pageCount = { 5 })
     var selectedIndex by remember { mutableIntStateOf(0) }
     var isNavigating by remember { mutableStateOf(false) }
     var navJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
@@ -272,12 +274,14 @@ private fun MainScreen(
     val items = listOf(
         stringResource(R.string.tab_home),
         stringResource(R.string.tab_rules),
+        stringResource(R.string.tab_features),
         stringResource(R.string.tab_settings),
         stringResource(R.string.tab_about)
     )
     val icons = listOf(
         MiuixIcons.Home,
         MiuixIcons.ListView,
+        MiuixIcons.Tune,
         MiuixIcons.Settings,
         MiuixIcons.Info
     )
@@ -363,7 +367,11 @@ private fun MainScreen(
                         isBlurEnabled = isBlurEnabled,
                         extraBottomPadding = navBarHeight,
                     )
-                    2 -> SettingsPageView(
+                    2 -> FeaturesPageView(
+                        isBlurEnabled = isBlurEnabled,
+                        extraBottomPadding = navBarHeight,
+                    )
+                    3 -> SettingsPageView(
                         currentMode = themeMode,
                         onModeChange = onThemeModeChange,
                         isFloatingNavbar = isFloatingNavbar,
@@ -382,7 +390,7 @@ private fun MainScreen(
                         isCheckingUpdate = isCheckingUpdate,
                         extraBottomPadding = navBarHeight,
                     )
-                    3 -> AboutPageContent(
+                    4 -> AboutPageContent(
                         openLicensePage = {
                             context.startActivity(Intent(context, LicenseActivity::class.java))
                         },

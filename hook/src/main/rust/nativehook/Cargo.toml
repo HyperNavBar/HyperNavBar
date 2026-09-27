@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: LGPL-3.0
+[package]
+name = "nativehook"
+version = "0.1.0"
+edition = "2021"
+description = "libxposed 原生 hook 的 Rust 参考模板（cdylib，导出 native_init）"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

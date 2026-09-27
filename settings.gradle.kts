@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "HyperNavBar"
 include(":app")
+include(":hook")

@@ -41,6 +41,10 @@ val LocalEnableBlur: ProvidableCompositionLocal<Boolean> = staticCompositionLoca
 
 val LocalIsWideScreen: ProvidableCompositionLocal<Boolean> = staticCompositionLocalOf { false }
 
+/** 二级页面脚手架提供的滚动行为，供内容页 LazyColumn 绑定顶栏收起。 */
+val LocalSubPageScrollBehavior: ProvidableCompositionLocal<ScrollBehavior?> =
+    staticCompositionLocalOf { null }
+
 /**
  * 顶栏渐进模糊（Progressive Blur）统一参数。
  *

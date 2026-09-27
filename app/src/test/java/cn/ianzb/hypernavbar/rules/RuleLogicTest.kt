@@ -379,6 +379,118 @@ class RuleLogicTest {
         assertEquals(RuleConverter.todayDataVersion(), merged.getString("dataVersion"))
     }
 
+    @Test
+    fun buildHookPayloads_expandsStyleToOfficialFields() {
+        val merged = JSONObject(
+            """
+            {
+              "modules": "HyperNavBar_config",
+              "NBIRules": {
+                "com.app": {
+                  "activityRules": {
+                    "MainActivity": { "style": "view" },
+                    "VideoActivity": { "style": "floating" },
+                    "FixedActivity": { "style": "color", "color": "#0000FFFF" }
+                  }
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        val payloads = RuleConverter.buildHookPayloads(merged)
+        assertEquals(setOf("com.app"), payloads.keys)
+        val rules = JSONObject(payloads.getValue("com.app"))
+        assertEquals(1, rules.getJSONObject("MainActivity").getInt("mode"))
+        assertEquals(1, rules.getJSONObject("MainActivity").getInt("color"))
+        assertEquals(2, rules.getJSONObject("VideoActivity").getInt("mode"))
+        assertEquals(1, rules.getJSONObject("FixedActivity").getInt("mode"))
+        assertEquals(-16776961, rules.getJSONObject("FixedActivity").getInt("color"))
+    }
+
+    @Test
+    fun buildHookPayloads_skipsPackagesWithoutActivities() {
+        val merged = JSONObject(
+            """
+            { "NBIRules": { "com.empty": { "activityRules": {} } } }
+            """.trimIndent()
+        )
+        assertTrue(RuleConverter.buildHookPayloads(merged).isEmpty())
+    }
+
+    @Test
+    fun buildHookPayloads_skipsHookExcludedApps() {
+        val merged = JSONObject(
+            """
+            {
+              "NBIRules": {
+                "com.normal": { "activityRules": { "A": { "style": "view" } } },
+                "com.excluded": {
+                  "hookExcluded": true,
+                  "activityRules": { "A": { "style": "view" } }
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        val payloads = RuleConverter.buildHookPayloads(merged)
+        assertEquals(setOf("com.normal"), payloads.keys)
+        assertEquals(setOf("com.excluded"), RuleConverter.excludedPackages(merged))
+    }
+
+    @Test
+    fun buildHookPayloads_keepsExplicitFalseHookExcluded() {
+        val merged = JSONObject(
+            """
+            {
+              "NBIRules": {
+                "com.false": {
+                  "hookExcluded": false,
+                  "activityRules": { "A": { "style": "view" } }
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        assertEquals(setOf("com.false"), RuleConverter.buildHookPayloads(merged).keys)
+        assertTrue(RuleConverter.excludedPackages(merged).isEmpty())
+    }
+
+    @Test
+    fun normalizeFromOfficial_preservesHookExcluded() {
+        val official = JSONObject(
+            """
+            {
+              "modules": "navigation_bar_immersive_application_config_new",
+              "NBIRules": {
+                "com.x": {
+                  "enable": true,
+                  "hookExcluded": true,
+                  "activityRules": { "A": { "mode": 0 } }
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        val normalized = RuleConverter.normalizeFromOfficial(official)
+        assertTrue(
+            normalized.getJSONObject("NBIRules").getJSONObject("com.x").getBoolean("hookExcluded")
+        )
+    }
+
+    @Test
+    fun combine_propagatesHookExcludedFromWinningSource() {
+        val base = ruleConfig(
+            "base", 10,
+            """{ "NBIRules": { "com.x": { "enable": true, "activityRules": { "A": { "style": "view" } } } } }"""
+        )
+        val top = ruleConfig(
+            "top", 0,
+            """{ "NBIRules": { "com.x": { "enable": true, "hookExcluded": true, "activityRules": { "A": { "style": "view" } } } } }"""
+        )
+        val merged = RuleCombiner.combine(listOf(base, top), resultsFor(base, top))
+        assertTrue(RuleConverter.excludedPackages(merged).contains("com.x"))
+    }
+
     private fun ruleConfig(id: String, priority: Int, json: String) = RuleConfigSource(
         id = id,
         type = RuleType.LOCAL,

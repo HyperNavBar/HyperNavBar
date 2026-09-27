@@ -83,6 +83,9 @@ object RuleCombiner {
         if (newRule.has("enable")) {
             existing.put("enable", newRule.getBoolean("enable"))
         }
+        if (newRule.has("hookExcluded")) {
+            existing.put("hookExcluded", newRule.getBoolean("hookExcluded"))
+        }
         if (newRule.has("name") && newRule.getString("name").isNotEmpty()) {
             existing.put("name", newRule.getString("name"))
         }

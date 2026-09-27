@@ -21,7 +21,7 @@ class NbiRuleInjectHook : BaseHook() {
 
     override val key: String get() = HookKeys.INJECT_RULES
 
-    override val versionGate = NbiHookSupport.OS4_GATE
+    override val versionGate = NbiHookSupport.NBI_GATE
 
     override fun init() {
         val clazz = Reflect.findClass("com.android.nbi.MiuiNBIController", target.classLoader)

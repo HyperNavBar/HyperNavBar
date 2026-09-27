@@ -285,7 +285,7 @@
 
     <!-- Features tab / Hook module -->
     <string name="tab_features">Features</string>
-    <string name="features_notice">All hooks in this module target HyperOS 4.0+. On older systems they are skipped automatically (no injection, no errors), leaving only rule editing.</string>
+    <string name="features_notice">All hooks in this module support HyperOS 3.3 (3.0.3XX) / 4.x. On older systems they are skipped automatically (no injection, no errors), leaving only rule editing.</string>
     <string name="settings_module">Module</string>
     <string name="section_force">Force Enable</string>
     <string name="section_scope_expand">Scope</string>

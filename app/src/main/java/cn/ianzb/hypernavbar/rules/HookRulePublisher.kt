@@ -16,13 +16,16 @@ object HookRulePublisher {
         val payloads = RuleConverter.buildHookPayloads(merged)
         val excluded = RuleConverter.excludedPackages(merged)
 
-        // 清理已不存在于最新规则中的包（含旧版遗留载荷）
+        // 清理已不存在于最新规则中的包（含旧版遗留载荷）。
+        // 注意：不能调用 PrefsStore.remove —— LSPosed 远程偏好能实时同步「写入」，
+        // 但删除键不会同步到 hook 进程（system_server），会残留旧载荷直到系统重启。
+        // 这里改写为空串（一次 PUT），hook 侧按「空载荷」跳过注入。
         val prefix = HookKeys.RULE_PAYLOAD_PREFIX
         PrefsStore.getAll().keys
             .filter { it.startsWith(prefix) }
             .forEach { storageKey ->
                 val pkg = storageKey.removePrefix(prefix)
-                if (!payloads.containsKey(pkg)) PrefsStore.remove(storageKey)
+                if (!payloads.containsKey(pkg)) PrefsStore.put(storageKey, "")
             }
 
         payloads.forEach { (pkg, json) -> PrefsStore.put(HookKeys.payloadKey(pkg), json) }
@@ -36,7 +39,7 @@ object HookRulePublisher {
         val prefix = HookKeys.RULE_PAYLOAD_PREFIX
         PrefsStore.getAll().keys
             .filter { it.startsWith(prefix) }
-            .forEach { PrefsStore.remove(it) }
+            .forEach { PrefsStore.put(it, "") }
         PrefsStore.put(KEY_PAYLOAD_COUNT, 0)
         PrefsStore.put(KEY_EXCLUDED, emptySet<String>())
     }
@@ -46,11 +49,11 @@ object HookRulePublisher {
     /** 当前被规则标记为排除 Hook 的应用集合。 */
     fun excludedPackages(): Set<String> = PrefsStore.getStringSet(KEY_EXCLUDED, emptySet())
 
-    /** 当前已发布规则的包名列表。 */
+    /** 当前已发布规则的包名列表（忽略被清空的载荷）。 */
     fun ruledPackages(): List<String> =
-        PrefsStore.getAll().keys
-            .filter { it.startsWith(HookKeys.RULE_PAYLOAD_PREFIX) }
-            .map { it.removePrefix(HookKeys.RULE_PAYLOAD_PREFIX) }
+        PrefsStore.getAll().entries
+            .filter { it.key.startsWith(HookKeys.RULE_PAYLOAD_PREFIX) && (it.value as? String)?.isNotBlank() == true }
+            .map { it.key.removePrefix(HookKeys.RULE_PAYLOAD_PREFIX) }
 
     private const val KEY_PAYLOAD_COUNT = "rule_payload_count"
     private const val KEY_EXCLUDED = "rule_excluded_packages"

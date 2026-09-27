@@ -414,4 +414,44 @@ MiuiNBIManager.IS_NBI_ENABLE == true
 
 ---
 
+## 八、HyperOS 3.3（3.0.3XX）差异对照
+
+对另一份 OS3.3 的 `miui-framework.jar` / `miui-services.jar`（jadx 反编译）与 OS4 逐类对照后确认：
+**两者的 NBI 类结构与绝大多数方法签名一致，Header 可直接复用，仅少数实现在版本间不同。**
+
+### 8.1 一致（Hook 可直接依赖）
+
+- 服务端：`com.android.nbi.MiuiNBIController.getSystemNBIRules(String)` 仍返回
+  `Bundle{ enable, versionCode, activityRules }`（键名不变，规则注入无需改动）。
+- 控制器（`NavigationBarImmersiveController`）：
+  `startFindAndUpdateNavigationBarColor(boolean)`、`handleSFColorCollected(int[])`、`enableSFSampling()`、
+  `updateNavigationBarColor(boolean,int)`、`isNavBarHidden()`、`setNavigationBarForceImmersive()`、
+  `registerSFSamplingListener()`、`findValueForActivity(int,String,int)`；
+  字段 `mWindowingMode` / `mContext` / `mSFSamplingEnabled` / `mSFSamplingRegistered` / `mDecorView`。
+  > 注意 `findValueForActivity` 实为 **三参** `(ruleType, activityClassName, defaultValue)`，早期文档按单参描述有误。
+- 生命周期桥接：`DecorViewImmersiveImpl.onAttachedToWindow(DecorView, Context)`、`isVirtualDisplay(Context)`、
+  字段 `mNavigationBarImmersiveController`。
+- `MiuiNBIManagerImpl.init(Context)`、`isNBIEnable(Context)`、`getActivityRuleInfo(Context)`、字段 `mIsNBIEnable`。
+- 颜色来源常量、Cloud/Custom 规则常量、`persist.navcolor.*` 系统属性集一致。
+
+### 8.2 差异（已用版本分支适配）
+
+| 项 | HyperOS 3.3（3.0.3XX） | HyperOS 4.0 |
+|---|---|---|
+| 手势导航判定 | `NavigationBarImmersiveController.isFullScreenGestureNav(Context)` / `isHideGestureLine(Context)`（构造与设置变化时调用，写入 `mIsFullScreenGestureNav` / `mIsHideGestureLine` 字段） | `MiuiNBIManagerImpl.isFullScreenGestureNavCached()` / `isHideGestureLineCached()`（静态缓存） |
+| `onAttachedToWindow` 准入 | 先判 `Flags.navigationBarImmersivePolicy()` 与 `ComputilityLevel.getComputilityLevel() >= NORMAL`，再判 `isNBIEnable` | 移除上述两项，直接判 `isNBIEnable` |
+| 控制器生命周期 | 有 `onWindowVisibilityChanged(int)` 转发 | 去掉该转发，新增 `onPause()`；创建后调用 `setActivityState(1)` |
+| 默认浮动模式 | `dialogMode` / `popupMode` 解析默认值 `1` | 默认值 `0` |
+| `init` 副作用 | `isNBIEnable` / `getActivityRuleInfo` 内部会调 `init` | 不再内部 `init`；`init` 成功时注册手势设置 `ContentObserver` |
+| 灰度/混合算法 | `ColorMathUtils` 灰度与混合实现略有出入 | 略有不同（不影响 Hook 接口） |
+
+### 8.3 适配结论
+
+- 门禁由 `HyperOS >= 4.0` 放宽为 `HyperOS >= 3.0.3`（兼容 `OS3.3` 与 `OS3.0.3XX` 两种版本号写法）。
+- 手势导航用 `HookVariant` 分版本：`< 4.0` 走控制器实例方法，`>= 4.0` 走 `MiuiNBIManagerImpl` 静态方法。
+- 3.3 额外绕过 `Flags.navigationBarImmersivePolicy()` 与 `ComputilityLevel.getComputilityLevel()`，与 4.0 行为对齐。
+- 其余 Hook（规则注入、忽略版本阈值、绕过 E2E / 虚拟显示、忽略导航栏隐藏、强制全屏语义）无需分支，直接复用。
+
+---
+
 *报告生成：基于 baksmali 2.5.2 反汇编结果逐类精读；所有行号对应 smali 文件。*

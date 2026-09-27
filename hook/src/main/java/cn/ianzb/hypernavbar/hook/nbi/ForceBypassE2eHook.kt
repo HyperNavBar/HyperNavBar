@@ -17,7 +17,7 @@ class ForceBypassE2eHook : BaseHook() {
 
     override val key: String get() = HookKeys.BYPASS_E2E
 
-    override val versionGate = NbiHookSupport.OS4_GATE
+    override val versionGate = NbiHookSupport.NBI_GATE
 
     override fun init() {
         val loader = target.classLoader

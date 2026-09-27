@@ -21,15 +21,15 @@ HyperNavBar 不再改写系统规则文件，而是通过 LSPosed Hook 在运行
 
 ## 系统版本要求
 
-**本模块的全部 Hook 仅适配 HyperOS 4.0 及以上**（手机 / 平板通用）。
+**本模块的全部 Hook 仅适配 HyperOS 3.3（3.0.3XX）及以上**（手机 / 平板通用）。
 
-- 所有 NBI 相关 Hook 共用同一个版本门禁：`hyperOs >= 4.0`。
-- 门禁命中时的行为是**主动跳过**（不安装、不计入失败），因此在 HyperOS 3.x / 2.x、MIUI、Android 原生系统上，模块**不会产生任何 Hook 行为**，只保留规则数据的解析与编辑能力。
-- 这组 Hook 依赖的类（`com.android.nbi.*`、`com.android.internal.policy.NavigationBarImmersiveController` / `MiuiNBIManagerImpl` / `DecorViewImmersiveImpl`）为 HyperOS 4 专属，旧系统上并不存在。
+- 所有 NBI 相关 Hook 共用同一个版本门禁：`hyperOs >= 3.0.3`。
+- 门禁命中时的行为是**主动跳过**（不安装、不计入失败），因此在更早的 HyperOS 3.0 / 2.x、MIUI、Android 原生系统上，模块**不会产生任何 Hook 行为**，只保留规则数据的解析与编辑能力。
+- 这组 Hook 依赖的类（`com.android.nbi.*`、`com.android.internal.policy.NavigationBarImmersiveController` / `MiuiNBIManagerImpl` / `DecorViewImmersiveImpl`）在 HyperOS 3.3 与 4.0 上均存在且结构基本一致，少数差异以版本分支（`HookVariant`）适配（如手势导航判定所在类）。
 
-> 版本识别来自系统属性 `ro.mi.os.version.name`（如 `OS4.0`）。比较时会去掉 `OS` 前缀归一化为数字版本（`4.0`），因此门禁写作 `hyperOs { ge("4.0") }` 即可正确区分 `OS4.0` 与 `OS3.3`。
+> 版本识别来自系统属性 `ro.mi.os.version.name`。比较时会去掉 `OS` 前缀归一化为数字版本，门禁写作 `hyperOs { ge("3.0.3") }` 可同时兼容 `OS3.3` 与 `OS3.0.3XX` 两种写法。
 
-**唯一例外**：「旧版残留还原 / 清理」不设门禁。它只做文件层面的 `.bak` 还原与标记删除，不依赖任何 HyperOS 4 专属类，在旧系统上同样安全有效，用于把曾被旧版模块覆盖的规则文件恢复为官方状态。
+**唯一例外**：「旧版残留还原 / 清理」不设门禁。它只做文件层面的 `.bak` 还原与标记删除，不依赖任何 NBI 专属类，在旧系统上同样安全有效，用于把曾被旧版模块覆盖的规则文件恢复为官方状态。
 
 <br>
 
@@ -78,7 +78,7 @@ HyperNavBar 不再改写系统规则文件，而是通过 LSPosed Hook 在运行
 ### 强制全屏语义
 
 - **官方限制**：非全屏窗口（`windowingMode != 1`）会跳过沉浸决策；SF 采样回调 `handleSFColorCollected` 也会因 `windowingMode != 1` 丢弃实时颜色；且官方 SF 采样区域按「窗口从屏幕左上角开始」计算，分屏 / 小窗下会采到窗口外的背景区域；另外框架仅在 `shouldNotifyDrawForImmersive` 时触发一次决策，内容变化不会自动刷新。
-- **开启效果**：分屏、悬浮窗、部分非全屏 Activity / 对话框也进入沉浸决策；**分屏 / 小窗下自动改用窗口视图采样，并为窗口注册每帧监听持续取色**，因此滑动内容、切换页面时小白条颜色都会实时刷新，也不会取到背景颜色；全屏场景保持官方 SF 采样。
+- **开启效果**：分屏、悬浮窗、部分非全屏 Activity / 对话框也进入沉浸决策；**非全屏下仅采样取色类规则（`style=sf` / `view` / 默认）改用窗口视图采样并注册每帧监听持续取色，自定义颜色 / 悬浮（强制沉浸）/ 禁用维持原样**，因此滑动内容、切换页面时小白条颜色都会实时刷新，也不会取到背景颜色；全屏场景保持官方 SF 采样。
 - **典型表现**：分屏、小窗里的页面导航栏开始跟随规则，且底部颜色变化时能实时取色。
 - **适合**：分屏 / 小窗重度用户。
 - **注意**：侵入性较强，若分屏 / 小窗出现导航栏颜色异常，建议优先关闭本项。

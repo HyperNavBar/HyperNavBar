@@ -83,7 +83,11 @@ object XposedServiceManager {
     fun isInScope(packageName: String): Boolean = scope.contains(packageName)
 
     /**
-     * 主动申请作用域：仅对尚未授权的包发起请求。
+     * 主动申请作用域：仅对「服务实时作用域」与「历史已申请集合」之外的包发起请求。
+     *
+     * 不能只依赖 `service.scope`：部分 LSPosed 版本不会把新申请的包立即反映到 `scope`，
+     * 会导致每次应用规则都重复申请同一批包、反复弹授权通知。这里额外持久记录已申请的包兜底，
+     * 申请失败时撤销记录以便下次重试。
      */
     fun ensureScope(packages: List<String>, onResult: ((Boolean, String?) -> Unit)? = null) {
         val current = service
@@ -91,11 +95,16 @@ object XposedServiceManager {
             onResult?.invoke(false, "service unavailable")
             return
         }
-        val missing = packages.filter { it.isNotEmpty() && it !in scope }
+        val authorized = current.scope.orEmpty().toSet()
+        scope = authorized.toList()
+        val requested = PrefsStore.getStringSet(KEY_REQUESTED_SCOPE, emptySet())
+        val known = authorized + requested
+        val missing = packages.filter { it.isNotEmpty() && it !in known }
         if (missing.isEmpty()) {
             onResult?.invoke(true, null)
             return
         }
+        PrefsStore.put(KEY_REQUESTED_SCOPE, requested + missing)
         current.requestScope(missing, object : XposedService.OnScopeEventListener {
             override fun onScopeRequestApproved(approved: List<String>) {
                 refreshScope()
@@ -103,6 +112,11 @@ object XposedServiceManager {
             }
 
             override fun onScopeRequestFailed(message: String) {
+                // 申请失败：撤销记录，允许下次重试
+                PrefsStore.put(
+                    KEY_REQUESTED_SCOPE,
+                    PrefsStore.getStringSet(KEY_REQUESTED_SCOPE, emptySet()) - missing.toSet(),
+                )
                 onResult?.invoke(false, message)
             }
         })
@@ -111,6 +125,15 @@ object XposedServiceManager {
     @Suppress("unused")
     fun removeScope(packages: List<String>) {
         service?.removeScope(packages)
+        if (packages.isNotEmpty()) {
+            // 被移出作用域的包允许后续重新申请
+            PrefsStore.put(
+                KEY_REQUESTED_SCOPE,
+                PrefsStore.getStringSet(KEY_REQUESTED_SCOPE, emptySet()) - packages.toSet(),
+            )
+        }
         refreshScope()
     }
+
+    private const val KEY_REQUESTED_SCOPE = "scope_requested_packages"
 }

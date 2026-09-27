@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,16 +15,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
-import cn.ianzb.hypernavbar.prefs.ConfigState
-import cn.ianzb.hypernavbar.prefs.HookBlacklist
 import cn.ianzb.hypernavbar.prefs.OptionSpec
 import cn.ianzb.hypernavbar.prefs.OptionType
-import cn.ianzb.hypernavbar.rules.HookRulePublisher
 import cn.ianzb.hypernavbar.ui.component.pref.HookOptionsPage
 import cn.ianzb.hypernavbar.ui.component.pref.HookSection
 import cn.ianzb.hypernavbar.ui.screen.safemode.SafeModeActivity
 import cn.ianzb.hypernavbar.ui.screen.scope.ScopeListActivity
-import cn.ianzb.hypernavbar.xposed.XposedServiceManager
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -48,16 +43,6 @@ fun FeaturesPageView(
     val specs = remember { featureSpecs() }
     val sections = remember(specs) { featureSections(specs) }
 
-    // 开启「强制生效」后，为已发布规则的应用申请作用域（框架 Hook 仅对作用域内进程生效）。
-    val activated = XposedServiceManager.isActivated
-    val forceMaster = ConfigState.bool("force_master", false)
-    LaunchedEffect(forceMaster, activated) {
-        if (forceMaster && activated) {
-            val packages = HookBlacklist.filter(HookRulePublisher.ruledPackages())
-            if (packages.isNotEmpty()) XposedServiceManager.ensureScope(packages)
-        }
-    }
-
     HookOptionsPage(
         title = stringResource(R.string.tab_features),
         sections = sections,
@@ -73,7 +58,7 @@ fun FeaturesPageView(
     )
 }
 
-/** 顶部提示：说明 Hook 的系统版本要求（HyperOS 4.0+）。 */
+/** 顶部提示：说明 Hook 的系统版本要求（HyperOS 3.3 / 4.x）。 */
 @Composable
 private fun FeatureNotice() {
     Card(

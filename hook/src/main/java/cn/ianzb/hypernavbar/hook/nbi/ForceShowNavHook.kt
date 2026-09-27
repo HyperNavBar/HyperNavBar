@@ -16,7 +16,7 @@ class ForceShowNavHook : BaseHook() {
 
     override val key: String get() = HookKeys.FORCE_SHOW_NAV
 
-    override val versionGate = NbiHookSupport.OS4_GATE
+    override val versionGate = NbiHookSupport.NBI_GATE
 
     override fun init() {
         val clazz = Reflect.findClass("com.android.internal.policy.NavigationBarImmersiveController", target.classLoader)

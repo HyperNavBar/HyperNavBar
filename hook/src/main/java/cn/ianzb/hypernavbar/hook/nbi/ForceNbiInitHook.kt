@@ -20,7 +20,7 @@ class ForceNbiInitHook : BaseHook() {
 
     override val key: String get() = HookKeys.IGNORE_VERSION
 
-    override val versionGate = NbiHookSupport.OS4_GATE
+    override val versionGate = NbiHookSupport.NBI_GATE
 
     override fun init() {
         val clazz = Reflect.findClass("com.android.internal.policy.MiuiNBIManagerImpl", target.classLoader)

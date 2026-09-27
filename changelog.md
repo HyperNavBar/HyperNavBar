@@ -1,5 +1,22 @@
 # 更新日志
 
+## 3.0.1
+
+> 发布于 2026-09-27
+
+### 新增
+
+- **适配 HyperOS 3.3（3.0.3XX）**：NBI Hook 版本门禁由 `HyperOS >= 4.0` 放宽为 `HyperOS >= 3.0.3XX`，3.3 与 4.0 的 `com.android.nbi.*` / `NavigationBarImmersiveController` / `MiuiNBIManagerImpl` / `DecorViewImmersiveImpl` 结构基本一致，可直接复用
+- 3.3 与 4.0 的差异以版本分支（`HookVariant`）适配：手势导航判定在 4.0 为 `MiuiNBIManagerImpl` 静态缓存方法，在 3.3 为 `NavigationBarImmersiveController` 实例方法
+- 3.3 上追加强制绕过：`Flags.navigationBarImmersivePolicy()` 与 `ComputilityLevel.getComputilityLevel() >= NORMAL`（4.0 已移除这两项判断），避免低算力设备 / aconfig flag 关闭时整套沉浸被跳过
+
+### 修复
+
+- 修复应用规则时反复弹出 LSPosed 授权通知的问题：申请作用域前先取服务实时作用域，并持久记录「已申请」集合，只对二者之外的包发起请求；申请失败会撤销记录以便重试（部分 LSPosed 版本不会把新申请的包立即反映到 `scope`，仅依赖它会导致每次应用规则都重复申请）
+- 修复「未点击应用规则、仅打开规则页面也会自动申请一次作用域」的问题：主页 Pager 会预加载相邻的功能页，功能页在组合时无条件为已发布规则的应用申请作用域；现移除该隐式申请，作用域仅在应用规则 / 手动开启开关时申请
+- 修复非全屏（分屏 / 小窗）采样取色被官方规则干扰而失效的问题：非全屏分支改为**直接读取模块注入载荷**（而非合并了官方规则的 `findValueForActivity`）来分派——仅采样取色类规则（`style=sf` / `view` / 默认，即 `mode=1` 且无自定义色）与未配置的活动走窗口视图采样；自定义色 / 悬浮（强制沉浸）/ 禁用维持原样
+- 修复删除自定义颜色规则后不生效、必须重启系统才恢复的问题：LSPosed 远程偏好能实时同步「写入」但不能同步「删除键」，导致 hook 进程（system_server）残留旧载荷；现改为写入空载荷（一次 PUT），hook 侧按空载荷跳过注入
+
 ## 3.0.0
 
 > 发布于 2026-09-27

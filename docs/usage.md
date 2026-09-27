@@ -135,6 +135,33 @@
 
 <br>
 
+## 卸载模块后未恢复官方规则
+
+正常情况下，HyperNavBar 通过运行期 Hook 注入规则、**不改写系统规则文件**，卸载模块并重启后系统会自动回到官方规则。
+
+但旧版本曾直接覆盖过系统规则文件并留下 `.bak`，若卸载时未自动还原，可按以下步骤手动恢复：
+
+1. 使用 Root 文件管理器或 ADB 进入 `/data/system` 目录
+2. 删除以下文件（存在才删除）：
+   - `cloudFeature_navigation_bar_immersive_rules_list.json`
+   - `cloudFeature_navigation_bar_immersive_rules_list.xml`
+   - `cloudFeature_navigation_bar_immersive_rules_list.json.bak`
+   - `cloudFeature_navigation_bar_immersive_rules_list.xml.bak`
+   - `HyperNavBarRules`（旧版残留的标记文件）
+3. 重启手机，系统会重新从 `/system_ext/etc/nbi/` 加载官方规则
+
+也可以直接通过 ADB 执行（需 root）：
+
+```bash
+adb shell su -c "rm -f /data/system/cloudFeature_navigation_bar_immersive_rules_list.json* \
+  /data/system/cloudFeature_navigation_bar_immersive_rules_list.xml* \
+  /data/system/HyperNavBarRules"
+```
+
+> 删除这些文件只会使系统回退到内置的官方规则（`/system_ext/etc/nbi/navigation_bar_immersive_rules_list.json|xml`），不会造成数据损坏。
+
+<br>
+
 ## 适配规则参考
 
 有关规则格式、各配置字段含义及推荐适配策略，请参见 [适配文档](tutorial.md)。

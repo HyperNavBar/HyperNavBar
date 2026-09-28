@@ -15,7 +15,6 @@ import cn.ianzb.hypernavbar.xposed.HookStatus
  * @param defaultString 文本/选项默认值
  * @param entryResIds 下拉/单选/选择器的选项文本资源
  * @param entryValues 与 [entryResIds] 对应的取值
- * @param targetPackages 依赖的目标包（用于作用域申请与状态判断）
  * @param dependsOn 依赖的配置键；为空表示无依赖
  * @param dependsOnValue 依赖键需要等于该布尔值时才启用
  * @param masterKey 滑块的主开关键（开关控制滑块是否生效/显示）
@@ -39,7 +38,6 @@ data class OptionSpec(
     val defaultString: String = "",
     val entryResIds: List<Int> = emptyList(),
     val entryValues: List<String> = emptyList(),
-    val targetPackages: List<String> = emptyList(),
     val dependsOn: String? = null,
     val dependsOnValue: Boolean = true,
     val masterKey: String? = null,

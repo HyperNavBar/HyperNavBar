@@ -204,7 +204,7 @@
     <string name="editor_app_enable">Enable Rule</string>
     <string name="editor_app_enable_summary">enable</string>
     <string name="editor_hook_excluded">Exclude from Hook</string>
-    <string name="editor_hook_excluded_summary">Do not inject hooks for this app</string>
+    <string name="editor_hook_excluded_summary">Not injected into the app by default (avoids hook detection); turn off to inject it for in-app color sampling</string>
     <string name="editor_delete_activity">Delete This Activity</string>
     <string name="editor_package_name">Package Name</string>
     <string name="editor_app_name_optional">App Name (Optional)</string>
@@ -353,6 +353,10 @@
     <string name="scope_exclude_done">Excluded %s (no longer injected)</string>
     <string name="scope_excluded_title">Excluded</string>
     <string name="scope_restore_inject">Re-enable</string>
+    <string name="scope_cancel_requested_title">Cancel requested scopes</string>
+    <string name="scope_cancel_requested_summary">The module auto-requested %d app(s); cancel removes them from scope</string>
+    <string name="scope_cancel_requested_action">Cancel</string>
+    <string name="scope_cancel_requested_done">Cancelled %d scope request(s)</string>
     <string name="search_empty">No matching feature found</string>
     <string name="search_hint">Search features</string>
 </resources>

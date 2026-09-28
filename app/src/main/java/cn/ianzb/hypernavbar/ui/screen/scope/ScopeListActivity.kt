@@ -71,6 +71,8 @@ class ScopeListActivity : BaseSubPageActivity() {
         val resources = LocalResources.current
         // 排除名单用可观察状态，点击「排除 / 恢复注入」后立即刷新列表
         var blacklist by remember { mutableStateOf(HookBlacklist.all()) }
+        // 模块历史自动申请的作用域数量（用于「取消申请」入口）
+        var requestedCount by remember { mutableStateOf(XposedServiceManager.requestedPackages().size) }
 
         // 进入页面前已在主页刷新过；这里延后刷新，避免与打开动画冲突（动画优先）。
         LaunchedEffect(Unit) {
@@ -78,12 +80,14 @@ class ScopeListActivity : BaseSubPageActivity() {
             XposedServiceManager.refreshScope()
             SafeModeReader.refresh()
             blacklist = HookBlacklist.all()
+            requestedCount = XposedServiceManager.requestedPackages().size
             // 轮询保持列表实时更新（含安全模式状态）。
             while (true) {
                 delay(1500.milliseconds)
                 XposedServiceManager.refreshScope()
                 SafeModeReader.refresh()
                 blacklist = HookBlacklist.all()
+                requestedCount = XposedServiceManager.requestedPackages().size
             }
         }
 
@@ -113,6 +117,37 @@ class ScopeListActivity : BaseSubPageActivity() {
                 ),
             contentPadding = contentPadding,
         ) {
+            if (requestedCount > 0) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(top = 12.dp)
+                    ) {
+                        BasicComponent(
+                            title = stringResource(R.string.scope_cancel_requested_title),
+                            summary = stringResource(R.string.scope_cancel_requested_summary, requestedCount),
+                            endActions = {
+                                TextButton(
+                                    text = stringResource(R.string.scope_cancel_requested_action),
+                                    onClick = {
+                                        val count = requestedCount
+                                        XposedServiceManager.cancelRequestedScope()
+                                        requestedCount = XposedServiceManager.requestedPackages().size
+                                        Toast.makeText(
+                                            context,
+                                            resources.getString(R.string.scope_cancel_requested_done, count),
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    },
+                                    colors = ButtonDefaults.textButtonColors(textColor = Color(0xFFE5A000)),
+                                    minWidth = 0.dp,
+                                )
+                            },
+                        )
+                    }
+                }
+            }
             item {
                 Box(
                     modifier = Modifier

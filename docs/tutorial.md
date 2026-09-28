@@ -37,7 +37,7 @@ Pull Request 前建议在本地进行验证，提交时确保已填写更新日�
           //"viewRules": []            // 视图规则数组
         }
       }
-      //"hookExcluded": true        // 排除 Hook：该应用不注入模块（用于反注入/注入即闪退的应用）
+      //"hookExcluded": false       // 是否注入模块到应用进程（默认 true = 不注入，避免被检测）
     }
   }
 }
@@ -61,9 +61,9 @@ Pull Request 前建议在本地进行验证，提交时确保已填写更新日�
 | **name**               | string  | 任意字符串           | -       | 应用显示名称（仅用于方便管理） |
 | **enable**             | boolean | `true`, `false` | `false` | 基础启用标志            |
 | **disableVersionCode** | long    | 数字或 `null`      | `null`  | 当应用版本号小于等于此值时禁用规则 |
-| **hookExcluded**       | boolean | `true`, `false` | `false` | 排除 Hook：该应用不注入模块（用于反注入、注入即闪退的应用） |
+| **hookExcluded**       | boolean | `true`, `false` | `true`  | 排除 Hook：`true`（默认）时该应用不注入模块到应用进程，避免被应用检测 |
 
-> `hookExcluded` 为 `true` 时，应用规则时会把该应用从 LSPosed 作用域移除、不再注入模块，其下的 `activityRules` 也不会生效。适用于会检测 Xposed 注入并主动退出的应用。
+> `hookExcluded` **默认 `true`**：默认不把模块注入第三方应用进程（不加入 LSPosed 作用域），避免被应用检测到 Hook。该字段只控制是否注入到**应用进程**，**不影响规则生效**——规则始终由 system_server 注入，对所有应用生效。仅当需要应用进程内取色（非全屏 / 分屏采样）时才设为 `false`。
 
 **启用逻辑：** `最终启用状态 = enable OR enable31`，只要有一个为 true 就启用，两个都为 false 才禁用。实际使用时建议只使用 `enable`。
 

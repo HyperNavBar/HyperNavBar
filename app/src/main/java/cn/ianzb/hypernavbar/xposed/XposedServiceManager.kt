@@ -135,5 +135,31 @@ object XposedServiceManager {
         refreshScope()
     }
 
+    /** 本模块历史上主动申请过作用域的包（含已自动申请的第三方应用）。 */
+    fun requestedPackages(): Set<String> = PrefsStore.getStringSet(KEY_REQUESTED_SCOPE, emptySet())
+
+    /**
+     * 取消本模块此前的全部作用域申请：把申请过的包移出作用域并清空申请记录。
+     *
+     * 用于「默认不 Hook」后清理历史上被自动申请、当前并不需要注入的应用。
+     * 用户手动添加的作用域（不在申请记录内）不受影响。
+     */
+    fun cancelRequestedScope(onResult: ((Boolean, String?) -> Unit)? = null) {
+        val requested = requestedPackages()
+        if (requested.isEmpty()) {
+            onResult?.invoke(true, null)
+            return
+        }
+        val current = service
+        if (current == null) {
+            onResult?.invoke(false, "service unavailable")
+            return
+        }
+        current.removeScope(requested.toList())
+        PrefsStore.put(KEY_REQUESTED_SCOPE, emptySet<String>())
+        refreshScope()
+        onResult?.invoke(true, null)
+    }
+
     private const val KEY_REQUESTED_SCOPE = "scope_requested_packages"
 }

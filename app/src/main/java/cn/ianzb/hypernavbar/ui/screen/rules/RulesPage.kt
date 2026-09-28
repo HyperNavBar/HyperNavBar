@@ -51,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.RootHelper
-import cn.ianzb.hypernavbar.prefs.HookBlacklist
 import cn.ianzb.hypernavbar.rules.HookRulePublisher
 import cn.ianzb.hypernavbar.rules.RuleCombiner
 import cn.ianzb.hypernavbar.rules.RuleConfigSource
@@ -227,12 +226,11 @@ fun RulesPageView(
         val mergedJson = RuleCombiner.combine(configs.toList(), cachedResults)
         val totalApps = RuleCombiner.getTotalAppCount(cachedResults)
         val published = withContext(Dispatchers.IO) { HookRulePublisher.publish(mergedJson) }
-        // 规则中标记 hookExcluded 的应用：从 LSPosed 作用域移除，不再注入
+        // 只取消、不主动申请：hookExcluded（默认 true）表示不注入应用进程，
+        // 应用规则时把这类应用中「当前确在作用域内」的移出，规则仍由 system_server 注入生效。
         val excluded = HookRulePublisher.excludedPackages()
-        if (excluded.isNotEmpty()) XposedServiceManager.removeScope(excluded.toList())
-        // 为其余规则涉及的应用申请 LSPosed 作用域（框架 Hook 只对作用域内进程生效）
-        val toScope = HookBlacklist.filter(published)
-        if (toScope.isNotEmpty()) XposedServiceManager.ensureScope(toScope)
+        val toRemove = XposedServiceManager.scope.filter { it in excluded }
+        if (toRemove.isNotEmpty()) XposedServiceManager.removeScope(toRemove)
         isCustomApplied = published.isNotEmpty()
         saveApplyState(System.currentTimeMillis(), totalApps, isCustomApplied)
         if (showToast) {

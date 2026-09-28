@@ -285,7 +285,7 @@ fun JsonRuleEditorSheet(
             nbiRules.put(pkg, JSONObject().apply {
                 put("enable", true)
                 put("name", appName)
-                put("hookExcluded", false)
+                put("hookExcluded", true)
                 put("activityRules", JSONObject())
             })
         } else if (appJson.optString("name", "").isEmpty() && appName.isNotEmpty()) {
@@ -663,7 +663,7 @@ fun JsonRuleEditorSheet(
                         val newApp = JSONObject()
                         newApp.put("name", newName.trim())
                         newApp.put("enable", true)
-                        newApp.put("hookExcluded", false)
+                        newApp.put("hookExcluded", true)
                         newApp.put("activityRules", JSONObject())
                         nbiRules.put(pkg, newApp)
                         saveRoot()
@@ -919,7 +919,7 @@ fun JsonRuleEditorSheet(
             }
             // App-level hook exclusion toggle
             item {
-                val hookExcluded = appForSelected?.optBoolean("hookExcluded", false) ?: false
+                val hookExcluded = appForSelected?.optBoolean("hookExcluded", true) ?: true
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()

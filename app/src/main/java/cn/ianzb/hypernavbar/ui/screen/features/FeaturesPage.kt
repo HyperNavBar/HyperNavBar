@@ -113,7 +113,7 @@ private fun featureSections(specs: List<OptionSpec>): List<HookSection> = listOf
 private fun specByKey(specs: List<OptionSpec>, key: String): OptionSpec =
     specs.first { it.key == key }
 
-/** 功能页全部配置项（App 启动时注册，供全局搜索与作用域申请使用）。 */
+/** 功能页全部配置项（App 启动时注册，供全局搜索使用）。 */
 internal fun featureSpecs(): List<OptionSpec> = listOf(
     OptionSpec(
         key = "force_master",
@@ -121,7 +121,6 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         titleRes = R.string.force_master_title,
         summaryRes = R.string.force_master_summary,
         defaultBoolean = false,
-        targetPackages = listOf("system"),
     ),
     OptionSpec(
         key = "force_ignore_version",
@@ -130,7 +129,6 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         summaryRes = R.string.force_ignore_version_summary,
         defaultBoolean = true,
         dependsOn = "force_master",
-        targetPackages = listOf("system"),
     ),
     OptionSpec(
         key = "force_bypass_e2e",
@@ -139,7 +137,6 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         summaryRes = R.string.force_bypass_e2e_summary,
         defaultBoolean = true,
         dependsOn = "force_master",
-        targetPackages = listOf("system"),
     ),
     OptionSpec(
         key = "force_bypass_virtual_display",
@@ -148,7 +145,6 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         summaryRes = R.string.force_bypass_virtual_display_summary,
         defaultBoolean = true,
         dependsOn = "force_master",
-        targetPackages = listOf("system"),
     ),
     OptionSpec(
         key = "force_gesture_nav",
@@ -157,7 +153,6 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         summaryRes = R.string.force_gesture_nav_summary,
         defaultBoolean = true,
         dependsOn = "force_master",
-        targetPackages = listOf("system"),
     ),
     OptionSpec(
         key = "force_fullscreen",
@@ -166,7 +161,6 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         summaryRes = R.string.force_fullscreen_summary,
         defaultBoolean = true,
         dependsOn = "force_master",
-        targetPackages = listOf("system"),
     ),
     OptionSpec(
         key = "force_show_nav",
@@ -175,7 +169,6 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         summaryRes = R.string.force_show_nav_summary,
         defaultBoolean = true,
         dependsOn = "force_master",
-        targetPackages = listOf("system"),
     ),
     OptionSpec(
         key = "feature_scope",

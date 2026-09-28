@@ -204,7 +204,7 @@
     <string name="editor_app_enable">启用规则</string>
     <string name="editor_app_enable_summary">enable</string>
     <string name="editor_hook_excluded">排除 Hook</string>
-    <string name="editor_hook_excluded_summary">该应用不注入 Hook（用于注入即闪退的应用）</string>
+    <string name="editor_hook_excluded_summary">默认不注入模块（避免被应用检测）；关闭后该应用才会被注入，用于需要应用进程内取色的场景</string>
     <string name="editor_delete_activity">删除此活动</string>
     <string name="editor_package_name">应用包名</string>
     <string name="editor_app_name_optional">应用名称（可选）</string>
@@ -353,6 +353,10 @@
     <string name="scope_exclude_done">已排除 %s（不再注入）</string>
     <string name="scope_excluded_title">已排除</string>
     <string name="scope_restore_inject">恢复注入</string>
+    <string name="scope_cancel_requested_title">取消申请的作用域</string>
+    <string name="scope_cancel_requested_summary">模块曾自动申请 %d 个应用，取消后将其移出作用域</string>
+    <string name="scope_cancel_requested_action">取消申请</string>
+    <string name="scope_cancel_requested_done">已取消 %d 个作用域申请</string>
     <string name="search_empty">未找到匹配的功能</string>
     <string name="search_hint">搜索功能</string>
 </resources>

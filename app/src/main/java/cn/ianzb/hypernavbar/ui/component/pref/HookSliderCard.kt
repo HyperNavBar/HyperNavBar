@@ -63,7 +63,6 @@ fun HookSliderCard(
                 checked = masterEnabled,
                 onCheckedChange = {
                     ConfigState.set(masterKey, it)
-                    if (it) ensureScopeFor(spec)
                 },
                 enabled = enabled,
             )

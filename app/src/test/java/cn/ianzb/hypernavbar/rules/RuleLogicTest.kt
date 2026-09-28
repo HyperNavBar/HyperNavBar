@@ -418,7 +418,7 @@ class RuleLogicTest {
     }
 
     @Test
-    fun buildHookPayloads_skipsHookExcludedApps() {
+    fun buildHookPayloads_buildsPayloadForAllAppsIncludingHookExcluded() {
         val merged = JSONObject(
             """
             {
@@ -433,8 +433,10 @@ class RuleLogicTest {
             """.trimIndent()
         )
         val payloads = RuleConverter.buildHookPayloads(merged)
-        assertEquals(setOf("com.normal"), payloads.keys)
-        assertEquals(setOf("com.excluded"), RuleConverter.excludedPackages(merged))
+        // hookExcluded 与载荷解耦：规则仍由 system_server 注入生效
+        assertEquals(setOf("com.normal", "com.excluded"), payloads.keys)
+        // 默认 true：未显式声明 hookExcluded=false 的应用一律视为不注入应用进程
+        assertEquals(setOf("com.normal", "com.excluded"), RuleConverter.excludedPackages(merged))
     }
 
     @Test

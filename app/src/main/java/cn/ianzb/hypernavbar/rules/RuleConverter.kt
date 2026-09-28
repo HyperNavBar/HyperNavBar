@@ -291,6 +291,9 @@ object RuleConverter {
 
     /**
      * 新格式合并规则 → Hook 注入载荷：包名 → 官方字段格式的 activityRules JSON。
+     *
+     * 载荷供 system_server 侧规则注入使用，对所有应用都生成（与 `hookExcluded` 无关）：
+     * `hookExcluded` 只决定该应用是否被注入到**应用进程**（LSPosed 作用域），不影响规则是否生效。
      */
     fun buildHookPayloads(merged: JSONObject): Map<String, String> {
         val result = LinkedHashMap<String, String>()
@@ -299,8 +302,6 @@ object RuleConverter {
         while (pkgKeys.hasNext()) {
             val pkg = pkgKeys.next()
             val app = nbi.optJSONObject(pkg) ?: continue
-            // 标记为排除的应用不生成注入载荷（不参与 Hook）
-            if (app.optBoolean("hookExcluded", false)) continue
             val activities = app.optJSONObject("activityRules") ?: continue
             if (activities.length() == 0) continue
             val payload = JSONObject()
@@ -316,7 +317,10 @@ object RuleConverter {
     }
 
     /**
-     * 收集被标记为排除 Hook 的应用集合（应用级 `hookExcluded = true`）。
+     * 收集「不注入应用进程」的应用集合（应用级 `hookExcluded`，**默认 true**）。
+     *
+     * 未显式声明 `hookExcluded: false` 的应用一律视为排除，即默认不把模块注入第三方应用进程，
+     * 避免被应用检测到 Hook；规则本身仍由 system_server 注入生效。
      */
     fun excludedPackages(merged: JSONObject): Set<String> {
         val result = LinkedHashSet<String>()
@@ -325,7 +329,7 @@ object RuleConverter {
         while (keys.hasNext()) {
             val pkg = keys.next()
             val app = nbi.optJSONObject(pkg) ?: continue
-            if (app.optBoolean("hookExcluded", false)) result.add(pkg)
+            if (app.optBoolean("hookExcluded", true)) result.add(pkg)
         }
         return result
     }

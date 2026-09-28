@@ -23,7 +23,6 @@ fun HookSwitchCard(
         checked = checked,
         onCheckedChange = {
             ConfigState.set(spec.key, it)
-            if (it) ensureScopeFor(spec)
         },
         enabled = enabled,
         modifier = modifier,
@@ -44,7 +43,6 @@ fun HookCheckboxCard(
         checked = checked,
         onCheckedChange = {
             ConfigState.set(spec.key, it)
-            if (it) ensureScopeFor(spec)
         },
         enabled = enabled,
         modifier = modifier,

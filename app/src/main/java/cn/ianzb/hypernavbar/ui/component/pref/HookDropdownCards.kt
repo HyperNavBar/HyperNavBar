@@ -31,7 +31,6 @@ fun HookDropdownCard(
         modifier = modifier,
         onSelectedIndexChange = { index ->
             ConfigState.set(spec.key, spec.entryValues.getOrElse(index) { spec.defaultString })
-            if (index != defaultIndex(spec)) ensureScopeFor(spec)
         },
     )
 }
@@ -55,7 +54,6 @@ fun HookRadioCard(
                 checked = selected,
                 onCheckedChange = {
                     ConfigState.set(spec.key, entryValue)
-                    if (index != defaultIndex(spec)) ensureScopeFor(spec)
                 },
                 enabled = enabled,
                 checkboxLocation = CheckboxLocation.End,
@@ -63,6 +61,3 @@ fun HookRadioCard(
         }
     }
 }
-
-private fun defaultIndex(spec: OptionSpec): Int =
-    spec.entryValues.indexOf(spec.defaultString).takeIf { it >= 0 } ?: 0

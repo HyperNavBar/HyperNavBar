@@ -3,9 +3,14 @@ package cn.ianzb.hypernavbar.hook.xposed
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 常用反射工具，便于在 hook 代码里定位类 / 方法 / 字段。
+ *
+ * 所有查找结果都在进程内缓存：hot path（每帧回调 / 每次 SF 采样）反复调用时，
+ * 避免重复 `getDeclaredField` / `getDeclaredMethod` 与 `declaredMethods` 数组拷贝扫描
+ * （后者对大类（如 `NavigationBarImmersiveController`）是每次调用一次全量方法数组分配）。
  */
 object Reflect {
 
@@ -18,20 +23,28 @@ object Reflect {
     fun findClassIfExists(name: String, classLoader: ClassLoader? = null): Class<*>? =
         runCatching { findClass(name, classLoader) }.getOrNull()
 
-    fun findMethod(clazz: Class<*>, name: String, vararg parameterTypes: Class<*>): Method {
-        val method = clazz.getDeclaredMethod(name, *parameterTypes)
-        method.isAccessible = true
-        return method
-    }
+    private val fieldCache = ConcurrentHashMap<FieldKey, Field>()
+    private val methodCache = ConcurrentHashMap<MethodKey, Method>()
+    private val matchCache = ConcurrentHashMap<MatchKey, Method>()
+
+    private data class FieldKey(val clazz: Class<*>, val name: String)
+
+    private data class MethodKey(val clazz: Class<*>, val name: String, val params: String)
+
+    private data class MatchKey(val clazz: Class<*>, val name: String, val static: Boolean, val argTypes: String)
+
+    fun findMethod(clazz: Class<*>, name: String, vararg parameterTypes: Class<*>): Method =
+        methodCache.computeIfAbsent(MethodKey(clazz, name, paramSignature(parameterTypes))) {
+            clazz.getDeclaredMethod(name, *parameterTypes).apply { isAccessible = true }
+        }
 
     fun findMethodIfExists(clazz: Class<*>, name: String, vararg parameterTypes: Class<*>): Method? =
         runCatching { findMethod(clazz, name, *parameterTypes) }.getOrNull()
 
-    fun findField(clazz: Class<*>, name: String): Field {
-        val field = clazz.getDeclaredField(name)
-        field.isAccessible = true
-        return field
-    }
+    fun findField(clazz: Class<*>, name: String): Field =
+        fieldCache.computeIfAbsent(FieldKey(clazz, name)) {
+            clazz.getDeclaredField(name).apply { isAccessible = true }
+        }
 
     fun callMethod(instance: Any, name: String, vararg args: Any?): Any? {
         val method = bestMatch(instance.javaClass, name, args, static = false)
@@ -66,7 +79,21 @@ object Reflect {
         return constructor.newInstance(*args)
     }
 
+    /** 按「类 + 方法名 + 实参类型」缓存匹配结果；未命中（方法不存在）时不缓存。 */
     private fun bestMatch(
+        clazz: Class<*>,
+        name: String,
+        args: Array<out Any?>,
+        static: Boolean,
+    ): Method? {
+        val key = MatchKey(clazz, name, static, argTypesSignature(args))
+        matchCache[key]?.let { return it }
+        val resolved = resolveBestMatch(clazz, name, args, static) ?: return null
+        matchCache[key] = resolved
+        return resolved
+    }
+
+    private fun resolveBestMatch(
         clazz: Class<*>,
         name: String,
         args: Array<out Any?>,
@@ -102,4 +129,10 @@ object Reflect {
         java.lang.Double.TYPE -> java.lang.Double::class.java
         else -> type
     }
+
+    private fun paramSignature(types: Array<out Class<*>>): String =
+        if (types.isEmpty()) "" else types.joinToString(",") { it.name }
+
+    private fun argTypesSignature(args: Array<out Any?>): String =
+        if (args.isEmpty()) "" else args.joinToString(",") { it?.javaClass?.name ?: "null" }
 }

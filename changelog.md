@@ -1,5 +1,18 @@
 # 更新日志
 
+## 3.0.3
+
+> 发布于 2026-09-28
+
+### 优化
+
+- **Hook 性能与功耗优化**：大幅降低非全屏取色 / 强制生效热路径的开销
+  - 反射成员改为**进程内缓存**：`callMethod` / `getObjectField` 等不再每次 `getDeclaredField`、`getDeclaredMethod` 或全量 `declaredMethods` 数组拷贝扫描（`NavigationBarImmersiveController` 有数百个方法，原先每帧一次全量扫描）
+  - 非全屏取色每帧只剩「缓存命中 + 一次官方位图取色」：规则载荷（远程偏好 / Binder IPC）按包缓存 2s，JSON 与通配正则只在载荷变化时编译一次，窗口包名 / 活动名按控制器缓存
+  - `NbiHookSupport` 的 stub 类与单例每进程只解析一次，不再每个窗口 `onAttachedToWindow` 都做 `Class.forName`
+  - 进程启动只初始化一次远程偏好与安全模式（原先 `getRemotePreferences` 每进程走两次 Binder IPC）
+  - 安全模式的「存活复位」改为进程内单例调度器，不再每次应用启动新建常驻线程
+
 ## 3.0.2
 
 > 发布于 2026-09-28

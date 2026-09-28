@@ -6,6 +6,9 @@ import cn.ianzb.hypernavbar.hook.xposed.HookHelper
 import io.github.libxposed.api.XposedInterface
 import org.json.JSONObject
 import java.io.File
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 
 /**
  * Hook 兜底 / 安全模式。
@@ -98,13 +101,17 @@ object SafeModeManager {
         return false
     }
 
+    /**
+     * 「存活复位」定时器：进程内单例调度器，避免每次应用启动都新建常驻线程。
+     */
+    private val scheduler: ScheduledExecutorService by lazy {
+        Executors.newSingleThreadScheduledExecutor { runnable ->
+            Thread(runnable, "NbiSafeMode").apply { isDaemon = true }
+        }
+    }
+
     private fun scheduleSurviveReset(file: File, marker: Long) {
-        Thread {
-            try {
-                Thread.sleep(SURVIVE_MS)
-            } catch (_: InterruptedException) {
-                return@Thread
-            }
+        scheduler.schedule({
             runCatching {
                 val state = readState(file)
                 if (state.optLong("loadingSince", 0L) == marker) {
@@ -113,10 +120,7 @@ object SafeModeManager {
                     writeState(file, state)
                 }
             }
-        }.apply {
-            isDaemon = true
-            name = "NbiSafeMode"
-        }.start()
+        }, SURVIVE_MS, TimeUnit.MILLISECONDS)
     }
 
     private fun readState(file: File): JSONObject =

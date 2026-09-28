@@ -17,18 +17,20 @@ import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
  */
 class XposedEntry : XposedModule() {
 
+    /** 远程偏好 / 安全模式各初始化一次：两者都走 Binder IPC，重复获取纯属浪费。 */
+    @Volatile
+    private var sharedStateReady = false
+
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         HookHelper.init(this)
-        HookPrefs.init(getRemotePreferences(HookPrefs.GROUP))
-        SafeModeManager.init(this)
+        initSharedState()
         HookHelper.log("module loaded in ${param.processName}")
     }
 
     override fun onPackageReady(param: PackageReadyParam) {
         if (!param.isFirstPackage) return
-        // 保证开机 / 冷启动时即使 onModuleLoaded 顺序异常也能读到最新配置。
-        HookPrefs.init(getRemotePreferences(HookPrefs.GROUP))
-        SafeModeManager.init(this)
+        // 兜底：onModuleLoaded 顺序异常时也能读到配置（已初始化则跳过，避免重复 IPC）。
+        initSharedState()
         // 兜底：手动安全模式或重复崩溃时跳过该包全部 hook，避免应用反复崩溃。
         if (SafeModeManager.handleStart(applicationContext(), param.packageName)) return
         val target = PackageTarget.from(param)
@@ -39,8 +41,7 @@ class XposedEntry : XposedModule() {
     }
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
-        HookPrefs.init(getRemotePreferences(HookPrefs.GROUP))
-        SafeModeManager.init(this)
+        initSharedState()
         if (SafeModeManager.handleStart(null, "system")) {
             HookHelper.log("SafeMode: system_server is in safe mode, skip hooks")
             return
@@ -50,6 +51,13 @@ class XposedEntry : XposedModule() {
             runCatching { load.onPackageReady(target) }
                 .onFailure { HookHelper.log("system_server load failed", it) }
         }
+    }
+
+    private fun initSharedState() {
+        if (sharedStateReady) return
+        sharedStateReady = true
+        HookPrefs.init(getRemotePreferences(HookPrefs.GROUP))
+        SafeModeManager.init(this)
     }
 
     @Suppress("PrivateApi")

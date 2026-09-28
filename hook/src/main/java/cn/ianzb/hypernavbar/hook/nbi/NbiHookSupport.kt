@@ -21,11 +21,24 @@ internal object NbiHookSupport {
      */
     val NBI_GATE = hookVersionGate { hyperOs { ge("3.0.3") } }
 
-    /** 保证目标进程内 NBI 已初始化（官方 preInit 条件可能未满足）。 */
+    /** 保证目标进程内 NBI 已初始化（官方 preInit 条件可能未满足）。
+     *
+     *  由每个窗口的 `onAttachedToWindow` 触发：stub 类与单例进程内只解析一次，
+     *  避免每次开窗都做 `Class.forName` 与 `getInstance` 反射。 */
+    @Volatile
+    private var stubClass: Class<*>? = null
+
+    @Volatile
+    private var stubInstance: Any? = null
+
     fun ensureInit(loader: ClassLoader?, context: Context?) {
         if (context == null) return
-        val stub = Reflect.findClassIfExists("com.miui.nbi.MiuiNBIManagerStub", loader) ?: return
-        val instance = Reflect.callStaticMethod(stub, "getInstance") ?: return
+        val stub = stubClass ?: Reflect.findClassIfExists("com.miui.nbi.MiuiNBIManagerStub", loader)?.also {
+            stubClass = it
+        } ?: return
+        val instance = stubInstance ?: Reflect.callStaticMethod(stub, "getInstance")?.also {
+            stubInstance = it
+        } ?: return
         val enabled = runCatching { Reflect.callMethod(instance, "isNBIEnable", context) as? Boolean }
             .getOrNull() ?: false
         if (!enabled) {

@@ -60,7 +60,12 @@ object RuleCombiner {
             val iter = mergedNBIRules.keys()
             while (iter.hasNext()) set.add(iter.next())
         }) {
-            sortedNBIRules.put(key, mergedNBIRules.get(key))
+            val appRule = mergedNBIRules.optJSONObject(key) ?: mergedNBIRules.get(key)
+            // 始终显式写出 hookExcluded（默认 true）：旧版本应用默认值为 false，只有显式 true 才能让旧版本也不注入
+            if (appRule is JSONObject && !appRule.has("hookExcluded")) {
+                appRule.put("hookExcluded", true)
+            }
+            sortedNBIRules.put(key, appRule)
         }
         mergedRoot.put("NBIRules", sortedNBIRules)
         return mergedRoot

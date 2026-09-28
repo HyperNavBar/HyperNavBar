@@ -128,7 +128,8 @@ fun formatNbiJson(jsonStr: String): String {
             if (app.has("enable31")) sortedApp.put("enable31", app.optBoolean("enable31"))
             if (app.has("disableVersionCode") && !app.isNull("disableVersionCode"))
                 sortedApp.put("disableVersionCode", app.optLong("disableVersionCode"))
-            if (app.has("hookExcluded")) sortedApp.put("hookExcluded", app.optBoolean("hookExcluded"))
+            // 始终显式写出 hookExcluded（默认 true）：旧版本应用默认值为 false，只有显式 true 才能让旧版本也不注入
+            sortedApp.put("hookExcluded", app.optBoolean("hookExcluded", true))
             val activityRules = app.optJSONObject("activityRules")
             if (activityRules != null) {
                 val sortedActivities = JSONObject()

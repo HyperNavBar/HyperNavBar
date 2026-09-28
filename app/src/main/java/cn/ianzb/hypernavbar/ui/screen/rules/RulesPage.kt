@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.RootHelper
+import cn.ianzb.hypernavbar.prefs.HookBlacklist
 import cn.ianzb.hypernavbar.rules.HookRulePublisher
 import cn.ianzb.hypernavbar.rules.RuleCombiner
 import cn.ianzb.hypernavbar.rules.RuleConfigSource
@@ -108,6 +109,9 @@ private fun getEmptyJsonTemplate(context: android.content.Context): String {
     "NBIRules": {}
 }"""
 }
+
+/** 模块本体必须 Hook 的系统框架包，始终保留在作用域中；其余应用（含系统应用）不在规则列表即移出。 */
+private val SCOPE_ALWAYS_KEEP = setOf("android", "system", "system_server")
 
 private data class PresetSource(val name: String, val summary: String, val url: String)
 
@@ -226,10 +230,21 @@ fun RulesPageView(
         val mergedJson = RuleCombiner.combine(configs.toList(), cachedResults)
         val totalApps = RuleCombiner.getTotalAppCount(cachedResults)
         val published = withContext(Dispatchers.IO) { HookRulePublisher.publish(mergedJson) }
-        // 只取消、不主动申请：hookExcluded（默认 true）表示不注入应用进程，
-        // 应用规则时把这类应用中「当前确在作用域内」的移出，规则仍由 system_server 注入生效。
-        val excluded = HookRulePublisher.excludedPackages()
-        val toRemove = XposedServiceManager.scope.filter { it in excluded }
+        // 应用规则时按合并配置重写作用域：
+        // - hookExcluded=false（显式要求注入应用进程）的应用自动申请作用域，已在作用域 / 申请记录中的不重复申请；
+        // - 不在规则列表（含 hookExcluded=true 默认排除）却仍在作用域内的应用取消其作用域，规则仍由 system_server 注入生效；
+        // - 仅 system（系统框架）始终保留，其余包括系统应用不在规则列表也会被移出。
+        // 用户在作用域页手动排除（HookBlacklist）的应用不自动申请，避免注入即闪退。
+        // 立即生效前先在后台刷新一次作用域，确保基于 LSPosed 最新状态做增删。
+        withContext(Dispatchers.IO) { XposedServiceManager.refreshScope() }
+        val required = RuleConverter.hookRequiredPackages(mergedJson)
+            .filter { it !in HookBlacklist.all() }
+        if (required.isNotEmpty()) XposedServiceManager.ensureScope(required.toList())
+        val toRemove = withContext(Dispatchers.IO) {
+            XposedServiceManager.scope.filter { pkg ->
+                pkg !in required && pkg !in SCOPE_ALWAYS_KEEP
+            }
+        }
         if (toRemove.isNotEmpty()) XposedServiceManager.removeScope(toRemove)
         isCustomApplied = published.isNotEmpty()
         saveApplyState(System.currentTimeMillis(), totalApps, isCustomApplied)

@@ -21,6 +21,15 @@ class JsonRuleEditorFormatTest {
     }
 
     @Test
+    fun formatNbiJson_writesDefaultHookExcludedWhenMissing() {
+        val out = app(
+            """{"NBIRules":{"com.x":{"name":"X","enable":true,"activityRules":{"A":{"style":"view"}}}}}"""
+        )
+        assertTrue(out.has("hookExcluded"))
+        assertTrue(out.getBoolean("hookExcluded"))
+    }
+
+    @Test
     fun formatNbiJson_preservesHookExcludedTrueAndDisableVersionCode() {
         val out = app(
             """

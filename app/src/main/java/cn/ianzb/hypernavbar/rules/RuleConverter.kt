@@ -1,5 +1,6 @@
 package cn.ianzb.hypernavbar.rules
 
+import cn.ianzb.hypernavbar.rules.RuleConverter.excludedPackages
 import org.json.JSONObject
 import java.io.File
 import java.text.SimpleDateFormat
@@ -330,6 +331,24 @@ object RuleConverter {
             val pkg = keys.next()
             val app = nbi.optJSONObject(pkg) ?: continue
             if (app.optBoolean("hookExcluded", true)) result.add(pkg)
+        }
+        return result
+    }
+
+    /**
+     * 收集「需要注入应用进程」的应用集合（应用级 `hookExcluded == false`，默认不注入）。
+     *
+     * 与 [excludedPackages] 互补：显式声明 `hookExcluded: false` 的应用在应用规则时
+     * 会被自动申请加入 LSPosed 作用域，用于需要应用进程内取色的非全屏 / 分屏场景。
+     */
+    fun hookRequiredPackages(merged: JSONObject): Set<String> {
+        val result = LinkedHashSet<String>()
+        val nbi = merged.optJSONObject("NBIRules") ?: return result
+        val keys = nbi.keys()
+        while (keys.hasNext()) {
+            val pkg = keys.next()
+            val app = nbi.optJSONObject(pkg) ?: continue
+            if (!app.optBoolean("hookExcluded", true)) result.add(pkg)
         }
         return result
     }

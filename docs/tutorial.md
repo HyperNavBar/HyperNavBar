@@ -37,7 +37,7 @@ Pull Request 前建议在本地进行验证，提交时确保已填写更新日�
           //"viewRules": []            // 视图规则数组
         }
       }
-      //"hookExcluded": false       // 是否注入模块到应用进程（默认 true = 不注入，避免被检测）
+      //"hookExcluded": false       // 是否注入模块到应用进程（默认 true = 不注入；false 时应用规则会自动加入作用域）
     }
   }
 }
@@ -61,9 +61,9 @@ Pull Request 前建议在本地进行验证，提交时确保已填写更新日�
 | **name**               | string  | 任意字符串           | -       | 应用显示名称（仅用于方便管理） |
 | **enable**             | boolean | `true`, `false` | `false` | 基础启用标志            |
 | **disableVersionCode** | long    | 数字或 `null`      | `null`  | 当应用版本号小于等于此值时禁用规则 |
-| **hookExcluded**       | boolean | `true`, `false` | `true`  | 排除 Hook：`true`（默认）时该应用不注入模块到应用进程，避免被应用检测 |
+| **hookExcluded**       | boolean | `true`, `false` | `true`  | 排除 Hook：`true`（默认）时该应用不注入模块到应用进程，避免被应用检测；应用规则时自动同步作用域（`false` 加入、默认排除移出） |
 
-> `hookExcluded` **默认 `true`**：默认不把模块注入第三方应用进程（不加入 LSPosed 作用域），避免被应用检测到 Hook。该字段只控制是否注入到**应用进程**，**不影响规则生效**——规则始终由 system_server 注入，对所有应用生效。仅当需要应用进程内取色（非全屏 / 分屏采样）时才设为 `false`。
+> `hookExcluded` **默认 `true`**：默认不把模块注入第三方应用进程（不加入 LSPosed 作用域），避免被应用检测到 Hook。生成/导出/保存规则时**始终显式写出**该字段（默认 `true` 也写出、不省略），因为旧版本应用默认值为 `false`，只有显式 `true` 才能让旧版本也不注入。该字段只控制是否注入到**应用进程**，**不影响规则生效**——规则始终由 system_server 注入，对所有应用生效。应用规则时会按合并配置重写作用域：设置为 `false` 的应用自动加入作用域（已在作用域 / 申请记录中的不重复申请），不在规则列表中的应用自动移出（仅系统框架 system 始终保留）。仅当需要应用进程内取色（非全屏 / 分屏采样）时才设为 `false`。
 
 **启用逻辑：** `最终启用状态 = enable OR enable31`，只要有一个为 true 就启用，两个都为 false 才禁用。实际使用时建议只使用 `enable`。
 

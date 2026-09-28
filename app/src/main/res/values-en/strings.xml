@@ -204,7 +204,7 @@
     <string name="editor_app_enable">Enable Rule</string>
     <string name="editor_app_enable_summary">enable</string>
     <string name="editor_hook_excluded">Exclude from Hook</string>
-    <string name="editor_hook_excluded_summary">Not injected into the app by default (avoids hook detection); turn off to inject it for in-app color sampling</string>
+    <string name="editor_hook_excluded_summary">Whether to exclude Hook; Hook-related features will not take effect</string>
     <string name="editor_delete_activity">Delete This Activity</string>
     <string name="editor_package_name">Package Name</string>
     <string name="editor_app_name_optional">App Name (Optional)</string>

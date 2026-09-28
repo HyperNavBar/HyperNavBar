@@ -204,7 +204,7 @@
     <string name="editor_app_enable">启用规则</string>
     <string name="editor_app_enable_summary">enable</string>
     <string name="editor_hook_excluded">排除 Hook</string>
-    <string name="editor_hook_excluded_summary">默认不注入模块（避免被应用检测）；关闭后该应用才会被注入，用于需要应用进程内取色的场景</string>
+    <string name="editor_hook_excluded_summary">是否排除 Hook，Hook 相关特性将无法生效</string>
     <string name="editor_delete_activity">删除此活动</string>
     <string name="editor_package_name">应用包名</string>
     <string name="editor_app_name_optional">应用名称（可选）</string>

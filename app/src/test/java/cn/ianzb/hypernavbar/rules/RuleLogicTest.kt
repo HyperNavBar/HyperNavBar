@@ -458,6 +458,57 @@ class RuleLogicTest {
     }
 
     @Test
+    fun hookRequiredPackages_returnsOnlyExplicitFalse() {
+        val merged = JSONObject(
+            """
+            {
+              "NBIRules": {
+                "com.normal": { "activityRules": { "A": { "style": "view" } } },
+                "com.excluded": {
+                  "hookExcluded": true,
+                  "activityRules": { "A": { "style": "view" } }
+                },
+                "com.required": {
+                  "hookExcluded": false,
+                  "activityRules": { "A": { "style": "view" } }
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        assertEquals(setOf("com.required"), RuleConverter.hookRequiredPackages(merged))
+        assertEquals(setOf("com.normal", "com.excluded"), RuleConverter.excludedPackages(merged))
+    }
+
+    @Test
+    fun combine_writesDefaultHookExcludedForAppsMissingIt() {
+        val cfg = ruleConfig(
+            "base", 0,
+            """{ "NBIRules": { "com.x": { "enable": true, "activityRules": { "A": { "style": "view" } } } } }"""
+        )
+        val merged = RuleCombiner.combine(listOf(cfg), resultsFor(cfg))
+        val app = merged.getJSONObject("NBIRules").getJSONObject("com.x")
+        assertTrue(app.has("hookExcluded"))
+        assertTrue(app.getBoolean("hookExcluded"))
+    }
+
+    @Test
+    fun combine_preservesFalseHookExcludedWhenHigherSourceOmits() {
+        val base = ruleConfig(
+            "base", 10,
+            """{ "NBIRules": { "com.x": { "enable": true, "hookExcluded": false, "activityRules": { "A": { "style": "view" } } } } }"""
+        )
+        val top = ruleConfig(
+            "top", 0,
+            """{ "NBIRules": { "com.x": { "enable": true, "activityRules": { "B": { "style": "view" } } } } }"""
+        )
+        val merged = RuleCombiner.combine(listOf(base, top), resultsFor(base, top))
+        val app = merged.getJSONObject("NBIRules").getJSONObject("com.x")
+        assertTrue(app.has("hookExcluded"))
+        assertFalse(app.getBoolean("hookExcluded"))
+    }
+
+    @Test
     fun normalizeFromOfficial_preservesHookExcluded() {
         val official = JSONObject(
             """

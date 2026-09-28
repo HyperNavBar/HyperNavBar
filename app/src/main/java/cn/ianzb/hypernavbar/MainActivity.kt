@@ -113,6 +113,9 @@ class MainActivity : ComponentActivity() {
         // 首次启动时播种默认订阅（社区规则源在上，官方规则源在下）
         RulesManager.ensureDefaultConfigs(this)
 
+        // 同步桌面图标可见状态，避免偏好与系统组件状态不一致。
+        LauncherIconController.apply(this, savedSettings.hideLauncherIcon)
+
         // 覆盖 XML 主题的窗口背景，兼容「系统浅色但应用内手动强制深色」的情况，避免启动白屏闪烁。
         applyWindowBackground(savedSettings.themeMode)
 
@@ -129,6 +132,7 @@ class MainActivity : ComponentActivity() {
             var applyIntervalMinutes by remember { mutableIntStateOf(savedSettings.applyIntervalMinutes) }
             var autoApplyAfterEdit by remember { mutableStateOf(savedSettings.autoApplyAfterEdit) }
             var checkUpdateOnLaunch by remember { mutableStateOf(savedSettings.checkUpdateOnLaunch) }
+            var hideLauncherIcon by remember { mutableStateOf(savedSettings.hideLauncherIcon) }
 
             var updateInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
             var isCheckingUpdate by remember { mutableStateOf(false) }
@@ -192,6 +196,7 @@ class MainActivity : ComponentActivity() {
                         applyIntervalMinutes = applyIntervalMinutes,
                         autoApplyAfterEdit = autoApplyAfterEdit,
                         checkUpdateOnLaunch = checkUpdateOnLaunch,
+                        hideLauncherIcon = hideLauncherIcon,
                     )
                 )
             }
@@ -207,6 +212,7 @@ class MainActivity : ComponentActivity() {
                     applyIntervalMinutes = applyIntervalMinutes,
                     autoApplyAfterEdit = autoApplyAfterEdit,
                     checkUpdateOnLaunch = checkUpdateOnLaunch,
+                    hideLauncherIcon = hideLauncherIcon,
                     isCheckingUpdate = isCheckingUpdate,
                     onRetryRootCheck = {
                         scope.launch {
@@ -224,6 +230,11 @@ class MainActivity : ComponentActivity() {
                     onApplyIntervalChange = { applyIntervalMinutes = it; persistState() },
                     onAutoApplyAfterEditChange = { autoApplyAfterEdit = it; persistState() },
                     onCheckUpdateOnLaunchChange = { checkUpdateOnLaunch = it; persistState() },
+                    onHideLauncherIconChange = {
+                        hideLauncherIcon = it
+                        LauncherIconController.apply(this@MainActivity, it)
+                        persistState()
+                    },
                     onCheckUpdate = { checkUpdate() },
                 )
 
@@ -253,6 +264,7 @@ private fun MainScreen(
     applyIntervalMinutes: Int,
     autoApplyAfterEdit: Boolean,
     checkUpdateOnLaunch: Boolean,
+    hideLauncherIcon: Boolean,
     isCheckingUpdate: Boolean,
     onRetryRootCheck: () -> Unit,
     onThemeModeChange: (ColorSchemeMode) -> Unit,
@@ -262,6 +274,7 @@ private fun MainScreen(
     onApplyIntervalChange: (Int) -> Unit,
     onAutoApplyAfterEditChange: (Boolean) -> Unit,
     onCheckUpdateOnLaunchChange: (Boolean) -> Unit,
+    onHideLauncherIconChange: (Boolean) -> Unit,
     onCheckUpdate: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -386,6 +399,8 @@ private fun MainScreen(
                         onAutoApplyAfterEditChange = onAutoApplyAfterEditChange,
                         checkUpdateOnLaunch = checkUpdateOnLaunch,
                         onCheckUpdateOnLaunchChange = onCheckUpdateOnLaunchChange,
+                        hideLauncherIcon = hideLauncherIcon,
+                        onHideLauncherIconChange = onHideLauncherIconChange,
                         onCheckUpdate = onCheckUpdate,
                         isCheckingUpdate = isCheckingUpdate,
                         extraBottomPadding = navBarHeight,

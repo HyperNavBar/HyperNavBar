@@ -18,6 +18,7 @@ data class AppSettings(
     val language: String = "",
     val forcedMode: String = "auto",
     val rulesConfigsJson: String = "",
+    val hideLauncherIcon: Boolean = false,
 ) {
     fun toJson(): String {
         val json = JSONObject()
@@ -31,6 +32,7 @@ data class AppSettings(
         json.put("language", language)
         json.put("forcedMode", forcedMode)
         json.put("rulesConfigs", JSONArray(rulesConfigsJson.ifEmpty { "[]" }))
+        json.put("hideLauncherIcon", hideLauncherIcon)
         return json.toString(2)
     }
 
@@ -49,6 +51,7 @@ data class AppSettings(
                     language = obj.optString("language", ""),
                     forcedMode = obj.optString("forcedMode", "auto"),
                     rulesConfigsJson = obj.optJSONArray("rulesConfigs")?.toString() ?: "",
+                    hideLauncherIcon = obj.optBoolean("hideLauncherIcon", false),
                 )
             } catch (_: Exception) {
                 AppSettings()
@@ -63,6 +66,7 @@ data class AppSettings(
         private const val KEY_APPLY_INTERVAL = "apply_interval"
         private const val KEY_AUTO_APPLY_AFTER_EDIT = "auto_apply_after_edit"
         private const val KEY_CHECK_UPDATE_ON_LAUNCH = "check_update_on_launch"
+        private const val KEY_HIDE_LAUNCHER_ICON = "hide_launcher_icon"
 
         fun load(context: Context): AppSettings {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -78,6 +82,7 @@ data class AppSettings(
                 checkUpdateOnLaunch = prefs.getBoolean(KEY_CHECK_UPDATE_ON_LAUNCH, true),
                 language = language,
                 forcedMode = forcedMode,
+                hideLauncherIcon = prefs.getBoolean(KEY_HIDE_LAUNCHER_ICON, false),
             )
         }
 
@@ -90,6 +95,7 @@ data class AppSettings(
                 putInt(KEY_APPLY_INTERVAL, settings.applyIntervalMinutes)
                 putBoolean(KEY_AUTO_APPLY_AFTER_EDIT, settings.autoApplyAfterEdit)
                 putBoolean(KEY_CHECK_UPDATE_ON_LAUNCH, settings.checkUpdateOnLaunch)
+                putBoolean(KEY_HIDE_LAUNCHER_ICON, settings.hideLauncherIcon)
             }
             // Restore language
             val lang = LocaleHelper.Language.entries.find { it.code == settings.language } ?: LocaleHelper.Language.SYSTEM

@@ -20,6 +20,8 @@
     <string name="liquid_glass_summary">iOS 风格的液态玻璃模糊效果</string>
     <string name="blur_enabled">背景模糊</string>
     <string name="blur_enabled_summary">启用导航栏和底栏的背景模糊效果</string>
+    <string name="hide_launcher_icon">隐藏桌面图标</string>
+    <string name="hide_launcher_icon_summary">隐藏本模块的桌面图标，可通过模块管理器重新进入</string>
     <string name="language_default">默认</string>
     <string name="language_zh_cn">简体中文</string>
     <string name="language_en">English</string>
@@ -113,7 +115,7 @@
     <string name="about_telegram">Telegram 群组</string>
     <string name="about_telegram_summary">https://t.me/HyperNavBar</string>
     <string name="about_dependencies">第三方许可证与致谢</string>
-    <string name="about_based_on">Based on MiuixGuiTemplate 0.4.2</string>
+    <string name="about_based_on">Based on MiuixGuiTemplate 0.4.3</string>
     <string name="license_lgpl">GNU LGPL v3.0</string>
     <string name="license_lgpl_summary">查看完整协议文本</string>
     <string name="third_party_licenses_title">第三方许可证</string>

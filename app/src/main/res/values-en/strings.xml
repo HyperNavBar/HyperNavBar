@@ -20,6 +20,8 @@
     <string name="liquid_glass_summary">iOS-style liquid glass blur effect</string>
     <string name="blur_enabled">Background Blur</string>
     <string name="blur_enabled_summary">Enable background blur effect for navigation bar and bottom bar</string>
+    <string name="hide_launcher_icon">Hide Launcher Icon</string>
+    <string name="hide_launcher_icon_summary">Hide this module\'s launcher icon; reopen via the module manager</string>
     <string name="language_default">Default</string>
     <string name="language_zh_cn">简体中文</string>
     <string name="language_en">English</string>
@@ -113,7 +115,7 @@
     <string name="about_telegram">Telegram Group</string>
     <string name="about_telegram_summary">https://t.me/HyperNavBar</string>
     <string name="about_dependencies">Third Party Licenses &amp; Credits</string>
-    <string name="about_based_on">Based on MiuixGuiTemplate 0.4.2</string>
+    <string name="about_based_on">Based on MiuixGuiTemplate 0.4.3</string>
     <string name="license_lgpl">GNU LGPL v3.0</string>
     <string name="license_lgpl_summary">View full license text</string>
     <string name="third_party_licenses_title">Third Party Licenses</string>

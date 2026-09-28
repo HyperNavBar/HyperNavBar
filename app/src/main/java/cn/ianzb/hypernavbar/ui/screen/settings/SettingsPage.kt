@@ -83,6 +83,8 @@ fun SettingsPageView(
     onAutoApplyAfterEditChange: (Boolean) -> Unit,
     checkUpdateOnLaunch: Boolean,
     onCheckUpdateOnLaunchChange: (Boolean) -> Unit,
+    hideLauncherIcon: Boolean,
+    onHideLauncherIconChange: (Boolean) -> Unit,
     onCheckUpdate: () -> Unit,
     isCheckingUpdate: Boolean,
     extraBottomPadding: Dp = 0.dp,
@@ -282,6 +284,13 @@ fun SettingsPageView(
                                     summary = stringResource(R.string.blur_enabled_summary),
                                     checked = isBlurEnabled,
                                     onCheckedChange = onBlurEnabledChange
+                                )
+
+                                SwitchPreference(
+                                    title = stringResource(R.string.hide_launcher_icon),
+                                    summary = stringResource(R.string.hide_launcher_icon_summary),
+                                    checked = hideLauncherIcon,
+                                    onCheckedChange = onHideLauncherIconChange
                                 )
                             }
                         }

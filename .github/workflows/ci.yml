@@ -78,6 +78,59 @@ jobs:
           path: ${{ env.PROGRAM_NAME }}_${{ steps.generate_ci_version.outputs.ci_version }}.apk
           retention-days: 7
 
+      - name: 上传到Telegram（测试话题）
+        if: github.event_name != 'pull_request'
+        env:
+          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          MESSAGE_THREAD_ID: ${{ secrets.TEST_MESSAGE_THREAD_ID }}
+          APK_FILE: "${{ github.workspace }}/${{ env.PROGRAM_NAME }}_${{ steps.generate_ci_version.outputs.ci_version }}.apk"
+          CI_VERSION: "${{ steps.generate_ci_version.outputs.ci_version }}"
+          ACTOR_NAME: "${{ github.actor }}"
+          RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          EVENT_NAME: "${{ github.event_name }}"
+        run: |
+          if [ -z "${MESSAGE_THREAD_ID}" ]; then
+            echo "未配置 TEST_MESSAGE_THREAD_ID，跳过 Telegram 上传"
+            exit 0
+          fi
+          if [ -z "${CHANNEL_ID}" ] || [ -z "${BOT_TOKEN}" ]; then
+            echo "未配置 CHANNEL_ID / BOT_TOKEN，跳过 Telegram 上传"
+            exit 0
+          fi
+
+          ESCAPED_CAPTION=$(python3 -c '
+          import os, re
+
+          def escape_md_v2_code(text):
+              return text.replace("\\", "\\\\").replace("`", "\\`")
+
+          def escape_md_v2_url(text):
+              return re.sub(r"([)\\])", r"\\\1", text)
+
+          actor = escape_md_v2_code(os.environ.get("ACTOR_NAME", ""))
+          event_name = os.environ.get("EVENT_NAME", "")
+          run_url = escape_md_v2_url(os.environ.get("RUN_URL", ""))
+          ci_version = escape_md_v2_code(os.environ.get("CI_VERSION", ""))
+
+          lines = ["*CI Test Build*"]
+          if ci_version:
+              lines.append(f"Version: `{ci_version}`")
+          if run_url:
+              lines.append(f"Build: [View run]({run_url})")
+          if event_name == "workflow_dispatch":
+              lines.append(f"Manually run by `{actor}`")
+          print("\n".join(lines))
+          ')
+
+          echo "上传到测试话题: ${CHANNEL_ID} (thread ${MESSAGE_THREAD_ID})"
+          curl -sS --fail-with-body -F chat_id="${CHANNEL_ID}" \
+                  -F message_thread_id="${MESSAGE_THREAD_ID}" \
+                  -F document=@"${APK_FILE}" \
+                  -F parse_mode="MarkdownV2" \
+                  -F caption="${ESCAPED_CAPTION}" \
+                  https://api.telegram.org/bot${BOT_TOKEN}/sendDocument
+
       - name: 显示构建信息
         run: |
           Write-Host "构建完成"

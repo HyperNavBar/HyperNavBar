@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LGPL-3.0
+// SPDX-License-Identifier: AGPL-3.0
 //! nativehook —— 用 Rust 实现 libxposed 原生 hook 的最小参考模板。
 //!
 //! 构建（需 `cargo-ndk`，产物即为 `libnativehook.so`）：

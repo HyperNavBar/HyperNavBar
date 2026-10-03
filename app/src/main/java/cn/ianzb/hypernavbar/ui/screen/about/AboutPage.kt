@@ -399,9 +399,9 @@ private fun AboutContent(
                         ),
                     ) {
                         ArrowPreference(
-                            title = stringResource(R.string.license_lgpl),
-                            summary = stringResource(R.string.license_lgpl_summary),
-                            onClick = { uriHandler.openUri("https://www.gnu.org/licenses/lgpl-3.0.txt") },
+                            title = stringResource(R.string.license_agpl),
+                            summary = stringResource(R.string.license_agpl_summary),
+                            onClick = { uriHandler.openUri("https://www.gnu.org/licenses/agpl-3.0.txt") },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.about_dependencies),

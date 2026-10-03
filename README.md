@@ -127,9 +127,9 @@ cd HyperNavBar
 
 # 许可证
 
-本项目基于 [GNU Lesser General Public License v3.0](LICENSE) 开源。
+本项目基于 [GNU Affero General Public License v3.0](LICENSE) 开源。
 
-仓库同时包含 Apache-2.0 许可的第三方代码（自 [miuix](https://github.com/compose-miuix-ui/miuix) 等引入的文件保留其原始版权与许可声明）。按照 LGPL-3.0 的传染性要求，本项目整体以 LGPL-3.0 授权分发；衍生作品须以 LGPL-3.0 或 GPL-3.0 授权公开，并保留上述「参考与致谢」与 [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 的 Based on 标注。
+仓库同时包含 Apache-2.0 许可的第三方代码（自 [miuix](https://github.com/compose-miuix-ui/miuix) 等引入的文件保留其原始版权与许可声明）。AGPL-3.0 与 GPL-3.0 兼容（AGPL-3.0 §13）；衍生作品须以 AGPL-3.0 授权公开，并保留上述「参考与致谢」与 [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 的 Based on 标注。
 
 <br>
 

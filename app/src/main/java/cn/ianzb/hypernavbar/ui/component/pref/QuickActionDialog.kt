@@ -52,8 +52,11 @@ fun QuickActionDialog(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    var selected by remember(packages) { mutableStateOf(packages.toSet()) }
-    val allSelected = packages.isNotEmpty() && selected.size == packages.size
+    // 去重：调用方传入的包名可能重复（如显式列表叠加同一组包名），
+    // 否则 selected（Set）永远小于 packages.size，「全选/全不选」判断将失效。
+    val uniquePackages = remember(packages) { packages.distinct() }
+    var selected by remember(uniquePackages) { mutableStateOf(uniquePackages.toSet()) }
+    val allSelected = uniquePackages.isNotEmpty() && selected.containsAll(uniquePackages)
 
     // 目标包含系统进程时，重启会触发系统重启，需二次确认。
     var pendingRestart by remember { mutableStateOf<List<String>?>(null) }
@@ -78,7 +81,7 @@ fun QuickActionDialog(
                         .heightIn(max = 420.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    packages.forEach { packageName ->
+                    uniquePackages.forEach { packageName ->
                         val label = remember(packageName) { resolveLabel(context, packageName) }
                         CheckboxPreference(
                             title = label,
@@ -100,7 +103,7 @@ fun QuickActionDialog(
                         else R.string.quick_action_select_all,
                     ),
                     onClick = {
-                        selected = if (allSelected) emptySet() else packages.toSet()
+                        selected = if (allSelected) emptySet() else uniquePackages.toSet()
                     },
                     colors = ButtonDefaults.textButtonColors(),
                     modifier = Modifier.weight(1f),

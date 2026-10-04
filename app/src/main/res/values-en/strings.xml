@@ -115,7 +115,7 @@
     <string name="about_telegram">Telegram Group</string>
     <string name="about_telegram_summary">https://t.me/HyperNavBar</string>
     <string name="about_dependencies">Third Party Licenses &amp; Credits</string>
-    <string name="about_based_on">Based on MiuixGuiTemplate 0.4.3</string>
+    <string name="about_based_on">Based on MiuixGuiTemplate 0.5.3</string>
     <string name="license_agpl">GNU AGPL v3.0</string>
     <string name="license_agpl_summary">View full license text</string>
     <string name="third_party_licenses_title">Third Party Licenses</string>

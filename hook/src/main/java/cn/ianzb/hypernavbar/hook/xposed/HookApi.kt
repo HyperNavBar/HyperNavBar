@@ -32,6 +32,19 @@ typealias AfterHook = (HookParam) -> Unit
 typealias ReplaceHook = (HookParam) -> Any?
 
 /**
+ * libxposed [Hooker] 的具名实现。
+ *
+ * `XposedInterface` 是 compileOnly 的框架接口，若直接用 Kotlin Lambda 做 SAM 转换，会被编译成
+ * invokedynamic（`$$ExternalSyntheticLambda`），R8 无法用 keep 规则匹配，进而破坏 `intercept`
+ * 实现（`AbstractMethodError`，所有 hook 失效）。这里改为普通类，交由 `-keep` 规则保留。
+ */
+private class ChainHooker(
+    private val callback: (XposedInterface.Chain) -> Any?,
+) : Hooker {
+    override fun intercept(chain: XposedInterface.Chain): Any? = callback(chain)
+}
+
+/**
  * libxposed API 102 的二次封装门面。
  *
  * - 统一挂载入口（before / after / replace / intercept / 批量）
@@ -59,12 +72,12 @@ object HookHelper {
         executable: Executable,
         priority: Int = XposedInterface.PRIORITY_DEFAULT,
         mode: ExceptionMode = ExceptionMode.PROTECTIVE,
-        hooker: Hooker,
+        hooker: (XposedInterface.Chain) -> Any?,
     ): HookHandle {
         val handle = xposed.hook(executable)
             .setPriority(priority)
             .setExceptionMode(mode)
-            .intercept(hooker)
+            .intercept(ChainHooker(hooker))
         HookRegistry.register(handle)
         return handle
     }
@@ -108,11 +121,11 @@ object HookHelper {
         val handle = xposed.hookClassInitializer(clazz)
             .setPriority(priority)
             .setExceptionMode(ExceptionMode.PROTECTIVE)
-            .intercept { chain ->
+            .intercept(ChainHooker { chain ->
                 val param = HookParam(clazz, null, emptyList())
                 callback(param)
                 chain.proceed()
-            }
+            })
         HookRegistry.register(handle)
         return handle
     }

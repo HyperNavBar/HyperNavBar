@@ -2,11 +2,11 @@
 -keep class cn.ianzb.hypernavbar.hook.xposed.XposedEntry { *; }
 
 # hook 侧代码整体保留（不改名/不优化），避免 R8 破坏与框架的交互。
+# 注意：HookHelper 的 Hooker 实现（ChainHooker）必须在此范围内，其重写的 intercept 不能被 R8 处理，
+# 否则会出现 AbstractMethodError 导致 hook 全部失效（这也是不能用 Kotlin SAM Lambda 的原因）。
 -keep class cn.ianzb.hypernavbar.hook.** { *; }
 
-# libxposed API 未打包进 APK（由框架提供），其 -libraryjars 由 build.gradle.kts 动态生成。
-# 显式保留基类与回调实现，避免被 R8 误删（Hooker/XposedModule 的覆写）。
+# compileOnly 的 libxposed API 对 R8 不可见，按名称显式保留其基类与回调实现。
 -keep class * implements io.github.libxposed.api.XposedInterface$Hooker { *; }
 -keep class * extends io.github.libxposed.api.XposedModule { *; }
--keep class io.github.libxposed.api.** { *; }
 -dontwarn io.github.libxposed.**

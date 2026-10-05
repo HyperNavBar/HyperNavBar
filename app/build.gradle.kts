@@ -1,46 +1,6 @@
-import java.util.zip.ZipFile
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-}
-
-// libxposed API 是 compileOnly（运行时由框架提供，绝不能打包进 APK，否则 LSPosed 拒绝加载）。
-// 但 R8 必须能解析 XposedInterface$Hooker / XposedModule 等类型，否则会破坏 Hooker 实现
-// （AbstractMethodError，表现为所有 hook 失效）。下面的任务从 AAR 解出 classes.jar，
-// 生成仅供 R8 解析用的 -libraryjars 规则（不会进入 APK）。
-val libxposedApiClasspath: Configuration by configurations.creating {
-    isCanBeConsumed = false
-    isCanBeResolved = true
-}
-dependencies {
-    libxposedApiClasspath(libs.libxposed.api)
-}
-
-val libxposedR8Dir = layout.buildDirectory.dir("libxposed-r8")
-val libxposedLibraryJarsFile = libxposedR8Dir.map { it.file("libraryjars.pro") }
-
-val prepareLibxposedR8 by tasks.registering {
-    val apiAar = libxposedApiClasspath.elements.map { it.single().asFile }
-    val outputDir = libxposedR8Dir
-    val libraryJarsFile = libxposedLibraryJarsFile
-    inputs.file(apiAar)
-    outputs.file(libraryJarsFile)
-    doLast {
-        val dir = outputDir.get().asFile.also { it.mkdirs() }
-        val apiJar = dir.resolve("libxposed-api.jar")
-        ZipFile(apiAar.get()).use { zip ->
-            val entry = zip.getEntry("classes.jar") ?: error("classes.jar not found in the libxposed api AAR")
-            zip.getInputStream(entry).use { input -> apiJar.outputStream().use { input.copyTo(it) } }
-        }
-        libraryJarsFile.get().asFile.writeText("-libraryjars ${apiJar.absolutePath.replace('\\', '/')}\n")
-    }
-}
-
-tasks.configureEach {
-    if (name == "minifyReleaseWithR8") {
-        dependsOn(prepareLibxposedR8)
-    }
 }
 
 android {
@@ -76,7 +36,6 @@ android {
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
-                libxposedLibraryJarsFile.get().asFile,
             )
         }
     }

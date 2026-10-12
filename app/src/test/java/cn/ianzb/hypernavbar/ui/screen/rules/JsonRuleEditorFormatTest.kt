@@ -1,6 +1,7 @@
 package cn.ianzb.hypernavbar.ui.screen.rules
 
 import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -41,5 +42,22 @@ class JsonRuleEditorFormatTest {
         )
         assertTrue(out.getBoolean("hookExcluded"))
         assertTrue(out.has("disableVersionCode"))
+    }
+
+    @Test
+    fun formatNbiJson_writesDefaultNavBarVisibilityWhenMissing() {
+        val out = app(
+            """{"NBIRules":{"com.x":{"name":"X","enable":true,"activityRules":{"A":{"style":"view"}}}}}"""
+        )
+        assertTrue(out.has("navBarVisibility"))
+        assertEquals("default", out.getString("navBarVisibility"))
+    }
+
+    @Test
+    fun formatNbiJson_preservesExplicitNavBarVisibility() {
+        val out = app(
+            """{"NBIRules":{"com.x":{"name":"X","enable":true,"navBarVisibility":"alwaysHide","activityRules":{}}}}"""
+        )
+        assertEquals("alwaysHide", out.getString("navBarVisibility"))
     }
 }

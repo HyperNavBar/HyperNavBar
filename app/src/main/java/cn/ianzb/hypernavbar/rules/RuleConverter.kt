@@ -1,6 +1,6 @@
 package cn.ianzb.hypernavbar.rules
 
-import cn.ianzb.hypernavbar.rules.RuleConverter.excludedPackages
+import cn.ianzb.hypernavbar.hook.gesture.GestureVisibility
 import org.json.JSONObject
 import java.io.File
 import java.text.SimpleDateFormat
@@ -47,6 +47,38 @@ object RuleConverter {
     /** 根级 modules == "HyperNavBar_config" 视为内部统一新格式，否则为官方格式。 */
     fun isNewFormat(rootJson: JSONObject): Boolean =
         rootJson.optString("modules", "") == "HyperNavBar_config"
+
+    /** 应用级小白条状态默认值：跟随全局默认适配模式。 */
+    const val NAV_BAR_VISIBILITY_DEFAULT = "default"
+
+    /** 小白条状态的合法取值（应用级 navBarVisibility）。 */
+    private val NAV_BAR_VISIBILITY_VALUES = setOf(
+        NAV_BAR_VISIBILITY_DEFAULT,
+        GestureVisibility.ALWAYS_SHOW,
+        GestureVisibility.AUTO_HIDE,
+        GestureVisibility.ALWAYS_HIDE,
+    )
+
+    /** 归一化小白条状态值；非法 / 缺失一律回退 default。 */
+    fun normalizeNavBarVisibility(value: String?): String =
+        if (value != null && value in NAV_BAR_VISIBILITY_VALUES) value else NAV_BAR_VISIBILITY_DEFAULT
+
+    /**
+     * 收集应用级小白条状态规则（`navBarVisibility`），仅包含显式声明的非 default 值，
+     * 供 SystemUI 侧「手势提示线」Hook 读取（包名 → alwaysShow / autoHide / alwaysHide）。
+     */
+    fun buildVisibilityRules(merged: JSONObject): Map<String, String> {
+        val result = LinkedHashMap<String, String>()
+        val nbi = merged.optJSONObject("NBIRules") ?: return result
+        val keys = nbi.keys()
+        while (keys.hasNext()) {
+            val pkg = keys.next()
+            val app = nbi.optJSONObject(pkg) ?: continue
+            val value = normalizeNavBarVisibility(app.optString("navBarVisibility", NAV_BAR_VISIBILITY_DEFAULT))
+            if (value != NAV_BAR_VISIBILITY_DEFAULT) result[pkg] = value
+        }
+        return result
+    }
 
     /** 以当天日期作为规则版本号（yyMMdd，如 260826）。 */
     fun todayDataVersion(): String =

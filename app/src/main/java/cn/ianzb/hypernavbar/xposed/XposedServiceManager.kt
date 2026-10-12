@@ -12,6 +12,9 @@ import io.github.libxposed.service.XposedServiceHelper
  */
 object XposedServiceManager {
 
+    /** SystemUI 包名：手势提示线（小白条）Hook 的作用域目标。 */
+    const val SYSTEM_UI_PACKAGE = "com.android.systemui"
+
     private var service: XposedService? = null
 
     var isActivated by mutableStateOf(false)
@@ -56,7 +59,15 @@ object XposedServiceManager {
         checkRoot()
     }
 
-    /** 异步检测 Root 权限，避免阻塞主线程；重复调用会被合并。 */
+    /**
+     * 异步检测 Root 权限，避免阻塞主线程；进行中的检测会被合并。
+     *
+     * 检测会真正拉起一次 `su`，在部分 Root 管理器上会弹出授权 / 使用提示，
+     * 因此只在两个时机调用：
+     * 1. 应用启动时（[init]）；
+     * 2. 用户在主页手动点按状态卡片。
+     * 其余场景（回到前台、定时轮询等）一律复用上一次结果。
+     */
     fun checkRoot() {
         if (rootChecking) return
         rootChecking = true

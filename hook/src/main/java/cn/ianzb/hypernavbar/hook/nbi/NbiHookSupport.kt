@@ -8,7 +8,8 @@ import cn.ianzb.hypernavbar.hook.xposed.Reflect
 internal object NbiHookSupport {
 
     /**
-     * 所有 NBI hook 的共同版本门禁：仅 HyperOS 3.x（3.0.3XX 起）与 4.x 安装。
+     * 「强制生效」系列等 NBI hook 的版本门禁：仅 HyperOS 3.x（3.0.3XX 起）与 4.x 安装
+     * （规则注入与残留清理自 3.1.0 起改用 [OS4_GATE]）。
      *
      * NBI 相关类（`com.android.nbi.*`、`com.android.internal.policy.NavigationBarImmersiveController` /
      * `MiuiNBIManagerImpl` / `DecorViewImmersiveImpl`）在 HyperOS 3.3 与 4.0 上均存在且结构基本一致，
@@ -20,6 +21,15 @@ internal object NbiHookSupport {
      * 不安装、不记录失败，避免在旧系统上产生无意义的 hook 失败日志。
      */
     val NBI_GATE = hookVersionGate { hyperOs { ge("3.0.3") } }
+
+    /**
+     * 仅 HyperOS 4.x 生效的门禁。
+     *
+     * HyperOS 3.3（3.0.3XX）自 3.1.0 起改回「替换系统规则文件」的方式挂载规则
+     * （模块 App 侧 `RootApplier` 以 Root 写入），因此 [NbiRuleInjectHook] 与
+     * [NbiLegacyCleanupHook] 在 3.3 上不安装；「强制生效」系列仍沿用 [NBI_GATE]。
+     */
+    val OS4_GATE = hookVersionGate { hyperOs { ge("4.0") } }
 
     /** 保证目标进程内 NBI 已初始化（官方 preInit 条件可能未满足）。
      *

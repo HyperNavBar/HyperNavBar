@@ -5,20 +5,23 @@ import cn.ianzb.hypernavbar.hook.xposed.HookHelper
 import java.io.File
 
 /**
- * 旧版本残留自动清理/还原。
+ * 旧版本残留自动清理/还原（仅 HyperOS 4.x）。
  *
  * 旧版 HyperNavBar 会直接覆盖系统规则文件并留下 `.bak`。这里在 system_server 启动早期
  * 把 `.bak` 还原回目标文件、删除 `.bak` 与标记文件，使系统磁盘恢复为官方规则；
- * 运行时再由规则注入 hook 覆盖，因此卸载模块后自动回到官方规则。
+ * 4.x 上规则由运行期注入挂载，因此卸载模块后自动回到官方规则。
  *
- * 本 hook 不设版本门禁：它只做文件层面的还原/清理，不依赖任何 NBI 专属类，
- * 在旧系统上同样安全且有效（见 [NbiHookSupport.NBI_GATE]）。
+ * HyperOS 3.3（3.0.3XX）自 3.1.0 起改回替换系统规则文件的方式挂载规则，
+ * 写入的文件即为生效数据，因此 3.3 上不做还原（否则会与模块写入的规则互相覆盖），
+ * 门禁见 [NbiHookSupport.OS4_GATE]。
  */
 class NbiLegacyCleanupHook : BaseHook() {
 
     override val tag = "NbiLegacyCleanup"
 
     override val key: String get() = "cleanup_legacy"
+
+    override val versionGate = NbiHookSupport.OS4_GATE
 
     override fun init() {
         runCatching { cleanup() }

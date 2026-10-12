@@ -61,6 +61,7 @@
     <string name="rules_update_success">Rules updated, %d apps in effect</string>
     <string name="rules_update_failed">Refresh failed: %s</string>
     <string name="rules_root_required">Root permission required to apply rules</string>
+    <string name="rules_file_apply_failed">Failed to write system rules file, please check Root permission</string>
     <string name="rules_config_name">Config Name</string>
     <string name="rules_preset">Presets</string>
     <string name="rules_preset_added">Added preset: %s</string>
@@ -115,7 +116,7 @@
     <string name="about_telegram">Telegram Group</string>
     <string name="about_telegram_summary">https://t.me/HyperNavBar</string>
     <string name="about_dependencies">Third Party Licenses &amp; Credits</string>
-    <string name="about_based_on">Based on MiuixGuiTemplate 0.5.3</string>
+    <string name="about_based_on">Based on MiuixGuiTemplate 0.5.4</string>
     <string name="license_agpl">GNU AGPL v3.0</string>
     <string name="license_agpl_summary">View full license text</string>
     <string name="third_party_licenses_title">Third Party Licenses</string>
@@ -207,6 +208,9 @@
     <string name="editor_app_enable_summary">enable</string>
     <string name="editor_hook_excluded">Exclude from Hook</string>
     <string name="editor_hook_excluded_summary">Whether to exclude Hook; Hook-related features will not take effect</string>
+    <string name="editor_nav_bar_visibility">Gesture hint line</string>
+    <string name="editor_nav_bar_visibility_summary">Visibility of the pill (Default = use the global default mode from the Features page)</string>
+    <string name="editor_nav_visibility_default">Default</string>
     <string name="editor_delete_activity">Delete This Activity</string>
     <string name="editor_package_name">Package Name</string>
     <string name="editor_app_name_optional">App Name (Optional)</string>
@@ -287,7 +291,7 @@
 
     <!-- Features tab / Hook module -->
     <string name="tab_features">Features</string>
-    <string name="features_notice">All hooks in this module support HyperOS 3.3 (3.0.3XX) / 4.x. On older systems they are skipped automatically (no injection, no errors), leaving only rule editing.</string>
+    <string name="features_notice">Hooks in this module support HyperOS 3.3 (3.0.3XX) and 4.x; on older systems they are skipped automatically (no injection, no errors), leaving only rule editing. Rule injection runs as a runtime hook on 4.x, while 3.3 mounts rules by replacing the system rules file (root required).\nHook-based features are intended for advanced adaptation only (force-enable, gesture hint line and similar enhancements). Regular immersion adaptation works without enabling them.</string>
     <string name="settings_module">Module</string>
     <string name="section_force">Force Enable</string>
     <string name="section_scope_expand">Scope</string>
@@ -307,6 +311,33 @@
     <string name="force_fullscreen_summary">Also adapt split-screen and freeform windows</string>
     <string name="force_show_nav_title">Ignore Hidden Navigation Bar</string>
     <string name="force_show_nav_summary">Also adapt pages that hide the nav bar</string>
+    <string name="section_gesture">Gesture Hint Line</string>
+    <string name="gesture_handle_title">Gesture hint line visibility</string>
+    <string name="gesture_handle_summary">Per-app control of the pill: always show / auto-hide after 3s / always hide. Restart SystemUI to take effect.</string>
+    <string name="gesture_handle_motion_title">Swipe follow animation</string>
+    <string name="gesture_handle_motion_summary">The pill follows your drag and springs back on release (tune delay / amount / range / return speed below)</string>
+    <string name="gesture_motion_hold_title">Release hold</string>
+    <string name="gesture_motion_hold_summary">How long the pill stays at the dragged position before springing back</string>
+    <string name="gesture_motion_scale_title">Follow amount</string>
+    <string name="gesture_motion_scale_summary">How far the pill follows relative to your drag</string>
+    <string name="gesture_motion_range_title">Follow range</string>
+    <string name="gesture_motion_range_summary">Maximum offset per direction (also limited by the distance to the host edge)</string>
+    <string name="gesture_motion_return_title">Return speed</string>
+    <string name="gesture_motion_return_summary">Speed multiplier of the return animation; higher returns faster</string>
+    <string name="gesture_unit_ms"> ms</string>
+    <string name="gesture_unit_percent">%</string>
+    <string name="gesture_unit_dp"> dp</string>
+    <string name="gesture_handle_touch_reveal_title">Touch reveal</string>
+    <string name="gesture_handle_touch_reveal_summary">Show the pill briefly when touching the bottom gesture area (hides again after 3s)</string>
+    <string name="gesture_handle_global_mode_title">Global default mode</string>
+    <string name="gesture_handle_global_mode_summary">Applies to apps outside the rules (and to rules set to default)</string>
+    <string name="gesture_handle_follow_rules_title">Follow rules first</string>
+    <string name="gesture_handle_follow_rules_summary">On (default): rule values win, uncovered apps use the global default mode; Off: ignore rules and use the global default mode everywhere</string>
+    <string name="gesture_mode_always_show">Always show</string>
+    <string name="gesture_mode_auto_hide">Auto-hide after 3s</string>
+    <string name="gesture_mode_always_hide">Always hide</string>
+    <string name="gesture_follow_on">Follow rules</string>
+    <string name="gesture_follow_off">Don\'t follow</string>
     <string name="force_inject_rules_title">Overlay Module Rules</string>
     <string name="force_inject_rules_summary">Official rules as base, module rules win</string>
     <string name="cleanup_legacy_title">Auto Restore Official Rules</string>

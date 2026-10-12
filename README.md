@@ -14,7 +14,7 @@
 
 **HyperNavBar** 是一款小米 HyperOS 导航栏沉浸规则管理应用，通过 Root 权限自定义应用的小白条行为。
 
-> Based on [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.4.2
+> Based on [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.5.4
 
 规则数据由 [HyperNavBar Rules](https://github.com/HyperNavBar/HyperNavBarRules) 仓库维护，欢迎前往贡献。
 
@@ -34,8 +34,9 @@
 - **可视化编辑** — 对缓存规则进行可视化编辑，支持按包名 / 应用名 / 活动 ID 搜索过滤
 - **悬浮窗工具** — 一键识别前台应用信息（包名、应用名、活动 ID），支持屏幕取色
 - **智能格式转换** — 自动检测 HyperOS 版本（OS2.2 / OS3.0 / OS3.3+），输出 XML / JSON 格式
-- **Hook 规则注入** — 基于 LSPosed 在运行期用模块规则覆盖合并官方规则，无需 Root、不改写系统文件
+- **规则挂载** — HyperOS 4.x 基于 LSPosed 在运行期把模块规则覆盖合并到官方规则（无需 Root、不改写系统文件）；HyperOS 3.3（3.0.3XX）自 3.1.0 起改回以 Root 替换系统规则文件（保留 `.bak` 备份）
 - **强制生效** — 可绕过官方版本阈值 / 强制边到边 / 虚拟显示 / 导航方式 / 非全屏等限制，让规则在更多场景生效
+- **手势提示线控制** — 按应用控制小白条：始终显示 / 3 秒后自动隐藏 / 始终隐藏，支持滑动跟随动画与触摸唤醒
 - **安全模式** — 目标应用反复崩溃时自动跳过 Hook，避免系统应用崩溃导致无法开机
 - **自动应用** — 修改后自动应用，生效时间可配置
 - **导航栏样式** — 标准 / 悬浮 / 液态玻璃（iOS 风格毛玻璃效果）
@@ -48,10 +49,10 @@
 
 - 搭载 **HyperOS 3.3（3.0.3XX）/ 4.x** 的小米设备（手机 / 平板）
 - 已安装 **LSPosed**（支持 libxposed API 102），模块作用域需包含系统框架与 system_server
-- Root 权限（可选）：仅用于批量重启应用 / 清空 DexKit 缓存
+- Root 权限：HyperOS 3.3 上应用规则**必需**；HyperOS 4.x 可选（仅用于批量重启应用 / 清空 DexKit 缓存）
 - Android 15+（minSdk 35）
 
-> 全部 Hook 仅适配 **HyperOS 3.3（3.0.3XX）及以上**（门禁 `hyperOs >= 3.0.3`，兼容 `OS3.3` 与 `OS3.0.3XX` 两种写法）。在更早的 HyperOS 3.0 / 2.x、MIUI 或原生系统上，Hook 会**主动跳过**（不安装、不报错），仅保留规则编辑能力。详见 [docs/features.md](docs/features.md#系统版本要求)。
+> 全部 Hook 仅适配 **HyperOS 3.3（3.0.3XX）及以上**（门禁 `hyperOs >= 3.0.3`，兼容 `OS3.3` 与 `OS3.0.3XX` 两种写法）；其中规则注入 Hook 自 3.1.0 起仅在 HyperOS 4.x 生效，HyperOS 3.3 改由替换系统规则文件的方式挂载规则。在更早的 HyperOS 3.0 / 2.x、MIUI 或原生系统上，Hook 会**主动跳过**（不安装、不报错），仅保留规则编辑能力。详见 [docs/features.md](docs/features.md#系统版本要求)。
 
 <br>
 
@@ -89,6 +90,7 @@ cd HyperNavBar
 [点击此处](docs/usage.md) 查看使用教程  
 [点击此处](docs/features.md) 查看功能说明  
 [点击此处](docs/tutorial.md) 查看规则适配与格式说明  
+[点击此处](docs/development.md) 查看开发规范  
 [点击此处](changelog.md) 查看更新日志  
 [点击此处](https://github.com/HyperNavBar/HyperNavBarRules) 查看规则仓库  
 [前往 Telegram 群组](https://t.me/HyperNavBar) 与其他贡献者交流
@@ -120,8 +122,9 @@ cd HyperNavBar
 
 - [HyperCeiler](https://github.com/ReChronoRain/HyperCeiler)
 - [HyperLight](https://github.com/KiminonawaResa/HyperLight)
+- [HyperModifier](https://github.com/AritxOnly/HyperModifier) — 手势提示线（小白条）显示控制的实现参考与默认应用规则来源
 
-本项目基于 [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.4.2 脚手架开发，遵循其 Based on 约定。
+本项目基于 [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.5.4 脚手架开发，遵循其 Based on 约定。
 
 <br>
 

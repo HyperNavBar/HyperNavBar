@@ -70,20 +70,24 @@ object RulesManager {
     }
 
     fun add(context: Context, type: RuleType, url: String, jsonContent: String = "", name: String = "", appCount: Int = 0): RuleConfigSource {
-        val configs = loadAll(context).toMutableList()
         val config = RuleConfigSource(
             id = UUID.randomUUID().toString(),
             type = type,
             url = url,
             jsonContent = jsonContent,
             name = name.ifEmpty { url },
-            priority = (configs.maxOfOrNull { it.priority } ?: -1) + 1,
             appCount = appCount,
         )
-        configs.add(config)
+        val configs = insertAtTop(loadAll(context), config)
         saveAll(context, configs)
-        return config
+        return configs.first()
     }
+
+    /**
+     * 新建规则默认放到最上面：插入列表头部并重排优先级（下标即优先级，0 = 最上方 / 优先级最高）。
+     */
+    internal fun insertAtTop(configs: List<RuleConfigSource>, newConfig: RuleConfigSource): List<RuleConfigSource> =
+        (listOf(newConfig) + configs).mapIndexed { index, config -> config.copy(priority = index) }
 
     fun update(context: Context, config: RuleConfigSource) {
         updateById(context, config.id) { config }

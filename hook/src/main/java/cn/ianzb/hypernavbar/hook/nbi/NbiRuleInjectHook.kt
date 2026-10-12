@@ -10,10 +10,13 @@ import cn.ianzb.hypernavbar.hook.xposed.Reflect
 import org.json.JSONObject
 
 /**
- * system_server 侧规则注入。
+ * system_server 侧规则注入（仅 HyperOS 4.x）。
  *
  * 以官方 `getSystemNBIRules` 返回的规则为基底，用模块规则逐活动覆盖合并（模块优先），
  * 并强制 `enable=true`、清空 `versionCode`（跳过官方版本阈值）。
+ *
+ * HyperOS 3.3（3.0.3XX）自 3.1.0 起不再使用运行期注入：模块 App 在应用规则时
+ * 以 Root 替换系统规则文件（保留 `.bak` 备份）来挂载规则，详见 [NbiHookSupport.OS4_GATE]。
  */
 class NbiRuleInjectHook : BaseHook() {
 
@@ -21,7 +24,7 @@ class NbiRuleInjectHook : BaseHook() {
 
     override val key: String get() = HookKeys.INJECT_RULES
 
-    override val versionGate = NbiHookSupport.NBI_GATE
+    override val versionGate = NbiHookSupport.OS4_GATE
 
     override fun init() {
         val clazz = Reflect.findClass("com.android.nbi.MiuiNBIController", target.classLoader)

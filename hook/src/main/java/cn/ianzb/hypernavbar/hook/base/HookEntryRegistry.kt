@@ -1,5 +1,6 @@
 package cn.ianzb.hypernavbar.hook.base
 
+import cn.ianzb.hypernavbar.hook.gesture.GestureHandleLoad
 import cn.ianzb.hypernavbar.hook.load.HyperNavBarFrameworkLoad
 import cn.ianzb.hypernavbar.hook.load.HyperNavBarSystemLoad
 
@@ -17,6 +18,7 @@ object HookEntryRegistry {
     private val loads: List<BaseLoad> = listOf(
         HyperNavBarSystemLoad(),
         HyperNavBarFrameworkLoad(),
+        GestureHandleLoad(),
     )
 
     fun loadsFor(packageName: String): List<BaseLoad> =

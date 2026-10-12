@@ -51,12 +51,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.RootHelper
+import cn.ianzb.hypernavbar.hook.prefs.HookKeys
 import cn.ianzb.hypernavbar.prefs.HookBlacklist
+import cn.ianzb.hypernavbar.prefs.PrefsStore
 import cn.ianzb.hypernavbar.rules.HookRulePublisher
+import cn.ianzb.hypernavbar.rules.RootApplier
 import cn.ianzb.hypernavbar.rules.RuleCombiner
 import cn.ianzb.hypernavbar.rules.RuleConfigSource
 import cn.ianzb.hypernavbar.rules.RuleConverter
 import cn.ianzb.hypernavbar.rules.RuleFetcher
+import cn.ianzb.hypernavbar.rules.RuleMountStrategy
 import cn.ianzb.hypernavbar.rules.RuleType
 import cn.ianzb.hypernavbar.rules.RulesManager
 import cn.ianzb.hypernavbar.ui.util.BlurredBar
@@ -225,7 +229,20 @@ fun RulesPageView(
         if (isCustom) isCustomApplied = true
     }
 
-    /** 合并订阅规则并发布给 Hook 进程，可选显示结果 Toast */
+    /**
+     * HyperOS 3.3 文件挂载：官方基底 + 模块规则覆盖合并后由 Root 写入系统规则文件。
+     *
+     * 合并结果为空（规则里没有任何应用）时还原官方文件。
+     */
+    suspend fun applyByRuleFile(mergedJson: JSONObject): Boolean = withContext(Dispatchers.IO) {
+        if (!hasRoot) return@withContext false
+        val payloads = RuleConverter.buildHookPayloads(mergedJson)
+        if (payloads.isEmpty()) return@withContext RootApplier.restoreOfficial()
+        val base = RootApplier.readOfficialBase() ?: return@withContext false
+        RootApplier.applyRules(RootApplier.buildFileContent(base, payloads), context.cacheDir)
+    }
+
+    /** 合并订阅规则并发布给 Hook 进程（3.3 额外以 Root 替换系统规则文件），可选显示结果 Toast */
     suspend fun doApply(cachedResults: MutableMap<String, RuleFetcher.FetchResult>, showToast: Boolean) {
         val mergedJson = RuleCombiner.combine(configs.toList(), cachedResults)
         val totalApps = RuleCombiner.getTotalAppCount(cachedResults)
@@ -240,19 +257,39 @@ fun RulesPageView(
         val required = RuleConverter.hookRequiredPackages(mergedJson)
             .filter { it !in HookBlacklist.all() }
         if (required.isNotEmpty()) XposedServiceManager.ensureScope(required.toList())
+        // 「手势提示线」开启时，SystemUI 需要保留在作用域内（Hook 仅安装在系统界面进程）
+        val gestureEnabled = PrefsStore.getBoolean(HookKeys.GESTURE_HANDLE, false)
+        if (gestureEnabled) {
+            XposedServiceManager.ensureScope(listOf(XposedServiceManager.SYSTEM_UI_PACKAGE))
+        }
+        val keepPackages = if (gestureEnabled) {
+            SCOPE_ALWAYS_KEEP + XposedServiceManager.SYSTEM_UI_PACKAGE
+        } else {
+            SCOPE_ALWAYS_KEEP
+        }
         val toRemove = withContext(Dispatchers.IO) {
             XposedServiceManager.scope.filter { pkg ->
-                pkg !in required && pkg !in SCOPE_ALWAYS_KEEP
+                pkg !in required && pkg !in keepPackages
             }
         }
         if (toRemove.isNotEmpty()) XposedServiceManager.removeScope(toRemove)
-        isCustomApplied = published.isNotEmpty()
+
+        // HyperOS 3.3：规则注入 Hook 不安装，规则改由替换系统规则文件的方式挂载（需要 Root）
+        val usesRuleFile = RuleMountStrategy.usesRuleFile()
+        if (usesRuleFile && !hasRoot) hasRoot = RootHelper.checkRoot()
+        val fileApplied = if (usesRuleFile) applyByRuleFile(mergedJson) else true
+
+        isCustomApplied = published.isNotEmpty() && fileApplied
         saveApplyState(System.currentTimeMillis(), totalApps, isCustomApplied)
         if (showToast) {
             withContext(Dispatchers.Main) {
                 @Suppress("LocalContext")
-                val updateSuccessMsg = context.getString(R.string.rules_update_success, totalApps)
-                Toast.makeText(context, updateSuccessMsg, Toast.LENGTH_SHORT).show()
+                val text = if (usesRuleFile && !fileApplied) {
+                    context.getString(if (hasRoot) R.string.rules_file_apply_failed else R.string.rules_root_required)
+                } else {
+                    context.getString(R.string.rules_update_success, totalApps)
+                }
+                Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
             }
         }
     }

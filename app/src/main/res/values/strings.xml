@@ -61,6 +61,7 @@
     <string name="rules_update_success">已更新规则，当前规则数 %d</string>
     <string name="rules_update_failed">刷新失败：%s</string>
     <string name="rules_root_required">需要 Root 权限才能应用规则</string>
+    <string name="rules_file_apply_failed">写入系统规则文件失败，请检查 Root 权限后重试</string>
     <string name="rules_config_name">配置名称</string>
     <string name="rules_preset">预设配置</string>
     <string name="rules_preset_added">已添加预设：%s</string>
@@ -115,7 +116,7 @@
     <string name="about_telegram">Telegram 群组</string>
     <string name="about_telegram_summary">https://t.me/HyperNavBar</string>
     <string name="about_dependencies">第三方许可证与致谢</string>
-    <string name="about_based_on">Based on MiuixGuiTemplate 0.5.3</string>
+    <string name="about_based_on">Based on MiuixGuiTemplate 0.5.4</string>
     <string name="license_agpl">GNU AGPL v3.0</string>
     <string name="license_agpl_summary">查看完整协议文本</string>
     <string name="third_party_licenses_title">第三方许可证</string>
@@ -207,6 +208,9 @@
     <string name="editor_app_enable_summary">enable</string>
     <string name="editor_hook_excluded">排除 Hook</string>
     <string name="editor_hook_excluded_summary">是否排除 Hook，Hook 相关特性将无法生效</string>
+    <string name="editor_nav_bar_visibility">小白条状态</string>
+    <string name="editor_nav_bar_visibility_summary">手势提示线的显示方式（跟随默认 = 使用功能页的全局默认适配模式）</string>
+    <string name="editor_nav_visibility_default">跟随默认</string>
     <string name="editor_delete_activity">删除此活动</string>
     <string name="editor_package_name">应用包名</string>
     <string name="editor_app_name_optional">应用名称（可选）</string>
@@ -287,7 +291,7 @@
 
     <!-- 功能标签页 / Hook 模块 -->
     <string name="tab_features">功能</string>
-    <string name="features_notice">本模块的全部 Hook 适配 HyperOS 3.3（3.0.3XX）/ 4.x。更低版本系统会自动跳过（不注入、不报错），仅保留规则编辑能力。</string>
+    <string name="features_notice">本模块的 Hook 适配 HyperOS 3.3（3.0.3XX）与 4.x，更低版本系统会自动跳过（不注入、不报错），仅保留规则编辑能力。规则注入在 4.x 上以运行期 Hook 生效，3.3 则通过替换系统规则文件生效（需要 Root）。\nHook 相关功能仅面向高级适配场景（强制生效、手势提示线等增强能力）；常规沉浸适配无需启用这些 Hook 即可生效。</string>
     <string name="settings_module">模块</string>
     <string name="section_force">强制生效</string>
     <string name="section_scope_expand">适配范围</string>
@@ -307,6 +311,33 @@
     <string name="force_fullscreen_summary">分屏、小窗等非全屏页面也适配</string>
     <string name="force_show_nav_title">忽略导航栏隐藏</string>
     <string name="force_show_nav_summary">隐藏导航栏的页面也照样适配</string>
+    <string name="section_gesture">手势提示线</string>
+    <string name="gesture_handle_title">手势提示线显示控制</string>
+    <string name="gesture_handle_summary">按应用控制小白条：始终显示 / 3 秒后自动隐藏 / 始终隐藏；开启后需重启系统界面生效</string>
+    <string name="gesture_handle_motion_title">滑动跟随动画</string>
+    <string name="gesture_handle_motion_summary">拖动手势时小白条跟随手指移动，松手后阻尼回弹（可在下方调节延迟 / 幅度 / 范围 / 回弹速度）</string>
+    <string name="gesture_motion_hold_title">回弹延迟</string>
+    <string name="gesture_motion_hold_summary">松手后小白条停留在跟随位置的时间，之后开始回弹</string>
+    <string name="gesture_motion_scale_title">跟随幅度</string>
+    <string name="gesture_motion_scale_summary">小白条位移相对手指位移的比例</string>
+    <string name="gesture_motion_range_title">跟随范围</string>
+    <string name="gesture_motion_range_summary">单方向最大位移上限（同时受小白条到宿主边缘的距离限制）</string>
+    <string name="gesture_motion_return_title">回弹速度</string>
+    <string name="gesture_motion_return_summary">松手后回中动画的速度倍率，越高回中越快</string>
+    <string name="gesture_unit_ms"> ms</string>
+    <string name="gesture_unit_percent">%</string>
+    <string name="gesture_unit_dp"> dp</string>
+    <string name="gesture_handle_touch_reveal_title">触摸唤醒</string>
+    <string name="gesture_handle_touch_reveal_summary">触摸底部手势区域时临时显示小白条（3 秒后再次隐藏）</string>
+    <string name="gesture_handle_global_mode_title">全局默认适配模式</string>
+    <string name="gesture_handle_global_mode_summary">应用于规则之外的应用（以及跟随默认的规则项）</string>
+    <string name="gesture_handle_follow_rules_title">是否优先跟随规则</string>
+    <string name="gesture_handle_follow_rules_summary">跟随规则（默认）：优先使用规则中的应用模式，规则未覆盖的应用使用全局默认模式；不跟随规则：忽略规则，所有应用统一使用全局默认模式</string>
+    <string name="gesture_mode_always_show">始终显示</string>
+    <string name="gesture_mode_auto_hide">3 秒后自动隐藏</string>
+    <string name="gesture_mode_always_hide">始终隐藏</string>
+    <string name="gesture_follow_on">跟随规则</string>
+    <string name="gesture_follow_off">不跟随规则</string>
     <string name="force_inject_rules_title">模块规则覆盖合并</string>
     <string name="force_inject_rules_summary">官方规则打底，模块规则优先覆盖</string>
     <string name="cleanup_legacy_title">自动还原官方规则文件</string>

@@ -65,6 +65,10 @@ object RuleCombiner {
             if (appRule is JSONObject && !appRule.has("hookExcluded")) {
                 appRule.put("hookExcluded", true)
             }
+            // 小白条状态同样显式补全（默认 default = 跟随全局默认适配模式）
+            if (appRule is JSONObject && !appRule.has("navBarVisibility")) {
+                appRule.put("navBarVisibility", RuleConverter.NAV_BAR_VISIBILITY_DEFAULT)
+            }
             sortedNBIRules.put(key, appRule)
         }
         mergedRoot.put("NBIRules", sortedNBIRules)
@@ -90,6 +94,9 @@ object RuleCombiner {
         }
         if (newRule.has("hookExcluded")) {
             existing.put("hookExcluded", newRule.getBoolean("hookExcluded"))
+        }
+        if (newRule.has("navBarVisibility")) {
+            existing.put("navBarVisibility", newRule.getString("navBarVisibility"))
         }
         if (newRule.has("name") && newRule.getString("name").isNotEmpty()) {
             existing.put("name", newRule.getString("name"))

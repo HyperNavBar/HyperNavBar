@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,12 +16,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
+import cn.ianzb.hypernavbar.prefs.ConfigState
 import cn.ianzb.hypernavbar.prefs.OptionSpec
 import cn.ianzb.hypernavbar.prefs.OptionType
 import cn.ianzb.hypernavbar.ui.component.pref.HookOptionsPage
 import cn.ianzb.hypernavbar.ui.component.pref.HookSection
 import cn.ianzb.hypernavbar.ui.screen.safemode.SafeModeActivity
 import cn.ianzb.hypernavbar.ui.screen.scope.ScopeListActivity
+import cn.ianzb.hypernavbar.xposed.XposedServiceManager
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -43,12 +46,23 @@ fun FeaturesPageView(
     val specs = remember { featureSpecs() }
     val sections = remember(specs) { featureSections(specs) }
 
+    // 开启「手势提示线」时申请 SystemUI 作用域（Hook 仅安装在系统界面进程）
+    val gestureEnabled = ConfigState.bool("gesture_handle", false)
+    LaunchedEffect(gestureEnabled) {
+        if (gestureEnabled) {
+            XposedServiceManager.ensureScope(listOf(XposedServiceManager.SYSTEM_UI_PACKAGE))
+        }
+    }
+
     HookOptionsPage(
         title = stringResource(R.string.tab_features),
         sections = sections,
         isBlurEnabled = isBlurEnabled,
         extraBottomPadding = extraBottomPadding,
         topContent = { FeatureNotice() },
+        // 右上角「重启」入口：按规范打开重启弹窗（弹窗内包含系统界面），
+        // 修改手势提示线开关 / 作用域后，用于让 SystemUI 侧 Hook 重新加载。
+        customActionPackages = listOf(XposedServiceManager.SYSTEM_UI_PACKAGE),
         onArrowClick = { spec ->
             when (spec.key) {
                 "feature_scope" -> context.startActivity(Intent(context, ScopeListActivity::class.java))
@@ -99,6 +113,20 @@ private fun featureSections(specs: List<OptionSpec>): List<HookSection> = listOf
             specByKey(specs, "force_gesture_nav"),
             specByKey(specs, "force_fullscreen"),
             specByKey(specs, "force_show_nav"),
+        ),
+    ),
+    HookSection(
+        titleRes = R.string.section_gesture,
+        specs = listOf(
+            specByKey(specs, "gesture_handle"),
+            specByKey(specs, "gesture_handle_motion"),
+            specByKey(specs, "gesture_handle_motion_hold"),
+            specByKey(specs, "gesture_handle_motion_scale"),
+            specByKey(specs, "gesture_handle_motion_range"),
+            specByKey(specs, "gesture_handle_motion_return"),
+            specByKey(specs, "gesture_handle_touch_reveal"),
+            specByKey(specs, "gesture_handle_global_mode"),
+            specByKey(specs, "gesture_handle_follow_rules"),
         ),
     ),
     HookSection(
@@ -169,6 +197,112 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         summaryRes = R.string.force_show_nav_summary,
         defaultBoolean = true,
         dependsOn = "force_master",
+    ),
+    OptionSpec(
+        key = "gesture_handle",
+        type = OptionType.SWITCH,
+        titleRes = R.string.gesture_handle_title,
+        summaryRes = R.string.gesture_handle_summary,
+        defaultBoolean = false,
+    ),
+    OptionSpec(
+        key = "gesture_handle_motion",
+        type = OptionType.SWITCH,
+        titleRes = R.string.gesture_handle_motion_title,
+        summaryRes = R.string.gesture_handle_motion_summary,
+        defaultBoolean = true,
+        dependsOn = "gesture_handle",
+    ),
+    OptionSpec(
+        key = "gesture_handle_touch_reveal",
+        type = OptionType.SWITCH,
+        titleRes = R.string.gesture_handle_touch_reveal_title,
+        summaryRes = R.string.gesture_handle_touch_reveal_summary,
+        defaultBoolean = true,
+        dependsOn = "gesture_handle",
+    ),
+    OptionSpec(
+        key = "gesture_handle_motion_hold",
+        type = OptionType.SLIDER,
+        titleRes = R.string.gesture_motion_hold_title,
+        summaryRes = R.string.gesture_motion_hold_summary,
+        defaultFloat = 260f,
+        dependsOn = "gesture_handle_motion",
+        sliderMin = 0f,
+        sliderMax = 800f,
+        sliderStep = 20f,
+        sliderDecimals = 0,
+        sliderUnitRes = R.string.gesture_unit_ms,
+        sliderValueLabelRes = R.string.gesture_motion_hold_title,
+    ),
+    OptionSpec(
+        key = "gesture_handle_motion_scale",
+        type = OptionType.SLIDER,
+        titleRes = R.string.gesture_motion_scale_title,
+        summaryRes = R.string.gesture_motion_scale_summary,
+        defaultFloat = 50f,
+        dependsOn = "gesture_handle_motion",
+        sliderMin = 0f,
+        sliderMax = 100f,
+        sliderStep = 5f,
+        sliderDecimals = 0,
+        sliderUnitRes = R.string.gesture_unit_percent,
+        sliderValueLabelRes = R.string.gesture_motion_scale_title,
+    ),
+    OptionSpec(
+        key = "gesture_handle_motion_range",
+        type = OptionType.SLIDER,
+        titleRes = R.string.gesture_motion_range_title,
+        summaryRes = R.string.gesture_motion_range_summary,
+        defaultFloat = 24f,
+        dependsOn = "gesture_handle_motion",
+        sliderMin = 0f,
+        sliderMax = 48f,
+        sliderStep = 2f,
+        sliderDecimals = 0,
+        sliderUnitRes = R.string.gesture_unit_dp,
+        sliderValueLabelRes = R.string.gesture_motion_range_title,
+    ),
+    OptionSpec(
+        key = "gesture_handle_motion_return",
+        type = OptionType.SLIDER,
+        titleRes = R.string.gesture_motion_return_title,
+        summaryRes = R.string.gesture_motion_return_summary,
+        defaultFloat = 100f,
+        dependsOn = "gesture_handle_motion",
+        sliderMin = 50f,
+        sliderMax = 200f,
+        sliderStep = 10f,
+        sliderDecimals = 0,
+        sliderUnitRes = R.string.gesture_unit_percent,
+        sliderValueLabelRes = R.string.gesture_motion_return_title,
+    ),
+    OptionSpec(
+        key = "gesture_handle_global_mode",
+        type = OptionType.DROPDOWN,
+        titleRes = R.string.gesture_handle_global_mode_title,
+        summaryRes = R.string.gesture_handle_global_mode_summary,
+        defaultString = "alwaysShow",
+        entryResIds = listOf(
+            R.string.gesture_mode_always_show,
+            R.string.gesture_mode_auto_hide,
+            R.string.gesture_mode_always_hide,
+        ),
+        entryValues = listOf("alwaysShow", "autoHide", "alwaysHide"),
+        dependsOn = "gesture_handle",
+    ),
+    OptionSpec(
+        key = "gesture_handle_follow_rules",
+        type = OptionType.DROPDOWN,
+        titleRes = R.string.gesture_handle_follow_rules_title,
+        summaryRes = R.string.gesture_handle_follow_rules_summary,
+        defaultString = "follow",
+        entryResIds = listOf(
+            R.string.gesture_follow_on,
+            R.string.gesture_follow_off,
+        ),
+        entryValues = listOf("follow", "off"),
+        dependsOn = "gesture_handle",
     ),
     OptionSpec(
         key = "feature_scope",

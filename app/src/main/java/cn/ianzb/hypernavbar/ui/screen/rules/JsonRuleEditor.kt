@@ -47,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.RootHelper
+import cn.ianzb.hypernavbar.hook.gesture.GestureVisibility
 import cn.ianzb.hypernavbar.rules.RuleConverter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -130,6 +131,13 @@ fun formatNbiJson(jsonStr: String): String {
                 sortedApp.put("disableVersionCode", app.optLong("disableVersionCode"))
             // 始终显式写出 hookExcluded（默认 true）：旧版本应用默认值为 false，只有显式 true 才能让旧版本也不注入
             sortedApp.put("hookExcluded", app.optBoolean("hookExcluded", true))
+            // 小白条状态同样显式写出（默认 default = 跟随全局默认适配模式）
+            sortedApp.put(
+                "navBarVisibility",
+                RuleConverter.normalizeNavBarVisibility(
+                    app.optString("navBarVisibility", RuleConverter.NAV_BAR_VISIBILITY_DEFAULT),
+                ),
+            )
             val activityRules = app.optJSONObject("activityRules")
             if (activityRules != null) {
                 val sortedActivities = JSONObject()
@@ -938,6 +946,46 @@ fun JsonRuleEditorSheet(
                         },
                         title = stringResource(R.string.editor_hook_excluded),
                         summary = stringResource(R.string.editor_hook_excluded_summary),
+                    )
+                }
+            }
+            // 小白条状态（应用级 navBarVisibility）：默认跟随全局默认适配模式
+            item {
+                val visibilityValues = listOf(
+                    RuleConverter.NAV_BAR_VISIBILITY_DEFAULT,
+                    GestureVisibility.ALWAYS_SHOW,
+                    GestureVisibility.AUTO_HIDE,
+                    GestureVisibility.ALWAYS_HIDE,
+                )
+                val currentVisibility = RuleConverter.normalizeNavBarVisibility(
+                    appForSelected?.optString("navBarVisibility", RuleConverter.NAV_BAR_VISIBILITY_DEFAULT),
+                )
+                val visibilityLabels = listOf(
+                    stringResource(R.string.editor_nav_visibility_default),
+                    stringResource(R.string.gesture_mode_always_show),
+                    stringResource(R.string.gesture_mode_auto_hide),
+                    stringResource(R.string.gesture_mode_always_hide),
+                )
+                val visibilityItems = visibilityLabels.mapIndexed { i, text ->
+                    DropdownItem(text = text, summary = visibilityValues[i])
+                }
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                ) {
+                    WindowDropdownPreference(
+                        title = stringResource(R.string.editor_nav_bar_visibility),
+                        summary = stringResource(R.string.editor_nav_bar_visibility_summary),
+                        entry = DropdownEntry(visibilityItems.mapIndexed { i, item ->
+                            item.copy(
+                                selected = i == visibilityValues.indexOf(currentVisibility),
+                                onClick = {
+                                    appForSelected?.put("navBarVisibility", visibilityValues[i])
+                                    saveRoot()
+                                },
+                            )
+                        }),
                     )
                 }
             }

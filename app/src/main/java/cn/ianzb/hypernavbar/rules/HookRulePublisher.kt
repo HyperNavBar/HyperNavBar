@@ -31,6 +31,8 @@ object HookRulePublisher {
         payloads.forEach { (pkg, json) -> PrefsStore.put(HookKeys.payloadKey(pkg), json) }
         PrefsStore.put(KEY_PAYLOAD_COUNT, payloads.size)
         PrefsStore.put(KEY_EXCLUDED, excluded)
+        // 应用级小白条状态规则（供 SystemUI 侧「手势提示线」Hook 读取；无规则时写空串）
+        PrefsStore.put(HookKeys.GESTURE_VISIBILITY_RULES, encodeVisibilityRules(merged))
         return payloads.keys.toList()
     }
 
@@ -42,6 +44,15 @@ object HookRulePublisher {
             .forEach { PrefsStore.put(it, "") }
         PrefsStore.put(KEY_PAYLOAD_COUNT, 0)
         PrefsStore.put(KEY_EXCLUDED, emptySet<String>())
+        PrefsStore.put(HookKeys.GESTURE_VISIBILITY_RULES, "")
+    }
+
+    private fun encodeVisibilityRules(merged: JSONObject): String {
+        val visibility = RuleConverter.buildVisibilityRules(merged)
+        if (visibility.isEmpty()) return ""
+        val json = JSONObject()
+        visibility.forEach { (pkg, value) -> json.put(pkg, value) }
+        return json.toString()
     }
 
     fun count(): Int = PrefsStore.getInt(KEY_PAYLOAD_COUNT, 0)

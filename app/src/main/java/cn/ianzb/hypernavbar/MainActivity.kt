@@ -58,6 +58,7 @@ import cn.ianzb.hypernavbar.ui.screen.settings.SettingsPageView
 import cn.ianzb.hypernavbar.ui.theme.AppTheme
 import cn.ianzb.hypernavbar.ui.util.applyWindowBackground
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
+import cn.ianzb.hypernavbar.ui.util.pagerSwipeOverride
 import cn.ianzb.hypernavbar.ui.util.shouldExpandNavigationRail
 import cn.ianzb.hypernavbar.ui.util.shouldShowSplitPane
 import kotlinx.coroutines.Dispatchers
@@ -90,8 +91,6 @@ import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PagerGestureNestedScrollConnection
-import top.yukonga.miuix.kmp.utils.PagerInterceptionMode
-import top.yukonga.miuix.kmp.utils.pagerGestureOverride
 import top.yukonga.miuix.kmp.utils.springAnimateToPage
 
 class MainActivity : ComponentActivity() {
@@ -358,10 +357,8 @@ private fun MainScreen(
                 contentPadding = pagerPadding,
                 modifier = Modifier
                     .fillMaxSize()
-                    .pagerGestureOverride(
-                        pagerState = pagerState,
-                        mode = PagerInterceptionMode.CrossAxisInterceptor,
-                    ),
+                    // Cross-Axis 拦截 + 子组件（滑条）手势放行：见 PagerSwipeOverride.kt
+                    .pagerSwipeOverride(pagerState = pagerState),
                 userScrollEnabled = false,
                 pageNestedScrollConnection = PagerGestureNestedScrollConnection,
             ) { page ->

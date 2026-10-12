@@ -119,22 +119,13 @@
     <string name="about_based_on">Based on MiuixGuiTemplate 0.5.4</string>
     <string name="license_agpl">GNU AGPL v3.0</string>
     <string name="license_agpl_summary">View full license text</string>
-    <string name="third_party_licenses_title">Third Party Licenses</string>
-    <string name="tl_miuix">compose-miuix-ui (miuix library)</string>
-    <string name="tl_miuix_summary">Apache-2.0</string>
-    <string name="tl_kotlin">Kotlin</string>
-    <string name="tl_kotlin_summary">Apache-2.0</string>
-    <string name="tl_compose">Jetpack Compose</string>
-    <string name="tl_compose_summary">Apache-2.0</string>
-    <string name="tl_ksp">AndroidX Activity Compose</string>
-    <string name="tl_ksp_summary">Apache-2.0</string>
-    <string name="tl_coroutines">Kotlin Coroutines</string>
-    <string name="tl_coroutines_summary">Apache-2.0</string>
-    <string name="tl_material_icons">Material Icons Extended</string>
-    <string name="tl_material_icons_summary">Apache-2.0</string>
-    <string name="tl_hyperceiler">HyperCeiler</string>
-    <string name="tl_hyperceiler_summary">AGPL-3.0</string>
-    <string name="tl_hyperlight">HyperLight</string>
+    <string name="third_party_licenses_title">Third Party Licenses &amp; Credits</string>
+    <string name="licenses_header">This app uses or references the following open-source and referenced projects. Thanks to all authors and contributors.</string>
+    <string name="licenses_section_core">Core</string>
+    <string name="licenses_section_ui">UI</string>
+    <string name="licenses_section_androidx">AndroidX</string>
+    <string name="licenses_section_hook">Hook Framework</string>
+    <string name="licenses_section_refs">Referenced Projects</string>
 
     <!-- Rule editor – general -->
     <string name="rules_local_rule">Local Rule</string>

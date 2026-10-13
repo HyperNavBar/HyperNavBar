@@ -1,5 +1,6 @@
 package cn.ianzb.hypernavbar.rules
 
+import cn.ianzb.hypernavbar.hook.rule.SystemVersion
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -78,7 +79,7 @@ class RootApplierTest {
             </NBIRules>
         """.trimIndent()
 
-        val xml = RootApplier.buildFileContent(base, payloads, RuleConverter.OsMode.OS22)
+        val xml = RootApplier.buildFileContent(base, payloads, SystemVersion.OS22)
 
         // 命中载荷的应用：强制 enable、活动按同名覆盖，其余活动与其它应用原样保留
         assertTrue(
@@ -91,7 +92,7 @@ class RootApplierTest {
     fun buildFileContent_os22_appendsPackagesMissingFromBase() {
         val base = "<?xml version='1.0' encoding='utf-8' standalone='yes'?>\n<NBIRules>\n</NBIRules>"
 
-        val xml = RootApplier.buildFileContent(base, payloads, RuleConverter.OsMode.OS22)
+        val xml = RootApplier.buildFileContent(base, payloads, SystemVersion.OS22)
 
         assertTrue(xml.contains("""<package name="com.example.app" enable="true" activityRule="MainActivity:1" />"""))
         assertTrue(xml.indexOf("</NBIRules>") > xml.indexOf("com.example.app"))

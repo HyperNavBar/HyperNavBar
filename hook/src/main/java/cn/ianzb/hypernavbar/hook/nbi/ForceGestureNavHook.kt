@@ -26,8 +26,8 @@ class ForceGestureNavHook : BaseHook() {
     override val versionGate = NbiHookSupport.NBI_GATE
 
     override val variants = listOf(
-        hookVariant("os3", gate = { hyperOs { lt("4.0") } }) { hookController() },
-        hookVariant("os4", gate = { hyperOs { ge("4.0") } }) { hookManager() },
+        hookVariant("os3", gate = { systemVersion { !it.isOs4 } }) { hookController() },
+        hookVariant("os4", gate = { systemVersion { it.isOs4 } }) { hookManager() },
     )
 
     private fun hookController() {

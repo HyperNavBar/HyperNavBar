@@ -282,7 +282,9 @@
 
     <!-- Features tab / Hook module -->
     <string name="tab_features">Features</string>
-    <string name="features_notice">Hooks in this module support HyperOS 3.0.3XX (including 3.3) and 4.x; on older systems they are skipped automatically (no injection, no errors). Rule mounting: on 4.x rules are injected by a runtime hook (no root); below 4.0 (2.2 / 3.0 / 3.3) rules are mounted by replacing the system rules file (root required, XML on 2.2 and JSON on 3.0 / 3.3).\nHook-based features are intended for advanced adaptation only (force-enable, gesture hint line and similar enhancements). Regular immersion adaptation works without enabling them.</string>
+    <string name="features_notice">Hooks in this module support HyperOS 3.0.3XX (including 3.3) and 4.x; on older systems they are skipped automatically (no injection, no errors). Rule mounting: on 4.x rules are injected by a runtime hook (no root); below 4.0 (2.2 / 3.0 / 3.3) rules are mounted by replacing the system rules file (root required, XML on 2.2 and JSON on 3.0 / 3.3).\nGesture hint line (navigation pill) hooks are available on HyperOS 4.0 only.\nHook-based features are intended for advanced adaptation only (force-enable, gesture hint line and similar enhancements). Regular immersion adaptation works without enabling them.</string>
+    <string name="os_requirement_note_immersive">This system version does not support this section: these hooks require HyperOS 3.3 / 4.0. The options are disabled.</string>
+    <string name="os_requirement_note_os4">This system version does not support this section: this feature requires HyperOS 4.0. The options are disabled.</string>
     <string name="settings_module">Module</string>
     <string name="section_force">Force Enable</string>
     <string name="section_scope_expand">Scope</string>

@@ -17,6 +17,7 @@ import cn.ianzb.hypernavbar.xposed.HookStatus
  * @param entryValues 与 [entryResIds] 对应的取值
  * @param dependsOn 依赖的配置键；为空表示无依赖
  * @param dependsOnValue 依赖键需要等于该布尔值时才启用
+ * @param osRequirement 系统版本要求（统一走 `SystemVersion` 判定；未满足时禁用灰显，不隐藏）
  * @param masterKey 滑块的主开关键（开关控制滑块是否生效/显示）
  * @param sliderMin 滑块最小值
  * @param sliderMax 滑块最大值
@@ -40,6 +41,7 @@ data class OptionSpec(
     val entryValues: List<String> = emptyList(),
     val dependsOn: String? = null,
     val dependsOnValue: Boolean = true,
+    val osRequirement: OsRequirement = OsRequirement.NONE,
     val masterKey: String? = null,
     val sliderMin: Float = 0f,
     val sliderMax: Float = 100f,

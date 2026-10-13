@@ -28,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
+import cn.ianzb.hypernavbar.hook.rule.SystemVersion
 import cn.ianzb.hypernavbar.prefs.ConfigState
 import cn.ianzb.hypernavbar.prefs.OptionRegistry
 import cn.ianzb.hypernavbar.prefs.OptionSpec
@@ -344,8 +345,21 @@ fun HookSectionCard(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val osVersion = remember { SystemVersion.current() }
+    val unmetNoteRes = section.specs
+        .map { it.osRequirement }
+        .firstOrNull { it.noteRes != 0 && !it.satisfiedBy(osVersion) }
+        ?.noteRes
     Column(modifier = modifier.fillMaxWidth()) {
         SmallTitle(text = hookSectionTitle(section))
+        if (unmetNoteRes != null) {
+            MiuixText(
+                text = stringResource(unmetNoteRes),
+                style = MiuixTheme.textStyles.footnote2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
+            )
+        }
         Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
             content()
         }

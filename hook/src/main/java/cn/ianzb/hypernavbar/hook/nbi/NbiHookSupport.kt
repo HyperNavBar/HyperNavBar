@@ -1,26 +1,27 @@
 package cn.ianzb.hypernavbar.hook.nbi
 
 import android.content.Context
-import cn.ianzb.hypernavbar.hook.rule.hookVersionGate
+import cn.ianzb.hypernavbar.hook.rule.HookVersionGate
 import cn.ianzb.hypernavbar.hook.xposed.Reflect
 
 /** NBI 强制生效相关 hook 的共享工具。 */
 internal object NbiHookSupport {
 
     /**
-     * 「强制生效」系列等 NBI hook 的版本门禁：仅 HyperOS 3.x（3.0.3XX 起）与 4.x 安装
-     * （规则注入与残留清理自 3.1.0 起改用 [OS4_GATE]）。
+     * 「强制生效」系列等 NBI hook 的版本门禁：仅[沉浸支持版本][SystemVersion.immersiveSupported]
+     * （HyperOS 3.3 与 4.0）安装（规则注入与残留清理自 3.1.0 起改用 [OS4_GATE]）。
      *
      * NBI 相关类（`com.android.nbi.*`、`com.android.internal.policy.NavigationBarImmersiveController` /
      * `MiuiNBIManagerImpl` / `DecorViewImmersiveImpl`）在 HyperOS 3.3 与 4.0 上均存在且结构基本一致，
      * 少数差异（如手势导航判定所在类）通过 [cn.ianzb.hypernavbar.hook.rule.HookVariant] 分支处理。
-     * 门禁写作 `ge("3.0.3")` 可同时兼容 `ro.mi.os.version.name` 的 `OS3.3` 与 `OS3.0.3XX` 两种形态。
+     * 版本判定统一走 [cn.ianzb.hypernavbar.hook.rule.SystemVersion]（主版本 + 第三段百位），
+     * 因此 `OS3.0` + 增量 `OS3.0.305.x`（3.3 只在增量号里）也能正确命中。
      *
      * 命中门禁时 [cn.ianzb.hypernavbar.hook.base.BaseHook.apply] 会抛出
      * [cn.ianzb.hypernavbar.hook.rule.HookSkippedException]，按「主动跳过」处理：
      * 不安装、不记录失败，避免在旧系统上产生无意义的 hook 失败日志。
      */
-    val NBI_GATE = hookVersionGate { hyperOs { ge("3.0.3") } }
+    val NBI_GATE: HookVersionGate = HookVersionGate.of { it.immersiveSupported }
 
     /**
      * 仅 HyperOS 4.x 生效的门禁。
@@ -29,7 +30,7 @@ internal object NbiHookSupport {
      * （模块 App 侧 `RootApplier` 以 Root 写入），因此 [NbiRuleInjectHook] 与
      * [NbiLegacyCleanupHook] 在 3.3 上不安装；「强制生效」系列仍沿用 [NBI_GATE]。
      */
-    val OS4_GATE = hookVersionGate { hyperOs { ge("4.0") } }
+    val OS4_GATE: HookVersionGate = HookVersionGate.of { it.isOs4 }
 
     /** 保证目标进程内 NBI 已初始化（官方 preInit 条件可能未满足）。
      *

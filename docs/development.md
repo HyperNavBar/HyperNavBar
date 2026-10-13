@@ -10,6 +10,8 @@
 
 需要前置选项解锁的功能**必须始终显示**；前置未满足时统一为**禁用（灰显）**，**禁止隐藏**——不得使用 `AnimatedVisibility` 或条件渲染按配置值隐藏组件或分区。依赖一律用 `OptionSpec.dependsOn`（`+ dependsOnValue`）声明，由 `rememberDependencyEnabled(spec)` 统一判定 `enabled`。
 
+**系统版本要求**同样用声明式表达：`OptionSpec.osRequirement`（`NONE` / `IMMERSIVE` / `OS_4`，取值见 `prefs/OsRequirement.kt`，判定统一走 `SystemVersion`）。未满足时与依赖未满足一致——**禁用灰显、不隐藏**，并在所属分区标题下显示对应说明；依赖链上任一前置项被版本禁用时，下级选项一并禁用。
+
 ### 1.2 多级依赖链
 
 依赖支持**多级链**（如 总开关 → 功能开关 → 滑条）：`rememberDependencyEnabled` 会沿 `dependsOn` 向上逐级检查，链上任意一环节未满足时，组件同样置灰不可交互。

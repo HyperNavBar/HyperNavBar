@@ -1,5 +1,6 @@
 package cn.ianzb.hypernavbar.rules
 
+import cn.ianzb.hypernavbar.hook.rule.SystemVersion
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -142,7 +143,7 @@ class RuleLogicTest {
                 }
             }
         }""")
-        val out = JSONObject(RuleConverter.convert(json, RuleConverter.OsMode.OS33))
+        val out = JSONObject(RuleConverter.convert(json, SystemVersion.OS33))
         assertTrue(
             out.getJSONObject("NBIRules")
                 .getJSONObject("com.app")
@@ -167,7 +168,7 @@ class RuleLogicTest {
                 }
             }
         }""")
-        val xml = RuleConverter.convert(json, RuleConverter.OsMode.OS22)
+        val xml = RuleConverter.convert(json, SystemVersion.OS22)
         // 检查 XML 属性值中的转义结果（使用属性边界避免子串误判）
         val nameAttr = Regex("name=\"([^\"]*)\"").findAll(xml).map { it.groupValues[1] }.toList()
         // 包名和 name 字段都转义
@@ -187,7 +188,7 @@ class RuleLogicTest {
                 }
             }
         }""")
-        val out = JSONObject(RuleConverter.convert(json, RuleConverter.OsMode.OS33))
+        val out = JSONObject(RuleConverter.convert(json, SystemVersion.OS33))
         val act = out.getJSONObject("NBIRules").getJSONObject("com.app").getJSONObject("activityRules").getJSONObject("A")
         assertEquals(1, act.getInt("mode"))
         assertEquals(-65536, act.getInt("color"))
@@ -202,7 +203,7 @@ class RuleLogicTest {
                 }
             }
         }""")
-        val out = JSONObject(RuleConverter.convert(json, RuleConverter.OsMode.OS33))
+        val out = JSONObject(RuleConverter.convert(json, SystemVersion.OS33))
         val act = out.getJSONObject("NBIRules").getJSONObject("com.app").getJSONObject("activityRules").getJSONObject("A")
         assertEquals(1, act.getInt("sf_sampling_mode"))
         assertEquals(1, act.getInt("mode"))
@@ -217,7 +218,7 @@ class RuleLogicTest {
                 }
             }
         }""")
-        val out = JSONObject(RuleConverter.convert(json, RuleConverter.OsMode.OS33))
+        val out = JSONObject(RuleConverter.convert(json, SystemVersion.OS33))
         val act = out.getJSONObject("NBIRules").getJSONObject("com.app").getJSONObject("activityRules").getJSONObject("A")
         assertEquals(2, act.getInt("mode"))
     }
@@ -231,7 +232,7 @@ class RuleLogicTest {
                 }
             }
         }""")
-        val out = JSONObject(RuleConverter.convert(json, RuleConverter.OsMode.OS33))
+        val out = JSONObject(RuleConverter.convert(json, SystemVersion.OS33))
         val act = out.getJSONObject("NBIRules").getJSONObject("com.app").getJSONObject("activityRules").getJSONObject("A")
         assertEquals(0, act.getInt("mode"))
     }
@@ -278,7 +279,7 @@ class RuleLogicTest {
         val act1 = newFormat.getJSONObject("NBIRules").getJSONObject("com.app").getJSONObject("activityRules").getJSONObject("A")
         assertEquals("color", act1.getString("style"))
         assertEquals("#000000FF", act1.getString("color"))
-        val out = JSONObject(RuleConverter.convert(newFormat, RuleConverter.OsMode.OS33))
+        val out = JSONObject(RuleConverter.convert(newFormat, SystemVersion.OS33))
         val act2 = out.getJSONObject("NBIRules").getJSONObject("com.app").getJSONObject("activityRules").getJSONObject("A")
         assertEquals(-16777216, act2.getInt("color"))
     }
@@ -296,7 +297,7 @@ class RuleLogicTest {
         val act1 = newFormat.getJSONObject("NBIRules").getJSONObject("com.app").getJSONObject("activityRules").getJSONObject("A")
         assertEquals("color", act1.getString("style"))
         assertEquals("#FF0000FF", act1.getString("color"))
-        val out = JSONObject(RuleConverter.convert(newFormat, RuleConverter.OsMode.OS33))
+        val out = JSONObject(RuleConverter.convert(newFormat, SystemVersion.OS33))
         val act2 = out.getJSONObject("NBIRules").getJSONObject("com.app").getJSONObject("activityRules").getJSONObject("A")
         assertEquals(-65536, act2.getInt("color"))
     }
@@ -318,7 +319,7 @@ class RuleLogicTest {
                 }
             }
         }""")
-        val out = JSONObject(RuleConverter.convert(json, RuleConverter.OsMode.OS33))
+        val out = JSONObject(RuleConverter.convert(json, SystemVersion.OS33))
         assertEquals("navigation_bar_immersive_application_config_new", out.getString("modules"))
     }
 
@@ -332,7 +333,7 @@ class RuleLogicTest {
             }
         }""")
         val newFormat = RuleConverter.normalizeFromOfficial(official)
-        val out = JSONObject(RuleConverter.convert(newFormat, RuleConverter.OsMode.OS33))
+        val out = JSONObject(RuleConverter.convert(newFormat, SystemVersion.OS33))
         val act = out.getJSONObject("NBIRules").getJSONObject("com.app").getJSONObject("activityRules").getJSONObject("A")
         assertEquals(1, act.getInt("mode"))
         assertEquals(1, act.getInt("color"))

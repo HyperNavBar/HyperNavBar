@@ -121,6 +121,7 @@ private data class PresetSource(val name: String, val summary: String, val url: 
 
 private fun getPresetSources(context: android.content.Context): List<PresetSource> = listOf(
     PresetSource(context.getString(R.string.preset_community_name), context.getString(R.string.preset_community_summary), RuleConfigSource.PRESET_COMMUNITY_URL),
+    PresetSource(context.getString(R.string.preset_official_name), context.getString(R.string.preset_official_summary), RuleConfigSource.PRESET_OFFICIAL_URL),
 )
 
 private fun formatElapsedTime(context: android.content.Context, timestamp: Long, @Suppress("UNUSED_PARAMETER") tick: Int): String {
@@ -232,17 +233,17 @@ fun RulesPageView(
     /**
      * 文件挂载（HyperOS 4.0 以下：2.2 / 3.0 / 3.3）：官方基底 + 模块规则覆盖合并后由 Root 写入系统规则文件。
      *
-     * 目标文件与格式按系统版本选择（[RuleMountStrategy.fileOsMode]）：2.2 写 XML，3.0 / 3.3 写 JSON。
+     * 目标文件与格式按系统版本选择（[RuleMountStrategy.fileVersion]）：2.2 写 XML，3.0 / 3.3 写 JSON。
      * 合并结果为空（规则里没有任何应用）时还原官方文件。
      */
     suspend fun applyByRuleFile(mergedJson: JSONObject): Boolean = withContext(Dispatchers.IO) {
         if (!hasRoot) return@withContext false
-        val mode = RuleMountStrategy.fileOsMode(context)
-        val targetPath = RuleConverter.getTargetPath(mode)
+        val version = RuleMountStrategy.fileVersion(context)
+        val targetPath = RuleConverter.getTargetPath(version)
         val payloads = RuleConverter.buildHookPayloads(mergedJson)
         if (payloads.isEmpty()) return@withContext RootApplier.restoreOfficial(targetPath)
-        val base = RootApplier.readOfficialBase(mode) ?: return@withContext false
-        RootApplier.applyRules(RootApplier.buildFileContent(base, payloads, mode), targetPath, context.cacheDir)
+        val base = RootApplier.readOfficialBase(version) ?: return@withContext false
+        RootApplier.applyRules(RootApplier.buildFileContent(base, payloads, version), targetPath, context.cacheDir)
     }
 
     /** 合并订阅规则并发布给 Hook 进程（4.0 以下额外以 Root 替换系统规则文件），可选显示结果 Toast */

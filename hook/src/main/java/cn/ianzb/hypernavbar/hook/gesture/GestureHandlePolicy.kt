@@ -16,6 +16,8 @@ internal class GestureHandlePolicy {
     private var swipeRevealUntil: Long = 0L
     private var touchHeld: Boolean = false
     private var swipeHeld: Boolean = false
+    private var lastTouchAt: Long = 0L
+    private var lastSwipeAt: Long = 0L
 
     fun configure(nextRules: Map<String, String>, nextFollow: String, nextGlobalMode: String, now: Long) {
         if (rules == nextRules && follow == nextFollow && globalMode == nextGlobalMode) return
@@ -41,11 +43,14 @@ internal class GestureHandlePolicy {
 
     fun touchDown(now: Long) {
         touchHeld = true
+        lastTouchAt = now
         revealOnTouch(now)
     }
 
     fun touchEvent(now: Long) {
-        if (touchHeld) revealOnTouch(now)
+        if (!touchHeld) return
+        lastTouchAt = now
+        revealOnTouch(now)
     }
 
     fun touchUp(now: Long) {
@@ -56,11 +61,14 @@ internal class GestureHandlePolicy {
 
     fun swipeDown(now: Long) {
         swipeHeld = true
+        lastSwipeAt = now
         revealOnSwipe(now)
     }
 
     fun swipeEvent(now: Long) {
-        if (swipeHeld) revealOnSwipe(now)
+        if (!swipeHeld) return
+        lastSwipeAt = now
+        revealOnSwipe(now)
     }
 
     fun swipeUp(now: Long) {
@@ -77,18 +85,31 @@ internal class GestureHandlePolicy {
         swipeRevealUntil = now + AUTO_HIDE_DELAY_MS
     }
 
-    fun touchRevealActive(now: Long): Boolean = touchHeld || now < touchRevealUntil
+    /**
+     * 触摸唤醒 / 滑动跟随是否仍处于「按住」状态。
+     *
+     * 输入监听有可能丢失 UP / CANCEL（例如手势被系统接管），若只看布尔标记会让小白条
+     * 永久停留在唤醒态（表现为怎么都隐藏不了），因此按住状态带 [HOLD_STALE_MS] 超时。
+     */
+    private fun holdActive(held: Boolean, lastAt: Long, now: Long): Boolean =
+        held && now - lastAt < HOLD_STALE_MS
 
-    fun swipeRevealActive(now: Long): Boolean = swipeHeld || now < swipeRevealUntil
+    fun touchRevealActive(now: Long): Boolean =
+        holdActive(touchHeld, lastTouchAt, now) || now < touchRevealUntil
+
+    fun swipeRevealActive(now: Long): Boolean =
+        holdActive(swipeHeld, lastSwipeAt, now) || now < swipeRevealUntil
 
     fun clearTouchReveal() {
         touchHeld = false
         touchRevealUntil = 0L
+        lastTouchAt = 0L
     }
 
     fun clearSwipeReveal() {
         swipeHeld = false
         swipeRevealUntil = 0L
+        lastSwipeAt = 0L
     }
 
     /** 当前前台应用应使用的内部模式；null 表示保持系统原样。 */
@@ -110,13 +131,19 @@ internal class GestureHandlePolicy {
         val autoHide = if (mode() == GestureVisibility.MODE_AUTO) {
             (AUTO_HIDE_DELAY_MS - (now - shownAt)).coerceAtLeast(0L)
         } else 0L
+        // 按住状态也要安排一次刷新：到超时点需要重新评估（避免丢失 UP 后卡在唤醒态）
+        val touchHold = if (touchHeld) (HOLD_STALE_MS - (now - lastTouchAt)).coerceAtLeast(0L) else 0L
+        val swipeHold = if (swipeHeld) (HOLD_STALE_MS - (now - lastSwipeAt)).coerceAtLeast(0L) else 0L
         val touch = if (touchHeld) 0L else (touchRevealUntil - now).coerceAtLeast(0L)
         val swipe = if (swipeHeld) 0L else (swipeRevealUntil - now).coerceAtLeast(0L)
-        return maxOf(autoHide, touch, swipe)
+        return maxOf(autoHide, touchHold, swipeHold, touch, swipe)
     }
 
     companion object {
         /** 自动隐藏模式的显示时长。 */
         const val AUTO_HIDE_DELAY_MS = 3_000L
+
+        /** 按住状态的最长无事件时长；超过即视为已松手（防止丢失 UP / CANCEL 卡在唤醒态）。 */
+        const val HOLD_STALE_MS = 10_000L
     }
 }

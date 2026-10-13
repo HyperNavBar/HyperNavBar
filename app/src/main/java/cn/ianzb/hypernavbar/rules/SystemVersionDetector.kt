@@ -4,14 +4,17 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import androidx.core.content.edit
+import cn.ianzb.hypernavbar.hook.rule.SystemVersion
 
+/**
+ * App 侧系统版本入口：统一走 [SystemVersion]（主版本 + 第三段百位判定），
+ * 只额外负责「用户在首页手动指定」的持久化与展示。
+ */
 object SystemVersionDetector {
 
     private const val PREFS_NAME = "immersion_prefs"
     private const val KEY_MODE = "forced_mode"
     private const val MODE_AUTO = "auto"
-
-    enum class OsMode { OS22, OS30, OS33 }
 
     fun getMarketName(): String {
         return getProp("ro.product.marketname").ifEmpty { Build.MODEL }
@@ -26,22 +29,8 @@ object SystemVersionDetector {
         return getProp("ro.mi.os.version.incremental").ifEmpty { getProp("ro.system.build.version.incremental") }
     }
 
-    fun detectOsMode(): OsMode? {
-        val jsonFile = "/system_ext/etc/nbi/navigation_bar_immersive_rules_list.json"
-        val xmlFile = "/system_ext/etc/nbi/navigation_bar_immersive_rules_list.xml"
-
-        val jsonContent = readFileAsRoot(jsonFile)
-        if (jsonContent.isNotEmpty()) {
-            return if (jsonContent.contains("sf_sampling_mode")) OsMode.OS33 else OsMode.OS30
-        }
-
-        val xmlContent = readFileAsRoot(xmlFile)
-        if (xmlContent.isNotEmpty()) {
-            return OsMode.OS22
-        }
-
-        return null
-    }
+    /** 设备真实版本（不含手动指定）。 */
+    fun detectOsMode(): SystemVersion = SystemVersion.current()
 
     fun getForcedMode(context: Context): String {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -54,28 +43,9 @@ object SystemVersionDetector {
         }
     }
 
-    fun getEffectiveOsMode(context: Context): OsMode? {
-        val forced = getForcedMode(context)
-        return when (forced) {
-            "3.3" -> OsMode.OS33
-            "3.0" -> OsMode.OS30
-            "2.2" -> OsMode.OS22
-            else -> detectOsMode()
-        }
-    }
-
-    private fun readFileAsRoot(path: String): String {
-        return try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat $path"))
-            val reader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
-            val content = reader.readText()
-            val exitCode = process.waitFor()
-            reader.close()
-            if (exitCode != 0) "" else content
-        } catch (_: Exception) {
-            ""
-        }
-    }
+    /** 有效版本：手动指定（auto / 4.0 / 3.3 / 3.0 / 2.2）优先，否则用真实版本。 */
+    fun getEffectiveOsMode(context: Context): SystemVersion =
+        SystemVersion.resolve(getForcedMode(context))
 
     @SuppressLint("PrivateApi")
     private fun getProp(property: String): String {
@@ -92,17 +62,10 @@ object SystemVersionDetector {
 
     fun getImmersionStatus(context: Context): ImmersionStatus {
         val mode = getEffectiveOsMode(context)
-        return if (mode != null) {
-            ImmersionStatus(
-                when (mode) {
-                    OsMode.OS22 -> "2.2"
-                    OsMode.OS30 -> "3.0"
-                    OsMode.OS33 -> "3.3"
-                },
-                true
-            )
-        } else {
+        return if (mode == SystemVersion.UNKNOWN) {
             ImmersionStatus("", false)
+        } else {
+            ImmersionStatus(mode.label, mode.immersiveSupported)
         }
     }
 }

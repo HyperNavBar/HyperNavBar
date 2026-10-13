@@ -19,6 +19,7 @@ import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.prefs.ConfigState
 import cn.ianzb.hypernavbar.prefs.OptionSpec
 import cn.ianzb.hypernavbar.prefs.OptionType
+import cn.ianzb.hypernavbar.prefs.OsRequirement
 import cn.ianzb.hypernavbar.ui.component.pref.HookOptionsPage
 import cn.ianzb.hypernavbar.ui.component.pref.HookSection
 import cn.ianzb.hypernavbar.ui.screen.safemode.SafeModeActivity
@@ -149,6 +150,8 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         titleRes = R.string.force_master_title,
         summaryRes = R.string.force_master_summary,
         defaultBoolean = false,
+        // 「强制生效」系列 Hook 只安装在沉浸支持版本（HyperOS 3.3 / 4.0）
+        osRequirement = OsRequirement.IMMERSIVE,
     ),
     OptionSpec(
         key = "force_ignore_version",
@@ -204,6 +207,8 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         titleRes = R.string.gesture_handle_title,
         summaryRes = R.string.gesture_handle_summary,
         defaultBoolean = false,
+        // 手势提示线 Hook 仅 HyperOS 4.0 提供
+        osRequirement = OsRequirement.OS_4,
     ),
     OptionSpec(
         key = "gesture_handle_motion",

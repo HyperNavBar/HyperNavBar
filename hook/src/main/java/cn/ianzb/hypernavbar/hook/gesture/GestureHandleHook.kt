@@ -19,7 +19,7 @@ import android.view.ViewParent
 import cn.ianzb.hypernavbar.hook.base.BaseHook
 import cn.ianzb.hypernavbar.hook.prefs.HookKeys
 import cn.ianzb.hypernavbar.hook.prefs.HookPrefs
-import cn.ianzb.hypernavbar.hook.rule.hookVersionGate
+import cn.ianzb.hypernavbar.hook.rule.HookVersionGate
 import cn.ianzb.hypernavbar.hook.xposed.HookHelper
 import cn.ianzb.hypernavbar.hook.xposed.Reflect
 import io.github.libxposed.api.XposedInterface
@@ -49,7 +49,13 @@ class GestureHandleHook : BaseHook() {
 
     override val key: String get() = HookKeys.GESTURE_HANDLE
 
-    override val versionGate = hookVersionGate { hyperOs { ge("3.0.3") } }
+    /**
+     * 仅 HyperOS 4.x 安装。
+     *
+     * 3.3 上的提示线由系统/桌面各自实现（桌面粉丝自己的 `gesture_line`），模块侧的抑制手段
+     * 无法覆盖，因此该功能只在 4.0 提供；3.3 上按「主动跳过」处理（不安装、不报错）。
+     */
+    override val versionGate: HookVersionGate = HookVersionGate.of { it.isOs4 }
 
     // ---------------- 运行时状态 ----------------
 

@@ -16,7 +16,9 @@ object RulesManager {
 
     /**
      * 首次启动时播种默认订阅：
-     * - 仅播种社区规则源（官方规则作为基底由系统实时提供，无需用户订阅）
+     * - HyperOS 4.x：运行期注入，官方规则由系统实时提供为基底，**只需社区规则源**；
+     * - HyperOS 4.0 以下（2.2 / 3.0 / 3.3）：以替换系统规则文件的方式挂载，需要官方规则源作为基底，
+     *   因此播种 **社区在上、官方在下**（社区规则优先覆盖官方规则）。
      * 仅在订阅列表为空时执行一次，之后以标记位防止重复播种。
      */
     fun ensureDefaultConfigs(context: Context) {
@@ -24,6 +26,13 @@ object RulesManager {
         if (prefs.getBoolean(KEY_DEFAULTS_SEEDED, false)) return
 
         if (loadAll(context).isEmpty()) {
+            if (RuleMountStrategy.usesRuleFile()) {
+                // 先加官方（下标靠后），再加社区：新建订阅插入列表顶部，社区最终在上
+                add(
+                    context, RuleType.CLOUD, RuleConfigSource.PRESET_OFFICIAL_URL,
+                    name = context.getString(cn.ianzb.hypernavbar.R.string.preset_official_name),
+                )
+            }
             add(context, RuleType.CLOUD, RuleConfigSource.PRESET_COMMUNITY_URL,
                 name = context.getString(cn.ianzb.hypernavbar.R.string.preset_community_name))
         }

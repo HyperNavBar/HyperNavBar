@@ -1,47 +1,18 @@
 package cn.ianzb.hypernavbar.rules
 
 import cn.ianzb.hypernavbar.hook.gesture.GestureVisibility
+import cn.ianzb.hypernavbar.hook.rule.SystemVersion
 import org.json.JSONObject
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 object RuleConverter {
 
-    enum class OsMode {
-        OS33,  // HyperOS 3.3+ (PATCH >= 300, full JSON)
-        OS30,  // HyperOS 3.0 (reduced JSON)
-        OS22,  // HyperOS 2.2 (XML)
-        UNKNOWN
-    }
-
-    fun detectOsMode(): OsMode {
-        val incremental = try {
-            Runtime.getRuntime().exec(arrayOf("getprop", "ro.build.version.incremental"))
-                .inputStream.bufferedReader().readLine() ?: ""
-        } catch (_: Exception) { "" }
-
-        val jsonFile = File("/system_ext/etc/nbi/navigation_bar_immersive_rules_list.json")
-        val xmlFile = File("/system_ext/etc/nbi/navigation_bar_immersive_rules_list.xml")
-
-        if (jsonFile.exists()) {
-            try {
-                val patch = incremental.split(".").getOrElse(2) { "0" }.toIntOrNull() ?: 0
-                return if (patch >= 300) OsMode.OS33 else OsMode.OS30
-            } catch (_: Exception) {
-                return OsMode.OS30
-            }
-        } else if (xmlFile.exists()) {
-            return OsMode.OS22
-        }
-        return OsMode.OS30
-    }
-
-    fun getTargetPath(mode: OsMode): String = when (mode) {
-        OsMode.OS33, OsMode.OS30 -> "/data/system/cloudFeature_navigation_bar_immersive_rules_list.json"
-        OsMode.OS22 -> "/data/system/cloudFeature_navigation_bar_immersive_rules_list.xml"
-        OsMode.UNKNOWN -> "/data/system/cloudFeature_navigation_bar_immersive_rules_list.json"
+    /** 目标文件路径：2.2 为 XML，其余（3.0 / 3.3 / 4.0 兜底）为 JSON。 */
+    fun getTargetPath(version: SystemVersion): String = when (version) {
+        SystemVersion.OS22 -> "/data/system/cloudFeature_navigation_bar_immersive_rules_list.xml"
+        else -> "/data/system/cloudFeature_navigation_bar_immersive_rules_list.json"
     }
 
     /** 根级 modules == "HyperNavBar_config" 视为内部统一新格式，否则为官方格式。 */
@@ -93,11 +64,11 @@ object RuleConverter {
         jsonStr
     }
 
-    fun convert(mergedJson: JSONObject, mode: OsMode): String = when (mode) {
-        OsMode.OS33 -> convertToOS33(mergedJson)
-        OsMode.OS30 -> convertToOS30(mergedJson)
-        OsMode.OS22 -> convertToOS22(mergedJson)
-        OsMode.UNKNOWN -> convertToOS33(mergedJson)
+    /** 按系统版本转换为该版本使用的规则文本。 */
+    fun convert(mergedJson: JSONObject, version: SystemVersion): String = when (version) {
+        SystemVersion.OS22 -> convertToOS22(mergedJson)
+        SystemVersion.OS30 -> convertToOS30(mergedJson)
+        else -> convertToOS33(mergedJson)
     }
 
     /** 官方格式 → 内部统一新格式（根级 modules 写 "HyperNavBar_config"）。 */

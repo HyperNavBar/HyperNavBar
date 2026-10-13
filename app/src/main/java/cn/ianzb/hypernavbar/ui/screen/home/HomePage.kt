@@ -25,8 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
-import cn.ianzb.hypernavbar.ui.icons.CheckCircleOutlineIcon
-import cn.ianzb.hypernavbar.ui.icons.ErrorOutlineIcon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,8 +41,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cn.ianzb.hypernavbar.R
+import cn.ianzb.hypernavbar.hook.rule.SystemVersion
 import cn.ianzb.hypernavbar.rules.RulesManager
 import cn.ianzb.hypernavbar.rules.SystemVersionDetector
+import cn.ianzb.hypernavbar.ui.icons.CheckCircleOutlineIcon
+import cn.ianzb.hypernavbar.ui.icons.ErrorOutlineIcon
 import cn.ianzb.hypernavbar.ui.util.BlurredBar
 import cn.ianzb.hypernavbar.ui.util.blurSource
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
@@ -327,14 +328,14 @@ fun HomePageView(
             val autoDetectText = stringResource(R.string.home_immersion_mode_auto)
             val modeOptions = listOf(
                 autoDetectText,
+                "4.0",
                 "3.3",
                 "3.0",
                 "2.2"
             )
-            val modeValues = listOf("auto", "3.3", "3.0", "2.2")
+            val modeValues = listOf("auto", "4.0", "3.3", "3.0", "2.2")
             
-            val autoDetectMode = SystemVersionDetector.detectOsMode()
-            val hasAnySupport = autoDetectMode != null
+            val hasAnySupport = SystemVersionDetector.detectOsMode() != SystemVersion.UNKNOWN
             
             Card {
                 modeOptions.forEachIndexed { index, label ->

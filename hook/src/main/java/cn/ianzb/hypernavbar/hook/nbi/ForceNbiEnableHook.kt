@@ -22,11 +22,11 @@ class ForceNbiEnableHook : BaseHook() {
     override val versionGate = NbiHookSupport.NBI_GATE
 
     override val variants = listOf(
-        hookVariant("os3", gate = { hyperOs { lt("4.0") } }) {
+        hookVariant("os3", gate = { systemVersion { !it.isOs4 } }) {
             hookAttach()
             forcePolicyGates()
         },
-        hookVariant("os4", gate = { hyperOs { ge("4.0") } }) {
+        hookVariant("os4", gate = { systemVersion { it.isOs4 } }) {
             hookAttach()
         },
     )

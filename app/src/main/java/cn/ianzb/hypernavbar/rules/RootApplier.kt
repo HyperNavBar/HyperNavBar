@@ -1,5 +1,6 @@
 package cn.ianzb.hypernavbar.rules
 
+import cn.ianzb.hypernavbar.hook.rule.SystemVersion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -31,9 +32,9 @@ object RootApplier {
     private const val OFFICIAL_MODULES = "navigation_bar_immersive_application_config_new"
 
     /** 读取当前官方规则文件内容（云控文件优先，回退内置文件）；读取失败返回 null。 */
-    suspend fun readOfficialBase(mode: RuleConverter.OsMode = RuleConverter.OsMode.OS33): String? =
+    suspend fun readOfficialBase(version: SystemVersion = SystemVersion.OS33): String? =
         withContext(Dispatchers.IO) {
-        val (cloud, local) = basePaths(mode)
+        val (cloud, local) = basePaths(version)
         val script = "if [ -f ${shellQuote(cloud)} ]; then cat ${shellQuote(cloud)}; " +
             "elif [ -f ${shellQuote(local)} ]; then cat ${shellQuote(local)}; fi"
         execRead(script)?.takeIf { it.isNotBlank() }
@@ -74,7 +75,7 @@ object RootApplier {
      * 仅当模块写入过文件（存在标记或 `.bak`）时才执行，避免误删设备上的官方云控规则文件。
      */
     suspend fun restoreOfficial(
-        targetPath: String = RuleConverter.getTargetPath(RuleConverter.OsMode.OS33),
+        targetPath: String = RuleConverter.getTargetPath(SystemVersion.OS33),
     ): Boolean = withContext(Dispatchers.IO) {
         val target = shellQuote(targetPath)
         val backup = shellQuote("$targetPath.bak")
@@ -101,8 +102,8 @@ object RootApplier {
     internal fun buildFileContent(
         base: String?,
         payloads: Map<String, String>,
-        mode: RuleConverter.OsMode = RuleConverter.OsMode.OS33,
-    ): String = if (mode == RuleConverter.OsMode.OS22) {
+        version: SystemVersion = SystemVersion.OS33,
+    ): String = if (version == SystemVersion.OS22) {
         buildXmlContent(base, payloads)
     } else {
         buildJsonContent(base, payloads)
@@ -233,8 +234,8 @@ object RootApplier {
     }
 
     /** 规则文件路径（云控 / 内置）：2.2 是 XML，3.0 / 3.3 是 JSON。 */
-    private fun basePaths(mode: RuleConverter.OsMode): Pair<String, String> =
-        if (mode == RuleConverter.OsMode.OS22) XML_CLOUD to XML_LOCAL else JSON_CLOUD to JSON_LOCAL
+    private fun basePaths(version: SystemVersion): Pair<String, String> =
+        if (version == SystemVersion.OS22) XML_CLOUD to XML_LOCAL else JSON_CLOUD to JSON_LOCAL
 
     /** dataVersion 取当天日期（yyMMdd）与基底版本中的较大值，避免被系统判定为过期配置。 */
     private fun fileDataVersion(baseVersion: String): String {

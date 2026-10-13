@@ -5,7 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 校验按系统版本选择规则挂载方式：3.3 走替换规则文件，4.x 走 Hook 注入。 */
+/** 校验按系统版本选择规则挂载方式：4.0 以下走替换规则文件（2.2 / 3.0 / 3.3），4.x 走 Hook 注入。 */
 class RuleMountStrategyTest {
 
     private fun ctx(hyperOs: String) = VersionContext(
@@ -25,15 +25,15 @@ class RuleMountStrategyTest {
     }
 
     @Test
-    fun hyperOs4_keepsHookInjection() {
-        assertFalse(RuleMountStrategy.usesRuleFile(ctx("OS4.0")))
-        assertFalse(RuleMountStrategy.usesRuleFile(ctx("OS4.0.0.33.XPMCNXM")))
+    fun earlierSystems_alsoUseRuleFile() {
+        assertTrue(RuleMountStrategy.usesRuleFile(ctx("OS3.0")))
+        assertTrue(RuleMountStrategy.usesRuleFile(ctx("OS2.2")))
+        assertTrue(RuleMountStrategy.usesRuleFile(ctx("")))
     }
 
     @Test
-    fun earlierSystems_useNeither() {
-        assertFalse(RuleMountStrategy.usesRuleFile(ctx("OS3.0")))
-        assertFalse(RuleMountStrategy.usesRuleFile(ctx("OS2.2")))
-        assertFalse(RuleMountStrategy.usesRuleFile(ctx("")))
+    fun hyperOs4_keepsHookInjection() {
+        assertFalse(RuleMountStrategy.usesRuleFile(ctx("OS4.0")))
+        assertFalse(RuleMountStrategy.usesRuleFile(ctx("OS4.0.0.33.XPMCNXM")))
     }
 }

@@ -230,19 +230,22 @@ fun RulesPageView(
     }
 
     /**
-     * HyperOS 3.3 文件挂载：官方基底 + 模块规则覆盖合并后由 Root 写入系统规则文件。
+     * 文件挂载（HyperOS 4.0 以下：2.2 / 3.0 / 3.3）：官方基底 + 模块规则覆盖合并后由 Root 写入系统规则文件。
      *
+     * 目标文件与格式按系统版本选择（[RuleMountStrategy.fileOsMode]）：2.2 写 XML，3.0 / 3.3 写 JSON。
      * 合并结果为空（规则里没有任何应用）时还原官方文件。
      */
     suspend fun applyByRuleFile(mergedJson: JSONObject): Boolean = withContext(Dispatchers.IO) {
         if (!hasRoot) return@withContext false
+        val mode = RuleMountStrategy.fileOsMode(context)
+        val targetPath = RuleConverter.getTargetPath(mode)
         val payloads = RuleConverter.buildHookPayloads(mergedJson)
-        if (payloads.isEmpty()) return@withContext RootApplier.restoreOfficial()
-        val base = RootApplier.readOfficialBase() ?: return@withContext false
-        RootApplier.applyRules(RootApplier.buildFileContent(base, payloads), context.cacheDir)
+        if (payloads.isEmpty()) return@withContext RootApplier.restoreOfficial(targetPath)
+        val base = RootApplier.readOfficialBase(mode) ?: return@withContext false
+        RootApplier.applyRules(RootApplier.buildFileContent(base, payloads, mode), targetPath, context.cacheDir)
     }
 
-    /** 合并订阅规则并发布给 Hook 进程（3.3 额外以 Root 替换系统规则文件），可选显示结果 Toast */
+    /** 合并订阅规则并发布给 Hook 进程（4.0 以下额外以 Root 替换系统规则文件），可选显示结果 Toast */
     suspend fun doApply(cachedResults: MutableMap<String, RuleFetcher.FetchResult>, showToast: Boolean) {
         val mergedJson = RuleCombiner.combine(configs.toList(), cachedResults)
         val totalApps = RuleCombiner.getTotalAppCount(cachedResults)
@@ -279,7 +282,7 @@ fun RulesPageView(
         }
         if (toRemove.isNotEmpty()) XposedServiceManager.removeScope(toRemove)
 
-        // HyperOS 3.3：规则注入 Hook 不安装，规则改由替换系统规则文件的方式挂载（需要 Root）
+        // HyperOS 4.0 以下（2.2 / 3.0 / 3.3）：规则注入 Hook 不安装，规则改由替换系统规则文件的方式挂载（需要 Root）
         val usesRuleFile = RuleMountStrategy.usesRuleFile()
         if (usesRuleFile && !hasRoot) hasRoot = RootHelper.checkRoot()
         val fileApplied = if (usesRuleFile) applyByRuleFile(mergedJson) else true

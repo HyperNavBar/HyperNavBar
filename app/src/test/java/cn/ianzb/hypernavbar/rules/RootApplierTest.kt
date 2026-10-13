@@ -6,7 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 校验 HyperOS 3.3 文件挂载的内容生成：官方基底 + 模块规则覆盖合并。 */
+/** 校验文件挂载的内容生成：官方基底 + 模块规则覆盖合并（3.0 / 3.3 的 JSON 与 2.2 的 XML）。 */
 class RootApplierTest {
 
     private val payloads = mapOf(
@@ -66,6 +66,35 @@ class RootApplierTest {
         val root = JSONObject(RootApplier.buildFileContent(base, payloads))
 
         assertEquals("991231", root.getString("dataVersion"))
+    }
+
+    @Test
+    fun buildFileContent_os22_rewritesConfiguredPackageAndKeepsOthers() {
+        val base = """
+            <?xml version='1.0' encoding='utf-8' standalone='yes'?>
+            <NBIRules>
+               <package name="com.example.app" enable="false" activityRule="MainActivity:0,OtherActivity:2" />
+               <package name="com.other.app" enable="true" activityRule="A:1" />
+            </NBIRules>
+        """.trimIndent()
+
+        val xml = RootApplier.buildFileContent(base, payloads, RuleConverter.OsMode.OS22)
+
+        // 命中载荷的应用：强制 enable、活动按同名覆盖，其余活动与其它应用原样保留
+        assertTrue(
+            xml.contains("""<package name="com.example.app" enable="true" activityRule="MainActivity:1,OtherActivity:2" />"""),
+        )
+        assertTrue(xml.contains("""<package name="com.other.app" enable="true" activityRule="A:1" />"""))
+    }
+
+    @Test
+    fun buildFileContent_os22_appendsPackagesMissingFromBase() {
+        val base = "<?xml version='1.0' encoding='utf-8' standalone='yes'?>\n<NBIRules>\n</NBIRules>"
+
+        val xml = RootApplier.buildFileContent(base, payloads, RuleConverter.OsMode.OS22)
+
+        assertTrue(xml.contains("""<package name="com.example.app" enable="true" activityRule="MainActivity:1" />"""))
+        assertTrue(xml.indexOf("</NBIRules>") > xml.indexOf("com.example.app"))
     }
 
     private companion object {

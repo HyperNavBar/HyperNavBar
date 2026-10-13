@@ -58,6 +58,15 @@ object HookHelper {
         xposed = module
     }
 
+    /**
+     * 重新获取远程偏好分组。
+     *
+     * hook 进程内的远程偏好是「按键缓存 + 变更通知」语义，重新获取一次可拿到最新配置
+     * （供 [cn.ianzb.hypernavbar.hook.prefs.HookPrefs.refresh] 这类需要即时生效的读取点使用）。
+     */
+    fun remotePreferences(group: String): android.content.SharedPreferences? =
+        runCatching { if (::xposed.isInitialized) xposed.getRemotePreferences(group) else null }.getOrNull()
+
     fun log(message: String) {
         if (::xposed.isInitialized) xposed.log(4, "HyperNavBar", message)
     }

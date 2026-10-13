@@ -282,7 +282,7 @@
 
     <!-- 功能标签页 / Hook 模块 -->
     <string name="tab_features">功能</string>
-    <string name="features_notice">本模块的 Hook 适配 HyperOS 3.3（3.0.3XX）与 4.x，更低版本系统会自动跳过（不注入、不报错），仅保留规则编辑能力。规则注入在 4.x 上以运行期 Hook 生效，3.3 则通过替换系统规则文件生效（需要 Root）。\nHook 相关功能仅面向高级适配场景（强制生效、手势提示线等增强能力）；常规沉浸适配无需启用这些 Hook 即可生效。</string>
+    <string name="features_notice">本模块的 Hook 适配 HyperOS 3.0.3XX（含 3.3）与 4.x，更低版本会自动跳过（不注入、不报错）。规则挂载：4.x 以运行期 Hook 注入生效（无需 Root）；4.0 以下（2.2 / 3.0 / 3.3）通过替换系统规则文件生效（需要 Root，按版本写入 XML / JSON）。\nHook 相关功能仅面向高级适配场景（强制生效、手势提示线等增强能力）；常规沉浸适配无需启用这些 Hook 即可生效。</string>
     <string name="settings_module">模块</string>
     <string name="section_force">强制生效</string>
     <string name="section_scope_expand">适配范围</string>

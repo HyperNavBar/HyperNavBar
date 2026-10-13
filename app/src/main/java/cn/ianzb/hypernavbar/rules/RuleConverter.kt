@@ -145,6 +145,11 @@ object RuleConverter {
 
     /** 单个 activity 规则按优先级归一化为新格式 style。 */
     private fun normalizeActivity(rule: JSONObject): JSONObject {
+        // 已是 style 形态的条目原样保留：官方格式不使用 style 字段，因此这里的判定是安全的。
+        // 若不守卫，手工编写的 style 规则（根级 modules 标记缺失）会被按官方字段归一化，
+        // style 被整体抹成 default / disabled，表现为「悬浮 / 自定义颜色覆盖 SF 取色无效」。
+        if (rule.has("style")) return JSONObject(rule.toString())
+
         val act = JSONObject()
         val sf = rule.optInt("sf_sampling_mode", 0)
         when {

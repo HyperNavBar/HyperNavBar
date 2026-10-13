@@ -6,7 +6,6 @@ import android.os.SystemClock
 import android.view.View
 import android.view.ViewTreeObserver
 import cn.ianzb.hypernavbar.hook.base.BaseHook
-import cn.ianzb.hypernavbar.hook.nbi.ForceFullscreenHook.Companion.PAYLOAD_TTL_MS
 import cn.ianzb.hypernavbar.hook.prefs.HookKeys
 import cn.ianzb.hypernavbar.hook.prefs.HookPrefs
 import cn.ianzb.hypernavbar.hook.xposed.HookHelper
@@ -189,6 +188,8 @@ class ForceFullscreenHook : BaseHook() {
     private fun compiledRules(pkg: String): CompiledRules? {
         val now = SystemClock.uptimeMillis()
         payloadCache[pkg]?.let { if (now < it.expiresAt) return it.rules }
+        // 缓存过期后先刷新远程偏好快照，避免长时间命中 hook 进程内的旧载荷
+        HookPrefs.refresh()
         val raw = runCatching { HookPrefs.getString(HookKeys.payloadKey(pkg), null) }.getOrNull()
         val rules = if (raw.isNullOrBlank()) {
             null

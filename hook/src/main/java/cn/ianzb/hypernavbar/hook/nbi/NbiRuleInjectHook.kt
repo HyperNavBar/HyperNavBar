@@ -38,6 +38,9 @@ class NbiRuleInjectHook : BaseHook() {
 
     private fun inject(param: HookParam) {
         val pkg = param.args.getOrNull(0) as? String ?: return
+        // 读取前刷新远程偏好：hook 进程内的载荷是「按键缓存」，不刷新会一直用旧规则
+        // （表现为 App 里改了规则、重启目标应用也没用，必须重启 system_server 才生效）
+        HookPrefs.refresh()
         val payload = HookPrefs.getString(HookKeys.payloadKey(pkg), null)
         if (payload.isNullOrBlank()) return
 

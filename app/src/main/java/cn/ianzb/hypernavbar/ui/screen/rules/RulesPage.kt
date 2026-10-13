@@ -248,15 +248,20 @@ fun RulesPageView(
         val totalApps = RuleCombiner.getTotalAppCount(cachedResults)
         val published = withContext(Dispatchers.IO) { HookRulePublisher.publish(mergedJson) }
         // 应用规则时按合并配置重写作用域：
-        // - hookExcluded=false（显式要求注入应用进程）的应用自动申请作用域，已在作用域 / 申请记录中的不重复申请；
+        // - 仅在「强制生效」总开关开启时才有意义：应用进程侧全部 Hook（含非全屏取色）都受其控制，
+        //   关闭时不会安装任何 Hook，申请作用域只会把模块注入第三方应用进程、增加被检测风险；
+        // - 开启时按 hookExcluded=false（显式要求注入应用进程）申请作用域，已在作用域 / 申请记录中的不重复申请；
         // - 不在规则列表（含 hookExcluded=true 默认排除）却仍在作用域内的应用取消其作用域，规则仍由 system_server 注入生效；
         // - 仅 system（系统框架）始终保留，其余包括系统应用不在规则列表也会被移出。
         // 用户在作用域页手动排除（HookBlacklist）的应用不自动申请，避免注入即闪退。
         // 立即生效前先在后台刷新一次作用域，确保基于 LSPosed 最新状态做增删。
         withContext(Dispatchers.IO) { XposedServiceManager.refreshScope() }
-        val required = RuleConverter.hookRequiredPackages(mergedJson)
-            .filter { it !in HookBlacklist.all() }
-        if (required.isNotEmpty()) XposedServiceManager.ensureScope(required.toList())
+        val required = RuleConverter.scopeRequestPackages(
+            mergedJson,
+            masterEnabled = PrefsStore.getBoolean(HookKeys.MASTER, false),
+            blacklist = HookBlacklist.all(),
+        )
+        if (required.isNotEmpty()) XposedServiceManager.ensureScope(required)
         // 「手势提示线」开启时，SystemUI 需要保留在作用域内（Hook 仅安装在系统界面进程）
         val gestureEnabled = PrefsStore.getBoolean(HookKeys.GESTURE_HANDLE, false)
         if (gestureEnabled) {

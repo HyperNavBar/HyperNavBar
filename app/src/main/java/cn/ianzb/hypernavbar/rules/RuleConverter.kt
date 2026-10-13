@@ -385,6 +385,24 @@ object RuleConverter {
         return result
     }
 
+    /**
+     * 应用规则时需要申请应用进程作用域的包集合。
+     *
+     * **仅在「强制生效」总开关开启时才有意义**：应用进程侧的全部 Hook（含非全屏 / 分屏取色）
+     * 都受该总开关控制，关闭时不会安装任何 Hook；此时申请作用域只会把模块注入第三方应用进程、
+     * 增加被应用检测到的风险，因此返回空集合（调用方会据此把多余的作用域自动移出）。
+     *
+     * @param masterEnabled 「强制生效」总开关当前值
+     * @param blacklist 用户在作用域页手动排除（HookBlacklist）的应用，不自动申请
+     */
+    fun scopeRequestPackages(
+        merged: JSONObject,
+        masterEnabled: Boolean,
+        blacklist: Set<String> = emptySet(),
+    ): List<String> =
+        if (!masterEnabled) emptyList()
+        else hookRequiredPackages(merged).filter { it !in blacklist }
+
     /** 单个新格式活动规则 → 官方字段对象。 */
     private fun activityToOfficial(rule: JSONObject): JSONObject {
         val out = JSONObject()

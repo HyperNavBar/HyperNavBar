@@ -174,7 +174,7 @@ private val licenseSections: List<LicenseSection> = listOf(
             LibraryInfo(
                 "HyperModifier",
                 "-",
-                "Apache-2.0",
+                "GPL-3.0，手势提示线（小白条）显示控制实现参考，默认应用规则已合并",
                 "https://github.com/AritxOnly/HyperModifier",
             ),
         ),

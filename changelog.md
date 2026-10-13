@@ -31,7 +31,7 @@
 - HyperOS 3.3 上应用规则需要 Root 权限；HyperOS 4.x 维持运行期 Hook 注入不变，仍无需 Root
 - 功能页顶部提示更新：明确规则注入在 4.x 上以运行期 Hook 生效、3.3 通过替换系统规则文件生效，并补充「Hook 相关功能仅面向高级适配场景，常规沉浸适配无需启用」的说明
 - 同步 MiuixGuiTemplate 0.5.4 的通用规范：Hook 侧 `HookPrefs` 新增 `registerListener`（跨进程偏好变化监听，供配置即时生效场景使用）；`XposedServiceManager.checkRoot` 补充检测时机说明（仅应用启动与主页手动点按状态卡片时触发，不做轮询）
-- 第三方许可证页与模板格式统一：改为「说明 + 分组（核心 / 界面 / AndroidX / Hook 框架 / 参考项目）」的版式，条目展示版本与许可证；「参考项目」新增 **HyperModifier**（Apache-2.0）致谢
+- 第三方许可证页与模板格式统一：改为「说明 + 分组（核心 / 界面 / AndroidX / Hook 框架 / 参考项目）」的版式，条目展示版本与许可证；「参考项目」新增 **HyperModifier**（GPL-3.0，手势提示线显示控制实现参考、默认应用规则已合并）致谢
 
 ### 修复
 

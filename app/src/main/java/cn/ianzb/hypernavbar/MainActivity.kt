@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,7 +27,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,15 +42,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import cn.ianzb.hypernavbar.rules.RulesManager
 import cn.ianzb.hypernavbar.ui.component.UpdateDialog
-import cn.ianzb.hypernavbar.ui.component.liquid.IosLiquidGlassNavigationBar
+import cn.ianzb.hypernavbar.ui.component.liquid.LiquidGlassNavigationBar
+import cn.ianzb.hypernavbar.ui.component.liquid.LiquidGlassNavigationBarItem
 import cn.ianzb.hypernavbar.ui.screen.about.AboutPageContent
 import cn.ianzb.hypernavbar.ui.screen.features.FeaturesPageView
 import cn.ianzb.hypernavbar.ui.screen.home.HomePageView
@@ -68,12 +73,13 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
-import top.yukonga.miuix.kmp.basic.NavigationItem
 import top.yukonga.miuix.kmp.basic.NavigationRail
 import top.yukonga.miuix.kmp.basic.NavigationRailItem
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurDefaults
@@ -490,33 +496,55 @@ private fun BottomNavigationBar(
     items: List<String>,
     icons: List<androidx.compose.ui.graphics.vector.ImageVector>,
     selectedIndex: Int,
-    backdrop: LayerBackdrop?,
+    backdrop: LayerBackdrop,
     blurActive: Boolean,
     onItemSelected: (Int) -> Unit,
 ) {
     when (mode) {
         2 -> {
-            val navigationItems = remember(items, icons) {
-                List(items.size) { i -> NavigationItem(items[i], icons[i]) }
-            }
-            // 始终限制液态玻璃底栏宽度并居中，保持与手机竖屏一致的小尺寸。
-            val liquidModifier = Modifier
-                .padding(horizontal = 12.dp)
-                .widthIn(max = 440.dp)
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                IosLiquidGlassNavigationBar(
-                    modifier = liquidModifier,
-                    items = navigationItems,
+            // 液态玻璃底栏：视觉与交互移植自 SukiSU-Ultra
+            // （见 ui/component/liquid/LiquidGlassNavigationBar.kt）。
+            // 宽度由内容决定（width(IntrinsicSize.Min)），因此这里只需居中并留出安全边距。
+            val navigationBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            val bottomPadding = if (navigationBarBottom != 0.dp) 8.dp + navigationBarBottom else 28.dp
+            Box(modifier = Modifier.fillMaxWidth()) {
+                LiquidGlassNavigationBar(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        // 吞掉落在底栏空白处的点按，避免穿透到底层 Pager。
+                        .pointerInput(Unit) {
+                            detectTapGestures { }
+                        }
+                        .padding(start = 28.dp, end = 28.dp, bottom = bottomPadding),
                     selectedIndex = selectedIndex,
-                    onItemClick = { index ->
-                        onItemSelected(index)
-                    },
+                    onSelected = onItemSelected,
                     backdrop = backdrop,
-                    isBlurActive = blurActive,
-                )
+                    tabsCount = items.size,
+                    isBlurEnabled = blurActive,
+                ) { activateTab ->
+                    items.forEachIndexed { index, label ->
+                        LiquidGlassNavigationBarItem(
+                            selected = selectedIndex == index,
+                            onClick = { activateTab(index) },
+                            modifier = Modifier.defaultMinSize(minWidth = 76.dp),
+                        ) {
+                            // 图标与文字取 LocalContentColor：底栏内部会把它在指示器胶囊内
+                            // 重新着色为主题色（accent），因此这里不能写死 tint。
+                            Icon(
+                                imageVector = icons[index],
+                                contentDescription = label,
+                            )
+                            Text(
+                                text = label,
+                                fontSize = 11.sp,
+                                lineHeight = 14.sp,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Visible,
+                            )
+                        }
+                    }
+                }
             }
         }
         1 -> {
@@ -529,7 +557,7 @@ private fun BottomNavigationBar(
             FloatingNavigationBar(
                 modifier = if (blurActive) {
                     Modifier.textureBlur(
-                        backdrop = backdrop!!,
+                        backdrop = backdrop,
                         shape = floatingBarShape,
                         blurRadius = 25f,
                         colors = BlurDefaults.blurColors(
@@ -562,7 +590,7 @@ private fun BottomNavigationBar(
                     .then(
                         if (blurActive) {
                             Modifier.textureBlur(
-                                backdrop = backdrop!!,
+                                backdrop = backdrop,
                                 shape = RectangleShape,
                                 blurRadius = 25f,
                                 colors = BlurDefaults.blurColors(

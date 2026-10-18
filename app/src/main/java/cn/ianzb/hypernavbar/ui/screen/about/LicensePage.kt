@@ -160,6 +160,12 @@ private val licenseSections: List<LicenseSection> = listOf(
         titleRes = R.string.licenses_section_refs,
         libraries = listOf(
             LibraryInfo(
+                "SukiSU-Ultra",
+                "-",
+                "GPL-3.0",
+                "https://github.com/SukiSU-Ultra/SukiSU-Ultra",
+            ),
+            LibraryInfo(
                 "HyperCeiler",
                 "-",
                 "AGPL-3.0",

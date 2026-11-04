@@ -17,7 +17,10 @@ class GestureHandlePolicyTest {
     private fun policy(
         follow: String = GestureVisibility.FOLLOW_RULES,
         globalMode: String = "alwaysShow",
-    ) = GestureHandlePolicy().apply { configure(rules, follow, globalMode, 0L) }
+        autoHideOnActivity: Boolean = true,
+    ) = GestureHandlePolicy().apply {
+        configure(rules, follow, globalMode, autoHideOnActivity, 0L)
+    }
 
     @Test
     fun autoHide_hidesThreeSecondsAfterForeground() {
@@ -92,6 +95,29 @@ class GestureHandlePolicyTest {
         assertTrue(policy.hidden(3_000L, systemHidden = false))
 
         policy.foreground("com.auto", "B", 1, 4_000L)
+        assertFalse(policy.hidden(4_000L, systemHidden = false))
+        assertTrue(policy.hidden(7_000L, systemHidden = false))
+    }
+
+    @Test
+    fun autoHideOnActivityOff_sameAppActivityChangeKeepsDeadline() {
+        val policy = policy(autoHideOnActivity = false)
+        policy.foreground("com.auto", "A", 1, 0L)
+
+        policy.foreground("com.auto", "B", 1, 2_000L)
+        assertTrue(policy.hidden(3_000L, systemHidden = false))
+    }
+
+    @Test
+    fun autoHideOnActivityOff_appSwitchResetsDeadline() {
+        val policy = policy(
+            follow = GestureVisibility.FOLLOW_OFF,
+            globalMode = GestureVisibility.AUTO_HIDE,
+            autoHideOnActivity = false,
+        )
+        policy.foreground("com.auto", "A", 1, 0L)
+
+        policy.foreground("com.other", "B", 2, 4_000L)
         assertFalse(policy.hidden(4_000L, systemHidden = false))
         assertTrue(policy.hidden(7_000L, systemHidden = false))
     }

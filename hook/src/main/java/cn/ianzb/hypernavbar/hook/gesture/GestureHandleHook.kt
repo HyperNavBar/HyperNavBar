@@ -254,7 +254,13 @@ class GestureHandleHook : BaseHook() {
         val config = readConfig()
         if (config != lastConfig) {
             lastConfig = config
-            policy.configure(config.rules, config.follow, config.globalMode, now)
+            policy.configure(
+                config.rules,
+                config.follow,
+                config.globalMode,
+                config.autoHideOnActivity,
+                now,
+            )
             motion.configure(
                 holdMs = config.motionHoldMs.toLong(),
                 followFactor = config.motionScale / 100f,
@@ -291,6 +297,7 @@ class GestureHandleHook : BaseHook() {
             ?: GestureVisibility.ALWAYS_SHOW
         val follow = HookPrefs.getString(HookKeys.GESTURE_FOLLOW_RULES, GestureVisibility.FOLLOW_RULES)
             ?: GestureVisibility.FOLLOW_RULES
+        val autoHideOnActivity = HookPrefs.getBoolean(HookKeys.GESTURE_AUTO_HIDE_ON_ACTIVITY, true)
         val motionHoldMs = HookPrefs.getFloat(
             HookKeys.GESTURE_MOTION_HOLD, GestureHandleMotion.DEFAULT_HOLD_MS.toFloat()
         )
@@ -312,6 +319,7 @@ class GestureHandleHook : BaseHook() {
             touchReveal = enabled && touchReveal,
             globalMode = globalMode,
             follow = follow,
+            autoHideOnActivity = autoHideOnActivity,
             rules = cachedRules,
             motionHoldMs = motionHoldMs,
             motionScale = motionScale,
@@ -685,6 +693,7 @@ class GestureHandleHook : BaseHook() {
         val touchReveal: Boolean,
         val globalMode: String,
         val follow: String,
+        val autoHideOnActivity: Boolean,
         val rules: Map<String, String>,
         val motionHoldMs: Float,
         val motionScale: Float,

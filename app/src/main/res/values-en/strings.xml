@@ -325,6 +325,8 @@
     <string name="gesture_handle_touch_reveal_summary">Show the pill briefly when touching the bottom gesture area (hides again after 3s)</string>
     <string name="gesture_handle_global_mode_title">Global default mode</string>
     <string name="gesture_handle_global_mode_summary">Applies to apps outside the rules (and to rules set to default)</string>
+    <string name="gesture_handle_auto_hide_on_activity_title">Re-show on activity change</string>
+    <string name="gesture_handle_auto_hide_on_activity_summary">When off, the pill reappears for 3 seconds only when switching apps; changing pages inside an app does not re-show it</string>
     <string name="gesture_handle_follow_rules_title">Follow rules first</string>
     <string name="gesture_handle_follow_rules_summary">On (default): rule values win, uncovered apps use the global default mode; Off: ignore rules and use the global default mode everywhere</string>
     <string name="gesture_mode_always_show">Always show</string>

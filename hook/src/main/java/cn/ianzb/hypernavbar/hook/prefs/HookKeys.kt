@@ -59,6 +59,9 @@ object HookKeys {
     /** 小白条全局默认适配模式（alwaysShow / autoHide / alwaysHide）。 */
     const val GESTURE_GLOBAL_MODE = "gesture_handle_global_mode"
 
+    /** 自动隐藏模式下，应用内切换 Activity 时是否重新显示 3 秒（默认 true）。 */
+    const val GESTURE_AUTO_HIDE_ON_ACTIVITY = "gesture_handle_auto_hide_on_activity"
+
     /** 是否优先跟随规则（follow / off，默认 follow）。 */
     const val GESTURE_FOLLOW_RULES = "gesture_handle_follow_rules"
 

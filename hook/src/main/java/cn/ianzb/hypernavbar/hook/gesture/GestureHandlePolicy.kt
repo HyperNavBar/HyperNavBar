@@ -8,6 +8,7 @@ internal class GestureHandlePolicy {
     private var rules: Map<String, String> = emptyMap()
     private var follow: String = GestureVisibility.FOLLOW_RULES
     private var globalMode: String = GestureVisibility.ALWAYS_SHOW
+    private var autoHideOnActivity: Boolean = true
     private var packageName: String? = null
     private var activity: String? = null
     private var taskId: Int = -1
@@ -19,18 +20,33 @@ internal class GestureHandlePolicy {
     private var lastTouchAt: Long = 0L
     private var lastSwipeAt: Long = 0L
 
-    fun configure(nextRules: Map<String, String>, nextFollow: String, nextGlobalMode: String, now: Long) {
-        if (rules == nextRules && follow == nextFollow && globalMode == nextGlobalMode) return
+    fun configure(
+        nextRules: Map<String, String>,
+        nextFollow: String,
+        nextGlobalMode: String,
+        nextAutoHideOnActivity: Boolean,
+        now: Long,
+    ) {
+        if (rules == nextRules &&
+            follow == nextFollow &&
+            globalMode == nextGlobalMode &&
+            autoHideOnActivity == nextAutoHideOnActivity
+        ) {
+            return
+        }
         val previous = mode()
         rules = nextRules
         follow = nextFollow
         globalMode = nextGlobalMode
+        autoHideOnActivity = nextAutoHideOnActivity
         if (previous != mode()) shownAt = now
     }
 
     fun foreground(nextPackage: String?, nextActivity: String?, nextTaskId: Int, now: Long) {
         val previous = mode()
-        val changed = activity != nextActivity || taskId != nextTaskId
+        val appChanged = packageName != nextPackage
+        val activityChanged = activity != nextActivity || taskId != nextTaskId
+        val changed = if (autoHideOnActivity) activityChanged else appChanged
         packageName = nextPackage
         activity = nextActivity
         taskId = nextTaskId

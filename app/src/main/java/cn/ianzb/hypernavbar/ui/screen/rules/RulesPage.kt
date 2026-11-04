@@ -1090,8 +1090,6 @@ fun RulesPageView(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            RuleDragHandle(modifier = dragModifier)
-                            Spacer(Modifier.width(4.dp))
                             BasicComponent(
                                 title = "${index + 1}. ${config.name.ifEmpty { config.url.ifEmpty { stringResource(R.string.rules_local_rule) } }}",
                                 summary = buildString {
@@ -1112,6 +1110,13 @@ fun RulesPageView(
                                         append(if (config.id in updatingIds) stringResource(R.string.rules_refreshing) else formatElapsedTime(context, config.lastRefreshTime, tick))
                                     }
                                 },
+                                startAction = {
+                                    RuleDragHandle(
+                                        enabled = config.enabled,
+                                        modifier = dragModifier,
+                                    )
+                                },
+                                enabled = config.enabled,
                                 modifier = Modifier.weight(1f),
                             )
                             Switch(
@@ -1138,8 +1143,15 @@ fun RulesPageView(
 }
 
 @Composable
-private fun RuleDragHandle(modifier: Modifier = Modifier) {
-    val color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+private fun RuleDragHandle(
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val color = if (enabled) {
+        MiuixTheme.colorScheme.onSurfaceVariantActions
+    } else {
+        MiuixTheme.colorScheme.disabledOnSecondaryVariant
+    }
     val label = stringResource(R.string.rules_drag_handle)
     Box(
         modifier = Modifier

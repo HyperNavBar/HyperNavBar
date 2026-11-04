@@ -23,12 +23,38 @@ fun rememberDependencyEnabled(spec: OptionSpec): Boolean {
 @Composable
 private fun dependencyEnabled(spec: OptionSpec, depth: Int, osVersion: SystemVersion): Boolean {
     if (depth >= 8) return true
-    val dependencyKey = spec.dependsOn ?: return true
-    val dependencySpec = OptionRegistry.find(dependencyKey)
-    // 前置项本身被系统版本禁用时，跟随禁用
-    if (dependencySpec != null && !dependencySpec.osRequirement.satisfiedBy(osVersion)) return false
-    val dependencyDefault = dependencySpec?.defaultBoolean ?: false
-    val dependencyValue = ConfigState.bool(dependencyKey, dependencyDefault)
-    if (spec.dependsOnValue != dependencyValue) return false
-    return dependencySpec?.dependsOn == null || dependencyEnabled(dependencySpec, depth + 1, osVersion)
+    val dependencyKey = spec.dependsOn
+    if (dependencyKey != null) {
+        val dependencySpec = OptionRegistry.find(dependencyKey)
+        // 前置项本身被系统版本禁用时，跟随禁用
+        if (dependencySpec != null && !dependencySpec.osRequirement.satisfiedBy(osVersion)) return false
+        val dependencyDefault = dependencySpec?.defaultBoolean ?: false
+        val dependencyValue = ConfigState.bool(dependencyKey, dependencyDefault)
+        if (spec.dependsOnValue != dependencyValue) return false
+        if (dependencySpec?.dependsOn != null &&
+            !dependencyEnabled(dependencySpec, depth + 1, osVersion)
+        ) {
+            return false
+        }
+    }
+
+    val stringDependencyKey = spec.dependsOnString
+    if (stringDependencyKey != null) {
+        val stringDependencySpec = OptionRegistry.find(stringDependencyKey)
+        if (stringDependencySpec != null &&
+            !stringDependencySpec.osRequirement.satisfiedBy(osVersion)
+        ) {
+            return false
+        }
+        val stringDependencyDefault = stringDependencySpec?.defaultString ?: ""
+        val stringDependencyValue = ConfigState.string(stringDependencyKey, stringDependencyDefault)
+        if (spec.dependsOnStringValue != stringDependencyValue) return false
+        if (stringDependencySpec != null &&
+            (stringDependencySpec.dependsOn != null || stringDependencySpec.dependsOnString != null) &&
+            !dependencyEnabled(stringDependencySpec, depth + 1, osVersion)
+        ) {
+            return false
+        }
+    }
+    return true
 }

@@ -21,10 +21,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.HazeColorEffect
+import dev.chrisbanes.haze.blur.hazeBlur
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
@@ -123,11 +125,30 @@ fun BlurredBar(
     scrollBehavior: ScrollBehavior? = null,
     content: @Composable () -> Unit,
 ) {
-    val blurActive = blurEnabled && state != null
+    val hazeState = state?.takeIf { blurEnabled }
     val scrollFadePx = with(LocalDensity.current) { TopBarBlurConfig.ScrollFadeDistance.toPx() }
     val surfaceColor = MiuixTheme.colorScheme.surface
+    // Haze 2 的 Style 按引用比较，必须在组合中缓存，否则每帧都会重建渲染节点。
+    val blurStyle = remember(surfaceColor) {
+        HazeBlurStyle {
+            blurRadius(TopBarBlurConfig.BlurRadius.dp)
+            // 关键：模糊层必须不透明。Haze 会先原样绘制一遍来源内容，再叠加模糊副本；
+            // 若模糊层透明，卡片等硬边缘会从模糊层中透出，看起来像「组件盖在模糊之上」。
+            backgroundColor(surfaceColor)
+            noiseFactor(0f)
+            // surface 着色叠加在模糊之上，控制顶栏实度。
+            colorEffects(
+                listOf(
+                    HazeColorEffect.tint(
+                        surfaceColor.copy(alpha = TopBarBlurConfig.SurfaceAlpha)
+                    )
+                )
+            )
+            progressive(TopBarBlurConfig.progressive)
+        }
+    }
     Box {
-        if (blurActive) {
+        if (hazeState != null) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -142,18 +163,10 @@ fun BlurredBar(
                             Modifier
                         }
                     )
-                    .hazeEffect(state = state) {
-                        blurRadius = TopBarBlurConfig.BlurRadius.dp
-                        // 关键：模糊层必须不透明。Haze 会先原样绘制一遍来源内容，再叠加模糊副本；
-                        // 若模糊层透明，卡片等硬边缘会从模糊层中透出，看起来像「组件盖在模糊之上」。
-                        backgroundColor = surfaceColor
-                        noiseFactor = 0f
-                        // surface 着色叠加在模糊之上，控制顶栏实度。
-                        tints = listOf(
-                            HazeTint(surfaceColor.copy(alpha = TopBarBlurConfig.SurfaceAlpha))
-                        )
-                        progressive = TopBarBlurConfig.progressive
-                    },
+                    .hazeBlur(
+                        input = HazeInput.Sources(hazeState),
+                        style = blurStyle,
+                    ),
             )
         }
         content()

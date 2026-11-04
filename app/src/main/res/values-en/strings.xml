@@ -253,6 +253,7 @@
     <string name="editor_floating_notification_title">App Identifier Active</string>
     <string name="editor_floating_notification_text">Tap to return to HyperNavBar</string>
     <string name="editor_drag_hint">Long press to drag</string>
+    <string name="rules_drag_handle">Drag to reorder</string>
     <string name="editor_edit_cloud_cache">Edit Cloud Cache</string>
     <string name="editor_rule_name">Rule Name</string>
 

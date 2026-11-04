@@ -4,7 +4,10 @@ import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,12 +43,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -191,8 +199,8 @@ fun RulesPageView(
 
     // Drag-to-reorder state
     var draggedConfigId by remember { mutableStateOf<String?>(null) }
-    var draggedOriginalIndex by remember { mutableStateOf(-1) }
     var dragOffsetY by remember { mutableStateOf(0f) }
+    val haptics = LocalHapticFeedback.current
 
     val hazeState = rememberBlurState()
     val blurActive = isBlurEnabled && hazeState != null
@@ -1012,6 +1020,58 @@ fun RulesPageView(
 
                     val isDragged = draggedConfigId == config.id
 
+                    val dragModifier = Modifier.pointerInput(config.id) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            down.consume()
+                            draggedConfigId = config.id
+                            dragOffsetY = 0f
+                            var moved = false
+                            try {
+                                drag(down.id) { change ->
+                                    change.consume()
+                                    dragOffsetY += change.position.y - change.previousPosition.y
+                                    val threshold = itemHeightPx * 0.55f
+
+                                    while (dragOffsetY > threshold) {
+                                        val currentIdx = configs.indexOfFirst { it.id == config.id }
+                                        if (currentIdx < 0 || currentIdx >= configs.lastIndex) {
+                                            dragOffsetY = threshold
+                                            break
+                                        }
+                                        val mover = configs.removeAt(currentIdx)
+                                        configs.add(currentIdx + 1, mover)
+                                        dragOffsetY -= itemHeightPx
+                                        moved = true
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    }
+
+                                    while (dragOffsetY < -threshold) {
+                                        val currentIdx = configs.indexOfFirst { it.id == config.id }
+                                        if (currentIdx <= 0) {
+                                            dragOffsetY = -threshold
+                                            break
+                                        }
+                                        val mover = configs.removeAt(currentIdx)
+                                        configs.add(currentIdx - 1, mover)
+                                        dragOffsetY += itemHeightPx
+                                        moved = true
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    }
+                                }
+                            } finally {
+                                draggedConfigId = null
+                                dragOffsetY = 0f
+                                if (moved) {
+                                    val reordered = configs.mapIndexed { i, c -> c.copy(priority = i) }
+                                    RulesManager.saveAll(context, reordered)
+                                    for (i in configs.indices) { configs[i] = reordered[i] }
+                                    maybeAutoApply()
+                                }
+                            }
+                        }
+                    }
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1022,63 +1082,6 @@ fun RulesPageView(
                                 if (isDragged) {
                                     translationY = dragOffsetY
                                 }
-                            }
-                            .pointerInput(config.id) {
-                                detectDragGesturesAfterLongPress(
-                                    onDragStart = {
-                                        draggedConfigId = config.id
-                                        draggedOriginalIndex = index
-                                        dragOffsetY = 0f
-                                    },
-                                    onDrag = { change, dragAmount ->
-                                        change.consume()
-                                        dragOffsetY += dragAmount.y
-
-                                        // Swap with neighbor when offset crosses a full item height
-                                        val id = draggedConfigId ?: return@detectDragGesturesAfterLongPress
-                                        val currentIdx = configs.indexOfFirst { it.id == id }
-                                        if (currentIdx < 0) return@detectDragGesturesAfterLongPress
-
-                                        val steps = (dragOffsetY / itemHeightPx).toInt()
-                                        if (steps != 0) {
-                                            val targetIdx = (currentIdx + steps).coerceIn(0, configs.size - 1)
-                                            if (targetIdx != currentIdx) {
-                                                val mover = configs[currentIdx]
-                                                configs.removeAt(currentIdx)
-                                                configs.add(targetIdx, mover)
-                                                dragOffsetY -= steps * itemHeightPx
-                                            }
-                                        }
-                                    },
-                                    onDragEnd = {
-                                        val id = draggedConfigId
-                                        val orig = draggedOriginalIndex
-                                        if (id != null && orig >= 0) {
-                                            val fGapSteps = (dragOffsetY / itemHeightPx).toInt()
-                                            if (fGapSteps != 0) {
-                                                val currentIdx = configs.indexOfFirst { it.id == id }
-                                                val targetIdx = (currentIdx + fGapSteps).coerceIn(0, configs.size - 1)
-                                                if (targetIdx != currentIdx) {
-                                                    val mover = configs[currentIdx]
-                                                    configs.removeAt(currentIdx)
-                                                    configs.add(targetIdx, mover)
-                                                }
-                                            }
-                                            val reordered = configs.mapIndexed { i, c -> c.copy(priority = i) }
-                                            RulesManager.saveAll(context, reordered)
-                                            for (i in configs.indices) { configs[i] = reordered[i] }
-                                        }
-                                        draggedConfigId = null
-                                        draggedOriginalIndex = -1
-                                        dragOffsetY = 0f
-                                        maybeAutoApply()
-                                    },
-                                    onDragCancel = {
-                                        draggedConfigId = null
-                                        draggedOriginalIndex = -1
-                                        dragOffsetY = 0f
-                                    },
-                                )
                             },
                         onClick = { actionsTarget = config; showActionsSheet = true },
                         showIndication = true,
@@ -1087,6 +1090,8 @@ fun RulesPageView(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            RuleDragHandle(modifier = dragModifier)
+                            Spacer(Modifier.width(4.dp))
                             BasicComponent(
                                 title = "${index + 1}. ${config.name.ifEmpty { config.url.ifEmpty { stringResource(R.string.rules_local_rule) } }}",
                                 summary = buildString {
@@ -1109,7 +1114,7 @@ fun RulesPageView(
                                 },
                                 modifier = Modifier.weight(1f),
                             )
-                             Switch(
+                            Switch(
                                 checked = config.enabled,
                                 onCheckedChange = { enabled ->
                                     val updated = config.copy(enabled = enabled)
@@ -1127,6 +1132,30 @@ fun RulesPageView(
                 }
 
                 item { Spacer(Modifier.height(12.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RuleDragHandle(modifier: Modifier = Modifier) {
+    val color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+    val label = stringResource(R.string.rules_drag_handle)
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .semantics { contentDescription = label }
+            .then(modifier),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(20.dp)) {
+            val radius = 1.5.dp.toPx()
+            val xs = floatArrayOf(size.width * 0.32f, size.width * 0.68f)
+            val ys = floatArrayOf(size.height * 0.25f, size.height * 0.5f, size.height * 0.75f)
+            for (x in xs) {
+                for (y in ys) {
+                    drawCircle(color = color, radius = radius, center = Offset(x, y))
+                }
             }
         }
     }

@@ -7,6 +7,8 @@
 ### 变更
 
 - **基于脚手架更新至 MiuixGuiTemplate 0.6.0**（`about_based_on` 同步）：液态玻璃底栏按 SukiSU-Ultra 重做——按压即定位、内容宽度自适应（28dp 边距居中、标签至少 76dp）、折射采样 padding 修正圆角硬边、AGSL 交互高光与重力高光量化。
+- **依赖升级至最新稳定版**：AGP 9.5.0、Kotlin 2.4.21、Gradle 9.8.2、Haze 2.1.0、DexKit 2.3.0、org.json 20260814；Haze 迁移到 2.x 的 `hazeBlur` / `HazeBlurStyle` API。
+- **规则列表改为六点手柄拖拽**：仅按住左侧六点手柄拖拽排序，其余区域点击仍打开规则操作弹窗，避免长按整卡误触发拖拽。
 
 ## 3.2.0
 

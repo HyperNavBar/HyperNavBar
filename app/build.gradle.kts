@@ -77,7 +77,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)
-    testImplementation("org.json:json:20240303")
+    testImplementation(libs.json)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -95,6 +95,7 @@ dependencies {
     implementation(libs.miuix.navigation)
     implementation(libs.material.icons.core)
     implementation(libs.haze)
+    implementation(libs.haze.blur)
 }
 
 

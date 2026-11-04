@@ -14,7 +14,7 @@
 
 **HyperNavBar** 是一款小米 HyperOS 导航栏沉浸规则管理应用，通过 Root 权限自定义应用的小白条行为。
 
-> Based on [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.5.4
+> Based on [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.6.0
 
 规则数据由 [HyperNavBar Rules](https://github.com/HyperNavBar/HyperNavBarRules) 仓库维护，欢迎前往贡献。
 
@@ -124,7 +124,7 @@ cd HyperNavBar
 - [HyperLight](https://github.com/KiminonawaResa/HyperLight)
 - [HyperModifier](https://github.com/AritxOnly/HyperModifier) — 手势提示线（小白条）显示控制的实现参考与默认应用规则来源
 
-本项目基于 [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.5.4 脚手架开发，遵循其 Based on 约定。
+本项目基于 [MiuixGuiTemplate](https://github.com/Ianzb/MiuixGuiTemplate) 0.6.0 脚手架开发，遵循其 Based on 约定。
 
 <br>
 

@@ -253,6 +253,7 @@
     <string name="editor_floating_notification_title">应用识别已开启</string>
     <string name="editor_floating_notification_text">点击返回 HyperNavBar</string>
     <string name="editor_drag_hint">长按拖拽排序</string>
+    <string name="rules_drag_handle">拖拽排序</string>
     <string name="editor_edit_cloud_cache">编辑云端缓存</string>
     <string name="editor_rule_name">规则名称</string>
 

@@ -18,3 +18,5 @@ local.properties
 /hook/build
 /.omo
 /release.keystore
+/.analysis/
+/.kotlin/

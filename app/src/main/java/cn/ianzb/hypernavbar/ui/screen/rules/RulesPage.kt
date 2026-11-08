@@ -970,7 +970,7 @@ fun RulesPageView(
                     Card(
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
-                            .padding(bottom = 6.dp)
+                            .padding(bottom = 12.dp)
                     ) {
                         BasicComponent(
                             title = stringResource(R.string.rules_apply_now),
@@ -1000,7 +1000,7 @@ fun RulesPageView(
 
                 // Subscriptions section
                 item {
-                    SmallTitle(text = stringResource(R.string.rules_config_count, configs.size), modifier = Modifier.padding(top = 12.dp))
+                    SmallTitle(text = stringResource(R.string.rules_config_count, configs.size))
                 }
 
                 if (configs.isEmpty()) {

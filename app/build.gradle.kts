@@ -13,8 +13,8 @@ android {
         applicationId = "cn.ianzb.hypernavbar"
         minSdk = 35
         targetSdk = 37
-        versionCode = 31
-        versionName = "3.2.0"
+        versionCode = 32
+        versionName = "3.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -97,6 +97,7 @@ dependencies {
     implementation(libs.haze)
     implementation(libs.haze.blur)
 }
+
 
 
 

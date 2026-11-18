@@ -4,8 +4,6 @@
 package cn.ianzb.hypernavbar.ui.component.animation
 
 // Adapted from Kyant0/AndroidLiquidGlass — https://github.com/Kyant0/AndroidLiquidGlass (Apache 2.0).
-// 同步移植自 SukiSU-Ultra（GPL-3.0）：新增 onDragCancelled，updateValue 改为 UNDISPATCHED 启动，
-// inspectDragGestures 改用 Initial 阶段 + positionChangeIgnoreConsumed（不依赖事件是否被消费）。
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -23,7 +21,7 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.util.fastFirstOrNull
@@ -129,7 +127,7 @@ internal class DampedDragAnimation(
 
     fun updateValue(value: Float) {
         val targetValue = value.coerceIn(valueRange)
-        animationScope.launch(start = CoroutineStart.UNDISPATCHED) {
+        animationScope.launch {
             valueAnimation.animateTo(targetValue, valueAnimationSpec) { updateVelocity() }
         }
     }
@@ -165,18 +163,19 @@ internal suspend fun PointerInputScope.inspectDragGestures(
     onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit,
 ) {
     awaitEachGesture {
-        val down = awaitFirstDown(
-            requireUnconsumed = false,
-            pass = PointerEventPass.Initial,
-        )
-
+        val initialDown = awaitFirstDown(false, PointerEventPass.Initial)
+        val down = awaitFirstDown(false)
         onDragStart(down)
-        onDrag(down, Offset.Zero)
+        onDrag(initialDown, Offset.Zero)
         val upEvent = drag(
-            pointerId = down.id,
-            onDrag = { onDrag(it, it.positionChangeIgnoreConsumed()) },
+            pointerId = initialDown.id,
+            onDrag = { onDrag(it, it.positionChange()) },
         )
-        if (upEvent != null) onDragEnd(upEvent) else onDragCancel()
+        if (upEvent == null) {
+            onDragCancel()
+        } else {
+            onDragEnd(upEvent)
+        }
     }
 }
 
@@ -185,15 +184,12 @@ private suspend inline fun AwaitPointerEventScope.drag(
     onDrag: (PointerInputChange) -> Unit,
 ): PointerInputChange? {
     val isPointerUp = currentEvent.changes.fastFirstOrNull { it.id == pointerId }?.pressed != true
-    if (isPointerUp) {
-        return null
-    }
+    if (isPointerUp) return null
     var pointer = pointerId
     while (true) {
         val change = awaitDragOrUp(pointer) ?: return null
-        if (change.changedToUpIgnoreConsumed()) {
-            return change
-        }
+        if (change.isConsumed) return null
+        if (change.changedToUpIgnoreConsumed()) return change
         onDrag(change)
         pointer = change.id
     }
@@ -204,7 +200,7 @@ private suspend inline fun AwaitPointerEventScope.awaitDragOrUp(
 ): PointerInputChange? {
     var pointer = pointerId
     while (true) {
-        val event = awaitPointerEvent(PointerEventPass.Initial)
+        val event = awaitPointerEvent()
         val dragEvent = event.changes.fastFirstOrNull { it.id == pointer } ?: return null
         if (dragEvent.changedToUpIgnoreConsumed()) {
             val otherDown = event.changes.fastFirstOrNull { it.pressed }
@@ -215,9 +211,7 @@ private suspend inline fun AwaitPointerEventScope.awaitDragOrUp(
             }
         } else {
             val hasDragged = dragEvent.previousPosition != dragEvent.position
-            if (hasDragged) {
-                return dragEvent
-            }
+            if (hasDragged) return dragEvent
         }
     }
 }

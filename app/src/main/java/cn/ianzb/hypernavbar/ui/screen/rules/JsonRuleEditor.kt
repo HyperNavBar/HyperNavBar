@@ -49,6 +49,11 @@ import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.RootHelper
 import cn.ianzb.hypernavbar.hook.gesture.GestureVisibility
 import cn.ianzb.hypernavbar.rules.RuleConverter
+import cn.ianzb.hypernavbar.ui.component.AppDialog
+import cn.ianzb.hypernavbar.ui.component.AppDialogButton
+import cn.ianzb.hypernavbar.ui.component.AppTopBarAction
+import cn.ianzb.hypernavbar.ui.component.SectionTitle
+import cn.ianzb.hypernavbar.ui.util.LocalPreferenceBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -57,28 +62,24 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.ColorPicker
 import top.yukonga.miuix.kmp.basic.ColorSpace
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.SearchBar
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.glass.GlassBottomSheet
+import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 // ── Option definitions ────────────────────────────────────────────────
 private val STYLE_VALUES = listOf("disabled", "floating", "sf", "view", "color", "default")
@@ -406,7 +407,8 @@ fun JsonRuleEditorSheet(
 
 
     // ── Sheet 1: App list (bottom) ────────────────────────────────────
-    WindowBottomSheet(
+    GlassBottomSheet(
+        backdrop = LocalPreferenceBackdrop.current,
         title = stringResource(R.string.editor_title_apps),
         show = showApps,
         onDismissRequest = {
@@ -414,7 +416,7 @@ fun JsonRuleEditorSheet(
             onDismiss()
         },
         startAction = {
-            IconButton(onClick = {
+            AppTopBarAction(glassSurface = true, onClick = {
                 // × button — do NOT propagate to parent
                 onDismiss()
             }) {
@@ -426,7 +428,7 @@ fun JsonRuleEditorSheet(
             }
         },
         endAction = {
-            IconButton(onClick = {
+            AppTopBarAction(glassSurface = true, onClick = {
                 // ✓ button — save formatted JSON and close
                 editingJsonStr = stagingJsonStr
                 onJsonChange(formatNbiJson(editingJsonStr))
@@ -484,8 +486,7 @@ fun JsonRuleEditorSheet(
 
                 Card(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp),
+                        .fillMaxWidth(),
                     onClick = { isEditingRuleName = true },
                     showIndication = true,
                 ) {
@@ -531,9 +532,9 @@ fun JsonRuleEditorSheet(
                 }
             }
             item {
-                SmallTitle(
+                SectionTitle(
                     text = stringResource(R.string.editor_app_list_count, nbiRules.length()),
-                    modifier = Modifier.padding(top = 6.dp),
+                    followsContent = true,
                 )
             }
             item {
@@ -631,7 +632,7 @@ fun JsonRuleEditorSheet(
     }
 
     // ── Add App dialog ─────────────────────────────────────────────────
-    WindowDialog(
+    AppDialog(
         title = stringResource(R.string.editor_add_app),
         show = showAddAppDialog,
         onDismissRequest = { showAddAppDialog = false },
@@ -657,17 +658,17 @@ fun JsonRuleEditorSheet(
                 .padding(top = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            TextButton(
+            AppDialogButton(
                 text = stringResource(R.string.rules_cancel),
                 onClick = { dismissState?.invoke() },
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(20.dp))
-            TextButton(
+            AppDialogButton(
                 text = stringResource(R.string.rules_confirm),
                 onClick = {
                     val pkg = newPkg.trim()
-                    if (pkg.isEmpty()) return@TextButton
+                    if (pkg.isEmpty()) return@AppDialogButton
                     if (!nbiRules.has(pkg)) {
                         val newApp = JSONObject()
                         newApp.put("name", newName.trim())
@@ -680,13 +681,13 @@ fun JsonRuleEditorSheet(
                     dismissState?.invoke()
                 },
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.textButtonColorsPrimary(),
+                primary = true,
             )
         }
     }
 
     // ── Add Activity dialog ────────────────────────────────────────────
-    WindowDialog(
+    AppDialog(
         title = stringResource(R.string.editor_add_activity),
         show = showAddActivityDialog,
         onDismissRequest = { showAddActivityDialog = false },
@@ -705,17 +706,17 @@ fun JsonRuleEditorSheet(
                 .padding(top = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            TextButton(
+            AppDialogButton(
                 text = stringResource(R.string.rules_cancel),
                 onClick = { dismissState?.invoke() },
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(20.dp))
-            TextButton(
+            AppDialogButton(
                 text = stringResource(R.string.rules_confirm),
                 onClick = {
                     val actName = newActName.trim()
-                    if (actName.isEmpty()) return@TextButton
+                    if (actName.isEmpty()) return@AppDialogButton
                     val app = nbiRules.optJSONObject(selectedPackage)
                     val rules = app?.optJSONObject("activityRules")
                         ?: JSONObject().also { app?.put("activityRules", it) }
@@ -728,13 +729,13 @@ fun JsonRuleEditorSheet(
                     dismissState?.invoke()
                 },
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.textButtonColorsPrimary(),
+                primary = true,
             )
         }
     }
 
     // ── Delete confirmation ────────────────────────────────────────────
-    WindowDialog(
+    AppDialog(
         title = stringResource(R.string.editor_confirm_delete),
         summary = stringResource(R.string.editor_confirm_delete_message),
         show = showDeleteConfirm.isNotEmpty(),
@@ -745,13 +746,13 @@ fun JsonRuleEditorSheet(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            TextButton(
+            AppDialogButton(
                 text = stringResource(R.string.rules_cancel),
                 onClick = { dismissState?.invoke() },
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(20.dp))
-            TextButton(
+            AppDialogButton(
                 text = stringResource(R.string.rules_delete),
                 onClick = {
                     val target = showDeleteConfirm
@@ -773,12 +774,13 @@ fun JsonRuleEditorSheet(
                     dismissState?.invoke()
                 },
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.textButtonColorsPrimary(),
+                primary = true,
             )
         }
     }
     // ── Sheet 2: Activity list ────────────────────────────────────────
-    WindowBottomSheet(
+    GlassBottomSheet(
+        backdrop = LocalPreferenceBackdrop.current,
         title = stringResource(R.string.editor_title_activities),
         show = showActivities,
         onDismissRequest = {
@@ -787,7 +789,7 @@ fun JsonRuleEditorSheet(
             showActivities = false
         },
         startAction = {
-            IconButton(onClick = {
+            AppTopBarAction(glassSurface = true, onClick = {
                 searchQuery = ""
                 stagingJsonStr = activitiesBackup
                 showActivities = false
@@ -800,7 +802,7 @@ fun JsonRuleEditorSheet(
             }
         },
         endAction = {
-            IconButton(onClick = {
+            AppTopBarAction(glassSurface = true, onClick = {
                 searchQuery = ""
                 editingJsonStr = stagingJsonStr
                 showActivities = false
@@ -829,9 +831,8 @@ fun JsonRuleEditorSheet(
                 .overScrollVertical(),
         ) {
             item {
-                SmallTitle(
+                SectionTitle(
                     text = selectedPackage,
-                    modifier = Modifier.padding(top = 6.dp),
                 )
             }
             // Search bar
@@ -966,26 +967,21 @@ fun JsonRuleEditorSheet(
                     stringResource(R.string.gesture_mode_auto_hide),
                     stringResource(R.string.gesture_mode_always_hide),
                 )
-                val visibilityItems = visibilityLabels.mapIndexed { i, text ->
-                    DropdownItem(text = text, summary = visibilityValues[i])
-                }
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 6.dp),
                 ) {
-                    WindowDropdownPreference(
+                    GlassDropdownPreference(
+                        backdrop = LocalPreferenceBackdrop.current,
                         title = stringResource(R.string.editor_nav_bar_visibility),
                         summary = stringResource(R.string.editor_nav_bar_visibility_summary),
-                        entry = DropdownEntry(visibilityItems.mapIndexed { i, item ->
-                            item.copy(
-                                selected = i == visibilityValues.indexOf(currentVisibility),
-                                onClick = {
+                        items = visibilityLabels.mapIndexed { index, label -> "$label (${visibilityValues[index]})" },
+                        selectedIndex = visibilityValues.indexOf(currentVisibility),
+                        onSelectedIndexChange = { i ->
                                     appForSelected?.put("navBarVisibility", visibilityValues[i])
                                     saveRoot()
                                 },
-                            )
-                        }),
                     )
                 }
             }
@@ -1096,7 +1092,8 @@ fun JsonRuleEditorSheet(
     }
 
     // ── Sheet 3: Field editor (top) ────────────────────────────────────
-    WindowBottomSheet(
+    GlassBottomSheet(
+        backdrop = LocalPreferenceBackdrop.current,
         title = stringResource(R.string.editor_title_fields),
         show = showFields,
         onDismissRequest = {
@@ -1105,7 +1102,7 @@ fun JsonRuleEditorSheet(
             showFields = false
         },
         startAction = {
-            IconButton(onClick = {
+            AppTopBarAction(glassSurface = true, onClick = {
                 searchQuery = ""
                 stagingJsonStr = fieldBackup
                 showFields = false
@@ -1118,7 +1115,7 @@ fun JsonRuleEditorSheet(
             }
         },
         endAction = {
-            IconButton(onClick = {
+            AppTopBarAction(glassSurface = true, onClick = {
                 searchQuery = ""
                 editingJsonStr = stagingJsonStr
                 showFields = false
@@ -1157,9 +1154,8 @@ fun JsonRuleEditorSheet(
                 .overScrollVertical(),
         ) {
             item {
-                SmallTitle(
+                SectionTitle(
                     text = selectedPackage,
-                    modifier = Modifier.padding(top = 6.dp),
                 )
             }
 
@@ -1248,23 +1244,17 @@ fun JsonRuleEditorSheet(
                     stringResource(R.string.editor_color_custom),     // color
                     stringResource(R.string.editor_mode_auto),        // default
                 )
-                val styleItems = styleLabels.mapIndexed { i, text ->
-                    DropdownItem(text = text, summary = STYLE_VALUES[i])
-                }
                 Card(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp),
+                        .fillMaxWidth(),
                 ) {
-                    WindowDropdownPreference(
+                    GlassDropdownPreference(
+                        backdrop = LocalPreferenceBackdrop.current,
                         title = stringResource(R.string.editor_style_title),
                         summary = stringResource(R.string.editor_style_summary),
-                        entry = DropdownEntry(styleItems.mapIndexed { i, item ->
-                            item.copy(
-                                selected = i == styleIdx,
-                                onClick = { updateActivityField("style", STYLE_VALUES[i]) },
-                            )
-                        }),
+                        items = styleLabels.mapIndexed { index, label -> "$label (${STYLE_VALUES[index]})" },
+                        selectedIndex = styleIdx,
+                        onSelectedIndexChange = { i -> updateActivityField("style", STYLE_VALUES[i]) },
                     )
                 }
             }
@@ -1345,7 +1335,7 @@ fun JsonRuleEditorSheet(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 6.dp),
+                                .padding(top = 6.dp),
                         ) {
                             Column {
                                 // Color preview + hex display
@@ -1453,9 +1443,9 @@ fun JsonRuleEditorSheet(
             // ── 高级设置：dialogMode / popupMode / appNavColorDisabled ──
             item {
                 Column {
-                    SmallTitle(
+                    SectionTitle(
                         text = stringResource(R.string.editor_advanced_settings),
-                        modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
+                        followsContent = true,
                     )
                     // dialogMode spinner
                     val dialogLabels = listOf(
@@ -1463,23 +1453,18 @@ fun JsonRuleEditorSheet(
                         stringResource(R.string.editor_dialog_view_sampling),
                         stringResource(R.string.editor_dialog_sf_sampling),
                     )
-                    val dialogItems = dialogLabels.mapIndexed { i, text ->
-                        DropdownItem(text = text, summary = DIALOG_POPUP_VALUES[i].toString())
-                    }
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 6.dp),
                     ) {
-                        WindowDropdownPreference(
+                        GlassDropdownPreference(
+                            backdrop = LocalPreferenceBackdrop.current,
                             title = stringResource(R.string.editor_dialog_title),
                             summary = stringResource(R.string.editor_dialog_summary),
-                            entry = DropdownEntry(dialogItems.mapIndexed { i, item ->
-                                item.copy(
-                                    selected = i == dialogIdx,
-                                    onClick = { updateActivityField("dialogMode", DIALOG_POPUP_VALUES[i]) },
-                                )
-                            }),
+                            items = dialogLabels.mapIndexed { index, label -> "$label (${DIALOG_POPUP_VALUES[index]})" },
+                            selectedIndex = dialogIdx,
+                            onSelectedIndexChange = { i -> updateActivityField("dialogMode", DIALOG_POPUP_VALUES[i]) },
                         )
                     }
                     // popupMode spinner
@@ -1488,23 +1473,18 @@ fun JsonRuleEditorSheet(
                         stringResource(R.string.editor_dialog_view_sampling),
                         stringResource(R.string.editor_dialog_sf_sampling),
                     )
-                    val popupItems = popupLabels.mapIndexed { i, text ->
-                        DropdownItem(text = text, summary = DIALOG_POPUP_VALUES[i].toString())
-                    }
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 6.dp),
                     ) {
-                        WindowDropdownPreference(
+                        GlassDropdownPreference(
+                            backdrop = LocalPreferenceBackdrop.current,
                             title = stringResource(R.string.editor_popup_title),
                             summary = stringResource(R.string.editor_popup_summary),
-                            entry = DropdownEntry(popupItems.mapIndexed { i, item ->
-                                item.copy(
-                                    selected = i == popupIdx,
-                                    onClick = { updateActivityField("popupMode", DIALOG_POPUP_VALUES[i]) },
-                                )
-                            }),
+                            items = popupLabels.mapIndexed { index, label -> "$label (${DIALOG_POPUP_VALUES[index]})" },
+                            selectedIndex = popupIdx,
+                            onSelectedIndexChange = { i -> updateActivityField("popupMode", DIALOG_POPUP_VALUES[i]) },
                         )
                     }
                     // appNavColorDisabled

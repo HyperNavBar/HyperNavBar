@@ -6,35 +6,37 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.captionBar
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import dev.chrisbanes.haze.HazeInput
-import dev.chrisbanes.haze.HazeProgressive
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.HazeColorEffect
-import dev.chrisbanes.haze.blur.hazeBlur
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -47,58 +49,12 @@ val LocalIsWideScreen: ProvidableCompositionLocal<Boolean> = staticCompositionLo
 val LocalSubPageScrollBehavior: ProvidableCompositionLocal<ScrollBehavior?> =
     staticCompositionLocalOf { null }
 
-/**
- * 顶栏渐进模糊（Progressive Blur）统一参数。
- *
- * 所有页面的顶栏模糊都从这里读取，修改后重新编译即可全局生效。
- */
-object TopBarBlurConfig {
-    /** 模糊半径（dp），模糊最强处的强度 */
-    const val BlurRadius: Float = 15f
-
-    /** 顶栏 surface 着色叠加在模糊之上的透明度（0~1），越大栏越实 */
-    const val SurfaceAlpha: Float = 0.3f
-
-    /**
-     * 顶部保持满强度模糊的比例（0~1）。
-     *
-     * 该比例之上为满强度模糊，其下线性渐隐到底边。这样内容在整个顶栏内都被充分模糊，
-     * 只在底边平滑过渡到清晰，而不会在顶栏下半部分留下清晰内容。
-     */
-    const val FullStrengthFraction: Float = 0.55f
-
-    /**
-     * 滚动渐显距离（dp）：内容下滑该距离内，模糊从透明渐显到完整。
-     * 0 = 顶栏常驻完整模糊（推荐，各页面顶部即可见模糊）。
-     */
-    val ScrollFadeDistance: Dp = 0.dp
-
-    /** 顶部满强度模糊 → 底边渐隐的渐进遮罩。 */
-    val progressive: HazeProgressive = HazeProgressive.Brush(
-        Brush.verticalGradient(
-            0f to Color.Black,
-            FullStrengthFraction to Color.Black,
-            1f to Color.Black.copy(alpha = 0f),
-        )
-    )
+class SubPageScrollGate {
+    var contentScrollable by mutableStateOf(false)
 }
 
-/**
- * 创建顶栏模糊所需的 [HazeState]；设备不支持运行时着色器时返回 null（不启用模糊）。
- */
-@Composable
-fun rememberBlurState(): HazeState? {
-    val supported = isRuntimeShaderSupported() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    return if (supported) rememberHazeState() else null
-}
+val LocalSubPageScrollGate = staticCompositionLocalOf<SubPageScrollGate?> { null }
 
-/** 把内容节点登记为 Haze 的模糊来源（[state] 为 null 时不登记）。 */
-fun Modifier.blurSource(state: HazeState?): Modifier =
-    if (state != null) this.hazeSource(state) else this
-
-/**
- * Miuix [LayerBackdrop]（用于底栏 / 动态背景等非顶栏模糊，与 Haze 顶栏模糊并存）。
- */
 @Composable
 fun rememberBlurBackdrop(): LayerBackdrop? {
     if (!isRuntimeShaderSupported() || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
@@ -119,67 +75,29 @@ fun isInDarkTheme(): Boolean {
 }
 
 @Composable
-fun BlurredBar(
-    state: HazeState?,
-    blurEnabled: Boolean,
-    scrollBehavior: ScrollBehavior? = null,
-    content: @Composable () -> Unit,
-) {
-    val hazeState = state?.takeIf { blurEnabled }
-    val scrollFadePx = with(LocalDensity.current) { TopBarBlurConfig.ScrollFadeDistance.toPx() }
-    val surfaceColor = MiuixTheme.colorScheme.surface
-    // Haze 2 的 Style 按引用比较，必须在组合中缓存，否则每帧都会重建渲染节点。
-    val blurStyle = remember(surfaceColor) {
-        HazeBlurStyle {
-            blurRadius(TopBarBlurConfig.BlurRadius.dp)
-            // 关键：模糊层必须不透明。Haze 会先原样绘制一遍来源内容，再叠加模糊副本；
-            // 若模糊层透明，卡片等硬边缘会从模糊层中透出，看起来像「组件盖在模糊之上」。
-            backgroundColor(surfaceColor)
-            noiseFactor(0f)
-            // surface 着色叠加在模糊之上，控制顶栏实度。
-            colorEffects(
-                listOf(
-                    HazeColorEffect.tint(
-                        surfaceColor.copy(alpha = TopBarBlurConfig.SurfaceAlpha)
-                    )
-                )
-            )
-            progressive(TopBarBlurConfig.progressive)
-        }
-    }
-    Box {
-        if (hazeState != null) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .then(
-                        if (scrollFadePx > 0f) {
-                            Modifier.graphicsLayer {
-                                alpha = scrollBehavior?.state
-                                    ?.let { (-it.contentOffset / scrollFadePx).coerceIn(0f, 1f) }
-                                    ?: 1f
-                            }
-                        } else {
-                            Modifier
-                        }
-                    )
-                    .hazeBlur(
-                        input = HazeInput.Sources(hazeState),
-                        style = blurStyle,
-                    ),
-            )
-        }
-        content()
-    }
-}
-
 fun Modifier.pageScrollModifiers(
     showTopAppBar: Boolean,
     topAppBarScrollBehavior: ScrollBehavior,
-): Modifier = this
-    .scrollEndHaptic()
-    .overScrollVertical()
-    .then(if (showTopAppBar) Modifier.nestedScroll(topAppBarScrollBehavior.nestedScrollConnection) else Modifier)
+    contentState: LazyListState? = null,
+): Modifier {
+    val gate = LocalSubPageScrollGate.current
+    if (gate != null && contentState != null) {
+        LaunchedEffect(gate, contentState) {
+            snapshotFlow { contentState.canScrollForward || contentState.canScrollBackward }
+                .collect { gate.contentScrollable = it }
+        }
+    }
+    val state = topAppBarScrollBehavior.state
+    val onOffsetChanged: (Float) -> Unit = remember(state, gate) {
+        { offset ->
+            state.overscrollOffset = offset
+            if (gate != null && !gate.contentScrollable) state.heightOffset = offset
+        }
+    }
+    return scrollEndHaptic()
+        .overScrollVertical(onOffsetChanged = if (showTopAppBar) onOffsetChanged else null)
+        .then(if (showTopAppBar) Modifier.nestedScroll(topAppBarScrollBehavior.nestedScrollConnection) else Modifier)
+}
 
 @Composable
 fun pageContentPadding(
@@ -221,15 +139,6 @@ fun shouldShowSplitPane(): Boolean {
     }
 }
 
-@Composable
-fun shouldExpandNavigationRail(): Boolean {
-    val windowInfo = LocalWindowInfo.current
-    val density = LocalDensity.current
-    return with(density) {
-        windowInfo.containerSize.width.toDp() >= 1200.dp
-    }
-}
-
 object ColorBlendToken {
     val Pured_Regular_Light = listOf(
         BlendColorEntry(Color(0x340034F9), BlurBlendMode.Overlay),
@@ -239,4 +148,35 @@ object ColorBlendToken {
         BlendColorEntry(Color(0x4DA9A9A9), BlurBlendMode.Luminosity),
         BlendColorEntry(Color(0x1A9C9C9C), BlurBlendMode.PlusDarker),
     )
+}
+
+val LocalPreferenceBackdrop = staticCompositionLocalOf<LayerBackdrop?> { null }
+
+
+val LocalAppPageStartInset = staticCompositionLocalOf<State<Dp>> { mutableStateOf(0.dp) }
+
+@Composable
+fun Modifier.pageStartInset(): Modifier {
+    val inset = LocalAppPageStartInset.current
+    return layout { measurable, constraints ->
+        val start = inset.value.roundToPx().coerceIn(0, constraints.maxWidth)
+        val placeable = measurable.measure(
+            Constraints(
+                minWidth = (constraints.minWidth - start).coerceAtLeast(0),
+                maxWidth = if (constraints.hasBoundedWidth) constraints.maxWidth - start else Constraints.Infinity,
+                minHeight = constraints.minHeight,
+                maxHeight = constraints.maxHeight,
+            ),
+        )
+        layout(placeable.width + start, placeable.height) { placeable.placeRelative(start, 0) }
+    }
+}
+
+@Composable
+fun PageBackdrop(backdrop: LayerBackdrop?, content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalPreferenceBackdrop provides backdrop) {
+        Box(Modifier.fillMaxSize().then(if (backdrop == null) Modifier else Modifier.layerBackdrop(backdrop))) {
+            content()
+        }
+    }
 }

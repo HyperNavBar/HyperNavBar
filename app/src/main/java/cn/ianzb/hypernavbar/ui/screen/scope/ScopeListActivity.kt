@@ -1,5 +1,6 @@
 package cn.ianzb.hypernavbar.ui.screen.scope
 
+import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.prefs.HookBlacklist
+import cn.ianzb.hypernavbar.ui.component.SectionTitle
 import cn.ianzb.hypernavbar.ui.component.SystemRestartConfirmDialog
 import cn.ianzb.hypernavbar.ui.screen.subpage.BaseSubPageActivity
 import cn.ianzb.hypernavbar.ui.util.LocalSubPageScrollBehavior
@@ -33,7 +36,6 @@ import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import cn.ianzb.hypernavbar.xposed.AppRestarter
 import cn.ianzb.hypernavbar.xposed.SafeModeReader
 import cn.ianzb.hypernavbar.xposed.XposedServiceManager
-import android.content.pm.PackageManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -44,7 +46,6 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InputField
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.time.Duration.Companion.milliseconds
@@ -102,7 +103,9 @@ class ScopeListActivity : BaseSubPageActivity() {
             filterPackages((blacklist - scope.toSet()).toList().sorted(), query, packageManager)
         }
 
+        val listState = rememberLazyListState()
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .then(
@@ -110,6 +113,7 @@ class ScopeListActivity : BaseSubPageActivity() {
                         Modifier.pageScrollModifiers(
                             showTopAppBar = true,
                             topAppBarScrollBehavior = scrollBehavior,
+                            contentState = listState,
                         )
                     } else {
                         Modifier
@@ -307,7 +311,7 @@ class ScopeListActivity : BaseSubPageActivity() {
 
             if (filteredExcluded.isNotEmpty()) {
                 item {
-                    SmallTitle(text = stringResource(R.string.scope_excluded_title))
+                    SectionTitle(text = stringResource(R.string.scope_excluded_title), followsContent = true)
                 }
                 items(filteredExcluded, key = { "excluded:$it" }) { pkg ->
                     val pm = context.packageManager
@@ -318,7 +322,7 @@ class ScopeListActivity : BaseSubPageActivity() {
                     Card(
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
-                            .padding(top = 12.dp)
+                            .padding(top = if (pkg == filteredExcluded.first()) 0.dp else 12.dp)
                     ) {
                         BasicComponent(
                             title = name,

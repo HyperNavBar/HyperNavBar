@@ -1,6 +1,5 @@
 package cn.ianzb.hypernavbar.ui.screen.about
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -17,12 +16,11 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -30,19 +28,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
-import cn.ianzb.hypernavbar.ui.util.BlurredBar
-import cn.ianzb.hypernavbar.ui.util.blurSource
+import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
+import cn.ianzb.hypernavbar.ui.component.SectionTitle
+import cn.ianzb.hypernavbar.ui.util.PageBackdrop
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.rememberBlurState
+import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
@@ -66,7 +59,7 @@ private val licenseSections: List<LicenseSection> = listOf(
     LicenseSection(
         titleRes = R.string.licenses_section_core,
         libraries = listOf(
-            LibraryInfo("Kotlin", "2.4.20", "Apache-2.0", "https://kotlinlang.org/"),
+            LibraryInfo("Kotlin", "2.4.21", "Apache-2.0", "https://kotlinlang.org/"),
             LibraryInfo(
                 "Kotlin Coroutines",
                 "-",
@@ -80,7 +73,7 @@ private val licenseSections: List<LicenseSection> = listOf(
         libraries = listOf(
             LibraryInfo(
                 "Miuix (compose-miuix-ui)",
-                "0.9.4",
+                "0.9.5-beta01",
                 "Apache-2.0",
                 "https://github.com/compose-miuix-ui/miuix",
             ),
@@ -103,10 +96,10 @@ private val licenseSections: List<LicenseSection> = listOf(
                 "https://developer.android.com/jetpack/androidx/compose/material-icons",
             ),
             LibraryInfo(
-                "Haze",
-                "1.7.3",
+                "Miuix iOS liquid glass example",
+                "-",
                 "Apache-2.0",
-                "https://github.com/chrisbanes/haze",
+                "https://github.com/compose-miuix-ui/miuix/tree/main/example/shared/src/commonMain/kotlin/component/liquid",
             ),
         ),
     ),
@@ -193,32 +186,19 @@ fun LicensePageContent(
     isBlurEnabled: Boolean = true,
 ) {
     val topAppBarScrollBehavior = MiuixScrollBehavior()
-    val hazeState = rememberBlurState()
-    val blurActive = isBlurEnabled && hazeState != null
+    val pageBackdrop = if (isBlurEnabled) rememberBlurBackdrop() else null
+    val blurActive = pageBackdrop != null
     val barColor = if (blurActive) Color.Transparent else colorScheme.surface
 
     Scaffold(
         topBar = {
-            BlurredBar(hazeState, blurActive, topAppBarScrollBehavior) {
-                TopAppBar(
-                    title = stringResource(R.string.third_party_licenses_title),
-                    color = barColor,
-                    scrollBehavior = topAppBarScrollBehavior,
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            val layoutDirection = LocalLayoutDirection.current
-                            Icon(
-                                modifier = Modifier.graphicsLayer {
-                                    if (layoutDirection == LayoutDirection.Rtl) scaleX = -1f
-                                },
-                                imageVector = MiuixIcons.Back,
-                                contentDescription = stringResource(R.string.action_back),
-                                tint = colorScheme.onBackground,
-                            )
-                        }
-                    },
-                )
-            }
+            AppTopAppBar(
+                title = stringResource(R.string.third_party_licenses_title),
+                color = barColor,
+                backdrop = pageBackdrop,
+                scrollBehavior = topAppBarScrollBehavior,
+                onBack = onBack,
+            )
         },
         popupHost = { },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
@@ -234,9 +214,7 @@ fun LicensePageContent(
             end = innerPadding.calculateEndPadding(layoutDirection) + cutoutPadding.calculateRightPadding(LayoutDirection.Ltr),
         )
 
-        Box(
-            modifier = Modifier.blurSource(if (isBlurEnabled) hazeState else null)
-        ) {
+        PageBackdrop(pageBackdrop) {
             LazyColumn(
                 state = lazyListState,
                 modifier = Modifier
@@ -262,22 +240,22 @@ fun LicensePageContent(
                         textAlign = TextAlign.Start,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 28.dp, vertical = 12.dp),
+                            .padding(start = 28.dp, end = 28.dp, top = 12.dp),
                     )
                 }
 
                 licenseSections.forEach { section ->
                     item(key = "section_${section.titleRes}") {
-                        SmallTitle(text = stringResource(section.titleRes))
+                        SectionTitle(text = stringResource(section.titleRes), followsContent = true)
                     }
-                    items(
+                    itemsIndexed(
                         items = section.libraries,
-                        key = { "${section.titleRes}_${it.name}" },
-                    ) { library ->
+                        key = { _, library -> "${section.titleRes}_${library.name}" },
+                    ) { index, library ->
                         Card(
                             modifier = Modifier
                                 .padding(horizontal = 12.dp)
-                                .padding(bottom = 12.dp)
+                                .padding(bottom = if (index == section.libraries.lastIndex) 0.dp else 12.dp)
                         ) {
                             ArrowPreference(
                                 title = library.name,

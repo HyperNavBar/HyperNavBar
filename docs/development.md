@@ -26,9 +26,9 @@
 
 <br>
 
-## 3. 功能页顶部提示区（`HookOptionsPage.topContent`）
+## 3. 功能页提示与搜索
 
-`topContent` 渲染在搜索栏**上方**、搜索展开时隐藏，用于放置系统版本要求等说明卡片；为空则不显示（参见功能页的 `FeatureNotice`）。
+`topContent` 是分区列表上方的提示区，用于放置系统版本要求等说明卡片（参见 `FeatureNotice`）。搜索从功能页顶栏，或悬浮玻璃底栏的搜索按钮打开，结果点击后定位到分区或打开子页面。
 
 <br>
 
@@ -58,3 +58,13 @@
 ## 6. 跨进程配置读取（`HookPrefs.registerListener`）
 
 Hook 侧 `HookPrefs` 提供 `registerListener(onChange)`，用于需要「改配置即时生效」的功能。宿主 / 框架不支持偏好变化监听时会**静默忽略**，此时功能退化为目标进程重启后生效——因此**不要把它当作唯一生效路径**，仍要在使用点按当前配置读取（或 `init()` 时）套用一次。
+
+## 7. HyperOS 4 玻璃组件
+
+顶栏统一走 `AppTopAppBar`。页面采样层仅记录顶栏下方的内容。下拉、对话框和底部弹层使用 miuix Glass 组件，从 `LocalPreferenceBackdrop` 读取背景并在根 Scaffold 的弹层宿主渲染。关闭背景模糊时传入空背景，由组件渲染实色材质。
+
+新增顶栏动作使用 `AppTopBarAction`，文本对话框动作使用 `AppDialogButton`。项目通过 Android SDK 37.2 编译以兼容 miuix 0.9.5-beta01。
+
+## 8. 卡片分组标题
+
+常规分组标题使用 `SectionTitle`。位于页面顶部的标题沿用 miuix 内边距，接在上一张卡片或说明后的标题传入 `followsContent = true`，由组件统一增加 12 dp 的组间留白。相邻分组之间的卡片无需另加底部间距。

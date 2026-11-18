@@ -1,6 +1,5 @@
 package cn.ianzb.hypernavbar.ui.component
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -10,21 +9,16 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
-import cn.ianzb.hypernavbar.R
-import cn.ianzb.hypernavbar.ui.util.BlurredBar
+import cn.ianzb.hypernavbar.ui.util.LocalPreferenceBackdrop
 import cn.ianzb.hypernavbar.ui.util.LocalSubPageScrollBehavior
-import cn.ianzb.hypernavbar.ui.util.blurSource
-import cn.ianzb.hypernavbar.ui.util.rememberBlurState
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
+import cn.ianzb.hypernavbar.ui.util.LocalSubPageScrollGate
+import cn.ianzb.hypernavbar.ui.util.PageBackdrop
+import cn.ianzb.hypernavbar.ui.util.SubPageScrollGate
+import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -40,39 +34,33 @@ fun SubPageScaffold(
     topBarActions: (@Composable () -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
-    val scrollBehavior = MiuixScrollBehavior()
-    val hazeState = rememberBlurState()
-    val blurActive = isBlurEnabled && hazeState != null
+    val scrollGate = remember { SubPageScrollGate() }
+    val scrollBehavior = MiuixScrollBehavior(canScroll = { scrollGate.contentScrollable })
+    val pageBackdrop = if (isBlurEnabled) rememberBlurBackdrop() else null
+    val blurActive = pageBackdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     Scaffold(
         topBar = {
-            BlurredBar(hazeState, blurActive, scrollBehavior) {
-                TopAppBar(
-                    title = title,
-                    color = barColor,
-                    scrollBehavior = scrollBehavior,
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                imageVector = MiuixIcons.Back,
-                                contentDescription = stringResource(R.string.action_back),
-                                tint = MiuixTheme.colorScheme.onBackground,
-                            )
-                        }
-                    },
-                    actions = {
-                        topBarActions?.invoke()
-                    },
-                )
-            }
+            AppTopAppBar(
+                title = title,
+                color = barColor,
+                backdrop = pageBackdrop,
+                scrollBehavior = scrollBehavior,
+                onBack = onBack,
+                actions = {
+                    topBarActions?.invoke()
+                },
+            )
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
-        Box(
-            modifier = Modifier.blurSource(if (isBlurEnabled) hazeState else null)
-        ) {
-            CompositionLocalProvider(LocalSubPageScrollBehavior provides scrollBehavior) {
+        PageBackdrop(pageBackdrop) {
+            CompositionLocalProvider(
+                LocalSubPageScrollBehavior provides scrollBehavior,
+                LocalSubPageScrollGate provides scrollGate,
+                LocalPreferenceBackdrop provides pageBackdrop,
+            ) {
                 content(innerPadding)
             }
         }

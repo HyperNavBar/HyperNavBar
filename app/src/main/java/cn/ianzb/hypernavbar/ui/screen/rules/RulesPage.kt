@@ -71,10 +71,15 @@ import cn.ianzb.hypernavbar.rules.RuleFetcher
 import cn.ianzb.hypernavbar.rules.RuleMountStrategy
 import cn.ianzb.hypernavbar.rules.RuleType
 import cn.ianzb.hypernavbar.rules.RulesManager
-import cn.ianzb.hypernavbar.ui.util.BlurredBar
-import cn.ianzb.hypernavbar.ui.util.blurSource
+import cn.ianzb.hypernavbar.ui.component.AppDialog
+import cn.ianzb.hypernavbar.ui.component.AppDialogButton
+import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
+import cn.ianzb.hypernavbar.ui.component.AppTopBarAction
+import cn.ianzb.hypernavbar.ui.component.SectionTitle
+import cn.ianzb.hypernavbar.ui.util.PageBackdrop
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.rememberBlurState
+import cn.ianzb.hypernavbar.ui.util.pageStartInset
+import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
 import cn.ianzb.hypernavbar.xposed.XposedServiceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -86,27 +91,23 @@ import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.glass.GlassBottomSheet
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Add
-import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.icon.glass.Add
+import top.yukonga.miuix.kmp.icon.glass.Backup
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
-import top.yukonga.miuix.kmp.window.WindowDialog
 import kotlin.time.Duration.Companion.milliseconds
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
@@ -202,8 +203,8 @@ fun RulesPageView(
     var dragOffsetY by remember { mutableStateOf(0f) }
     val haptics = LocalHapticFeedback.current
 
-    val hazeState = rememberBlurState()
-    val blurActive = isBlurEnabled && hazeState != null
+    val pageBackdrop = if (isBlurEnabled) rememberBlurBackdrop() else null
+    val blurActive = pageBackdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     fun reloadConfigs() {
@@ -641,44 +642,45 @@ fun RulesPageView(
 
     Scaffold(
         topBar = {
-            BlurredBar(hazeState, blurActive, scrollBehavior) {
-                TopAppBar(
-                    title = title,
-                    color = barColor,
-                    scrollBehavior = scrollBehavior,
-                    actions = {
-                        IconButton(onClick = { showPresetSheet = true }) {
-                            Icon(
-                                imageVector = MiuixIcons.Backup,
-                                contentDescription = stringResource(R.string.rules_preset),
-                                tint = MiuixTheme.colorScheme.onSurface
-                            )
-                        }
-                        IconButton(onClick = {
-                            resetAddState()
-                            showAddSheet = true
-                        }) {
-                            Icon(
-                                imageVector = MiuixIcons.Add,
-                                contentDescription = stringResource(R.string.rules_add),
-                                tint = MiuixTheme.colorScheme.onSurface
+            AppTopAppBar(
+                title = title,
+                color = barColor,
+                backdrop = pageBackdrop,
+                scrollBehavior = scrollBehavior,
+                actions = {
+                    AppTopBarAction(onClick = { showPresetSheet = true }) {
+                        Icon(
+                            imageVector = MiuixIcons.Glass.Backup,
+                            contentDescription = stringResource(R.string.rules_preset),
+                            tint = MiuixTheme.colorScheme.onSurface
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    AppTopBarAction(onClick = {
+                        resetAddState()
+                        showAddSheet = true
+                    }) {
+                        Icon(
+                            imageVector = MiuixIcons.Glass.Add,
+                            contentDescription = stringResource(R.string.rules_add),
+                            tint = MiuixTheme.colorScheme.onSurface
 
-                            )
-                        }
-                    },
-                )
-            }
+                        )
+                    }
+                },
+            )
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
 
         // Preset sources sheet
-        WindowBottomSheet(
+        GlassBottomSheet(
+            backdrop = pageBackdrop,
             title = stringResource(R.string.rules_preset),
             show = showPresetSheet,
             onDismissRequest = { showPresetSheet = false },
             startAction = {
-                IconButton(onClick = { showPresetSheet = false }) {
+                AppTopBarAction(glassSurface = true, onClick = { showPresetSheet = false }) {
                     Icon(MiuixIcons.Close, stringResource(R.string.rules_cancel), tint = MiuixTheme.colorScheme.onBackground)
                 }
             },
@@ -730,17 +732,19 @@ fun RulesPageView(
         }
 
         // Add subscription sheet
-        WindowBottomSheet(
+        GlassBottomSheet(
+            backdrop = pageBackdrop,
             title = stringResource(R.string.rules_add),
             show = showAddSheet,
             onDismissRequest = { resetAddState() },
             startAction = {
-                IconButton(onClick = { resetAddState() }) {
+                AppTopBarAction(glassSurface = true, onClick = { resetAddState() }) {
                     Icon(MiuixIcons.Close, stringResource(R.string.rules_cancel), tint = MiuixTheme.colorScheme.onBackground)
                 }
             },
             endAction = {
-                IconButton(
+                AppTopBarAction(
+                    glassSurface = true,
                     onClick = { addConfig() },
                     enabled = !isSaving
                 ) {
@@ -790,17 +794,19 @@ fun RulesPageView(
         }
 
         // Edit subscription sheet
-        WindowBottomSheet(
+        GlassBottomSheet(
+            backdrop = pageBackdrop,
             title = stringResource(R.string.rules_edit),
             show = showEditSheet,
             onDismissRequest = { resetEditState() },
             startAction = {
-                IconButton(onClick = { resetEditState() }) {
+                AppTopBarAction(glassSurface = true, onClick = { resetEditState() }) {
                     Icon(MiuixIcons.Close, stringResource(R.string.rules_cancel), tint = MiuixTheme.colorScheme.onBackground)
                 }
             },
             endAction = {
-                IconButton(
+                AppTopBarAction(
+                    glassSurface = true,
                     onClick = { editConfig() },
                     enabled = !isSaving
                 ) {
@@ -855,33 +861,35 @@ fun RulesPageView(
         }
 
         // Delete confirmation dialog
-        WindowDialog(
+        AppDialog(
             title = stringResource(R.string.rules_delete),
             summary = stringResource(R.string.rules_delete_confirm),
             show = showDeleteDialog != null,
             onDismissRequest = { showDeleteDialog = null }
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(text = stringResource(R.string.rules_cancel), onClick = { showDeleteDialog = null }, modifier = Modifier.weight(1f))
+                AppDialogButton(text = stringResource(R.string.rules_cancel), onClick = { showDeleteDialog = null }, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(12.dp))
-                TextButton(text = stringResource(R.string.rules_confirm), onClick = { showDeleteDialog?.let { deleteConfig(it) } }, modifier = Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
+                AppDialogButton(text = stringResource(R.string.rules_confirm), onClick = { showDeleteDialog?.let { deleteConfig(it) } }, modifier = Modifier.weight(1f), destructive = true)
             }
         }
 
         // Actions sheet (edit/move/delete/refresh)
-        WindowBottomSheet(
+        GlassBottomSheet(
+            backdrop = pageBackdrop,
             title = actionsTarget?.name?.ifEmpty { actionsTarget?.url?.ifEmpty { stringResource(R.string.rules_local_rule) } } ?: "",
             show = showActionsSheet,
             onDismissRequest = { showActionsSheet = false },
             startAction = {
-                IconButton(onClick = { showActionsSheet = false }) {
+                AppTopBarAction(glassSurface = true, onClick = { showActionsSheet = false }) {
                     Icon(MiuixIcons.Close, stringResource(R.string.rules_cancel), tint = MiuixTheme.colorScheme.onBackground)
                 }
             },
             endAction = {
                 val cfg = actionsTarget
                 if (cfg?.type == RuleType.CLOUD) {
-                    IconButton(
+                    AppTopBarAction(
+                        glassSurface = true,
                         onClick = {
                             scope.launch {
                                 updatingIds = updatingIds + cfg.id
@@ -954,10 +962,11 @@ fun RulesPageView(
         )
 
         // Main content
-        Box(modifier = Modifier.blurSource(if (isBlurEnabled) hazeState else null)) {
+        PageBackdrop(pageBackdrop) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    .pageStartInset()
                     .pageScrollModifiers(showTopAppBar = true, topAppBarScrollBehavior = scrollBehavior),
                 contentPadding = PaddingValues(
                     top = innerPadding.calculateTopPadding(),
@@ -966,11 +975,10 @@ fun RulesPageView(
             ) {
                 // Apply section - always at top
                 item {
-                    SmallTitle(text = stringResource(R.string.rules_apply), modifier = Modifier.padding(top = 6.dp))
+                    SectionTitle(text = stringResource(R.string.rules_apply))
                     Card(
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
-                            .padding(bottom = 12.dp)
                     ) {
                         BasicComponent(
                             title = stringResource(R.string.rules_apply_now),
@@ -1000,7 +1008,7 @@ fun RulesPageView(
 
                 // Subscriptions section
                 item {
-                    SmallTitle(text = stringResource(R.string.rules_config_count, configs.size))
+                    SectionTitle(text = stringResource(R.string.rules_config_count, configs.size), followsContent = true)
                 }
 
                 if (configs.isEmpty()) {

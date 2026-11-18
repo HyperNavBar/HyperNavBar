@@ -6,11 +6,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -39,42 +35,49 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.AppSettings
+import cn.ianzb.hypernavbar.BottomBarStyle
 import cn.ianzb.hypernavbar.LocaleHelper
 import cn.ianzb.hypernavbar.R
+import cn.ianzb.hypernavbar.RailStyle
 import cn.ianzb.hypernavbar.UpdateChecker
+import cn.ianzb.hypernavbar.hook.device.DeviceContext
+import cn.ianzb.hypernavbar.prefs.ConfigBackup
+import cn.ianzb.hypernavbar.prefs.ConfigState
+import cn.ianzb.hypernavbar.prefs.OptionRegistry
+import cn.ianzb.hypernavbar.prefs.OptionType
+import cn.ianzb.hypernavbar.ui.component.AppDialog
+import cn.ianzb.hypernavbar.ui.component.AppDialogButton
+import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
+import cn.ianzb.hypernavbar.ui.component.CurrentChangelogDialog
+import cn.ianzb.hypernavbar.ui.component.SectionTitle
 import cn.ianzb.hypernavbar.ui.screen.rules.FloatingIdentifyService
 import cn.ianzb.hypernavbar.ui.screen.rules.ScreenColorPickerService
-import cn.ianzb.hypernavbar.ui.util.BlurredBar
-import cn.ianzb.hypernavbar.ui.util.blurSource
+import cn.ianzb.hypernavbar.ui.util.LocalPreferenceBackdrop
+import cn.ianzb.hypernavbar.ui.util.PageBackdrop
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.rememberBlurState
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import cn.ianzb.hypernavbar.ui.util.pageStartInset
+import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
+import org.json.JSONObject
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 @Composable
 fun SettingsPageView(
     currentMode: ColorSchemeMode,
     onModeChange: (ColorSchemeMode) -> Unit,
-    isFloatingNavbar: Boolean,
-    onFloatingNavbarChange: (Boolean) -> Unit,
-    isLiquidGlass: Boolean,
-    onLiquidGlassChange: (Boolean) -> Unit,
+    bottomBarStyle: BottomBarStyle,
+    railStyle: RailStyle,
+    onBottomBarChange: (BottomBarStyle) -> Unit,
+    onRailStyleChange: (RailStyle) -> Unit,
     isBlurEnabled: Boolean,
     onBlurEnabledChange: (Boolean) -> Unit,
     applyIntervalMinutes: Int,
@@ -94,8 +97,8 @@ fun SettingsPageView(
     val scrollBehavior = MiuixScrollBehavior()
     val title = stringResource(R.string.tab_settings)
 
-    val hazeState = rememberBlurState()
-    val blurActive = isBlurEnabled && hazeState != null
+    val pageBackdrop = if (isBlurEnabled) rememberBlurBackdrop() else null
+    val blurActive = pageBackdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     var showIntervalDialog by remember { mutableStateOf(false) }
@@ -109,9 +112,10 @@ fun SettingsPageView(
                 val settings = AppSettings.load(context)
                 val rulesConfigs = cn.ianzb.hypernavbar.rules.RulesManager.loadAll(context)
                 val configsArr = cn.ianzb.hypernavbar.rules.RulesManager.exportJson(rulesConfigs)
-                val json = settings.copy(rulesConfigsJson = configsArr.toString()).toJson()
-                context.contentResolver.openOutputStream(it)?.use { output ->
-                    output.write(json.toByteArray())
+                val json = JSONObject(settings.copy(rulesConfigsJson = configsArr.toString()).toJson())
+                json.put("moduleOptions", JSONObject(ConfigBackup.exportJson(moduleOptionTypes().keys)))
+                requireNotNull(context.contentResolver.openOutputStream(it)).use { output ->
+                    output.write(json.toString(2).toByteArray(Charsets.UTF_8))
                 }
                 Toast.makeText(context, context.getString(R.string.export_success), Toast.LENGTH_SHORT).show()
             } catch (_: Exception) {
@@ -125,12 +129,21 @@ fun SettingsPageView(
     ) { uri: Uri? ->
         uri?.let {
             try {
-                val inputStream = context.contentResolver.openInputStream(it)
-                val reader = BufferedReader(InputStreamReader(inputStream))
-                val json = reader.readText()
-                reader.close()
-                inputStream?.close()
+                val json = requireNotNull(context.contentResolver.openInputStream(it))
+                    .bufferedReader().use { reader -> reader.readText() }
+                val backup = JSONObject(json)
+                val moduleValues = backup.optJSONObject("moduleOptions")
+                val values = moduleOptionTypes().mapNotNull { (key, type) ->
+                    val raw = moduleValues?.opt(key)
+                    val value = when (type) {
+                        OptionType.SWITCH, OptionType.CHECKBOX -> raw as? Boolean
+                        OptionType.SLIDER -> (raw as? Number)?.toFloat()?.takeIf { it.isFinite() }
+                        else -> raw as? String
+                    }
+                    if (value != null) key to value else null
+                }
                 AppSettings.importFromJson(context, json)
+                values.forEach { (key, value) -> ConfigState.set(key, value) }
                 Toast.makeText(context, context.getString(R.string.import_success), Toast.LENGTH_SHORT).show()
                 activity?.recreate()
             } catch (_: Exception) {
@@ -140,7 +153,10 @@ fun SettingsPageView(
     }
 
     // Interval dialog
-    WindowDialog(
+    var showChangelog by remember { mutableStateOf(false) }
+    if (showChangelog) CurrentChangelogDialog(onDismiss = { showChangelog = false })
+
+    AppDialog(
         show = showIntervalDialog,
         title = stringResource(R.string.rules_apply_interval),
         summary = stringResource(R.string.rules_apply_interval_summary),
@@ -158,20 +174,20 @@ fun SettingsPageView(
                 modifier = Modifier.padding(top = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                TextButton(
+                AppDialogButton(
                     text = stringResource(R.string.rules_cancel),
                     onClick = { dismissState?.invoke() },
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(20.dp))
-                TextButton(
+                AppDialogButton(
                     text = stringResource(R.string.rules_confirm),
                     onClick = {
                         onApplyIntervalChange(intervalInput.toIntOrNull() ?: 0)
                         dismissState?.invoke()
                     },
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                    primary = true,
                 )
             }
         },
@@ -179,22 +195,20 @@ fun SettingsPageView(
 
     Scaffold(
         topBar = {
-            BlurredBar(hazeState, blurActive, scrollBehavior) {
-                TopAppBar(
-                    title = title,
-                    color = barColor,
-                    scrollBehavior = scrollBehavior,
-                )
-            }
+            AppTopAppBar(
+                title = title,
+                color = barColor,
+                backdrop = pageBackdrop,
+                scrollBehavior = scrollBehavior,
+            )
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
-        Box(
-            modifier = Modifier.blurSource(if (isBlurEnabled) hazeState else null)
-        ) {
+        PageBackdrop(pageBackdrop) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    .pageStartInset()
                     .pageScrollModifiers(
                         showTopAppBar = true,
                         topAppBarScrollBehavior = scrollBehavior,
@@ -206,9 +220,11 @@ fun SettingsPageView(
             ) {
                 item {
                     Column {
-                        SmallTitle(text = stringResource(R.string.settings_features))
+                        ModuleSettings()
+
+                        SectionTitle(text = stringResource(R.string.settings_features), followsContent = true)
                         Card(
-                            modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)
+                            modifier = Modifier.padding(horizontal = 12.dp)
                         ) {
                             ArrowPreference(
                                 title = stringResource(R.string.rules_apply_interval),
@@ -226,9 +242,9 @@ fun SettingsPageView(
                             )
                         }
 
-                        SmallTitle(text = stringResource(R.string.settings_interface))
+                        SectionTitle(text = stringResource(R.string.settings_interface), followsContent = true)
                         Card(
-                            modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)
+                            modifier = Modifier.padding(horizontal = 12.dp)
                         ) {
                             Column {
                                 val modes = listOf(
@@ -247,38 +263,42 @@ fun SettingsPageView(
                                     ColorSchemeMode.MonetLight,
                                     ColorSchemeMode.MonetDark
                                 )
-                                var expanded by remember { mutableStateOf(false) }
                                 val currentIndex = modesEnum.indexOf(currentMode).takeIf { it >= 0 } ?: 0
 
-                                WindowDropdownPreference(
+                                GlassDropdownPreference(
+                                    backdrop = LocalPreferenceBackdrop.current,
                                     title = stringResource(R.string.theme_mode),
-                                    summary = modes[currentIndex],
                                     items = modes,
                                     selectedIndex = currentIndex,
                                     onSelectedIndexChange = { onModeChange(modesEnum[it]) },
-                                    onExpandedChange = { expanded = it }
                                 )
 
-                                SwitchPreference(
-                                    title = stringResource(R.string.floating_navbar),
-                                    summary = stringResource(R.string.floating_navbar_summary),
-                                    checked = isFloatingNavbar,
-                                    onCheckedChange = onFloatingNavbarChange
+                                GlassDropdownPreference(
+                                    title = stringResource(R.string.bottom_bar_style),
+                                    summary = stringResource(R.string.bottom_bar_style_summary),
+                                    items = listOf(
+                                        stringResource(R.string.bottom_bar_style_hyperos),
+                                        stringResource(R.string.bottom_bar_style_ios),
+                                    ),
+                                    selectedIndex = bottomBarStyle.ordinal,
+                                    onSelectedIndexChange = { onBottomBarChange(BottomBarStyle.entries[it]) },
+                                    backdrop = LocalPreferenceBackdrop.current,
+                                    renderInRootScaffold = true,
                                 )
 
-                                AnimatedVisibility(
-                                    visible = isFloatingNavbar,
-                                    enter = expandVertically(),
-                                    exit = shrinkVertically(),
-                                ) {
-                                    SwitchPreference(
-                                        title = stringResource(R.string.liquid_glass),
-                                        summary = stringResource(R.string.liquid_glass_summary),
-                                        checked = isLiquidGlass,
-                                        onCheckedChange = onLiquidGlassChange
-                                    )
-                                }
-
+                                GlassDropdownPreference(
+                                    title = stringResource(R.string.rail_style),
+                                    summary = stringResource(R.string.rail_style_summary),
+                                    items = listOf(
+                                        stringResource(R.string.rail_style_none),
+                                        stringResource(R.string.rail_style_top),
+                                        stringResource(R.string.rail_style_left),
+                                    ),
+                                    selectedIndex = railStyle.ordinal,
+                                    onSelectedIndexChange = { onRailStyleChange(RailStyle.entries[it]) },
+                                    backdrop = LocalPreferenceBackdrop.current,
+                                    renderInRootScaffold = true,
+                                )
                                 SwitchPreference(
                                     title = stringResource(R.string.blur_enabled),
                                     summary = stringResource(R.string.blur_enabled_summary),
@@ -295,9 +315,9 @@ fun SettingsPageView(
                             }
                         }
 
-                        SmallTitle(text = stringResource(R.string.settings_language))
+                        SectionTitle(text = stringResource(R.string.settings_language), followsContent = true)
                         Card(
-                            modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)
+                            modifier = Modifier.padding(horizontal = 12.dp)
                         ) {
                             val languageNames = listOf(
                                 stringResource(R.string.language_default),
@@ -312,11 +332,10 @@ fun SettingsPageView(
                             val savedLanguage = LocaleHelper.getSavedLanguage(context)
                             val langCurrentIndex = languageValues.indexOf(savedLanguage)
                                 .takeIf { it >= 0 } ?: 0
-                            var langExpanded by remember { mutableStateOf(false) }
 
-                            WindowDropdownPreference(
+                            GlassDropdownPreference(
+                                backdrop = LocalPreferenceBackdrop.current,
                                 title = stringResource(R.string.settings_language),
-                                summary = languageNames[langCurrentIndex],
                                 items = languageNames,
                                 selectedIndex = langCurrentIndex,
                                 onSelectedIndexChange = {
@@ -338,13 +357,12 @@ fun SettingsPageView(
                                         context.startService(Intent(context, ScreenColorPickerService::class.java))
                                     }
                                 },
-                                onExpandedChange = { langExpanded = it }
                             )
                         }
 
-                        SmallTitle(text = stringResource(R.string.settings_update))
+                        SectionTitle(text = stringResource(R.string.settings_update), followsContent = true)
                         Card(
-                            modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)
+                            modifier = Modifier.padding(horizontal = 12.dp)
                         ) {
                             Column {
                                 SwitchPreference(
@@ -363,10 +381,15 @@ fun SettingsPageView(
                                     },
                                     onClick = onCheckUpdate,
                                 )
+
+                                ArrowPreference(
+                                    title = stringResource(R.string.current_changelog),
+                                    onClick = { showChangelog = true },
+                                )
                             }
                         }
 
-                        SmallTitle(text = stringResource(R.string.settings_data))
+                        SectionTitle(text = stringResource(R.string.settings_data), followsContent = true)
                         Card(
                             modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)
                         ) {
@@ -399,6 +422,17 @@ fun SettingsPageView(
                     }
                 }
             }
+        }
+    }
+}
+
+
+private fun moduleOptionTypes(): Map<String, OptionType> = buildMap {
+    put(DeviceContext.KEY_DEVICE_TYPE, OptionType.TEXT)
+    OptionRegistry.all().forEach { spec ->
+        if (spec.type != OptionType.ARROW) {
+            put(spec.key, spec.type)
+            spec.masterKey?.let { put(it, OptionType.SWITCH) }
         }
     }
 }

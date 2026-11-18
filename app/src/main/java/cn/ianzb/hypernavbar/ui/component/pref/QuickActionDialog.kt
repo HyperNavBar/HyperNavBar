@@ -22,6 +22,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
+import cn.ianzb.hypernavbar.ui.component.AppDialog
+import cn.ianzb.hypernavbar.ui.component.AppDialogButton
 import cn.ianzb.hypernavbar.ui.component.SystemRestartConfirmDialog
 import cn.ianzb.hypernavbar.xposed.AppRestarter
 import kotlinx.coroutines.Dispatchers
@@ -30,10 +32,8 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.preference.CheckboxLocation
 import top.yukonga.miuix.kmp.preference.CheckboxPreference
-import top.yukonga.miuix.kmp.window.WindowDialog
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 /**
@@ -68,7 +68,7 @@ fun QuickActionDialog(
         }
     }
 
-    WindowDialog(
+    AppDialog(
         show = true,
         title = stringResource(R.string.quick_action_title),
         onDismissRequest = onDismiss,
@@ -97,7 +97,7 @@ fun QuickActionDialog(
             }
             Spacer(Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
-                TextButton(
+                AppDialogButton(
                     text = stringResource(
                         if (allSelected) R.string.quick_action_deselect_all
                         else R.string.quick_action_select_all,
@@ -105,7 +105,6 @@ fun QuickActionDialog(
                     onClick = {
                         selected = if (allSelected) emptySet() else uniquePackages.toSet()
                     },
-                    colors = ButtonDefaults.textButtonColors(),
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))

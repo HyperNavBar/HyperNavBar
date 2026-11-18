@@ -18,12 +18,11 @@ import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.prefs.ConfigState
 import cn.ianzb.hypernavbar.prefs.OptionSpec
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.TextButton
+import cn.ianzb.hypernavbar.ui.component.AppDialog
+import cn.ianzb.hypernavbar.ui.component.AppDialogButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 /**
@@ -76,7 +75,7 @@ private fun PackageListDialog(
     val current = ConfigState.string(spec.key, spec.defaultString)
     var input by remember { mutableStateOf(current) }
 
-    WindowDialog(
+    AppDialog(
         show = true,
         title = stringResource(spec.titleRes),
         summary = stringResource(R.string.hook_package_list_dialog_summary),
@@ -101,13 +100,13 @@ private fun PackageListDialog(
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                TextButton(
+                AppDialogButton(
                     text = stringResource(R.string.action_cancel),
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
-                TextButton(
+                AppDialogButton(
                     text = stringResource(R.string.hook_slider_restore_default),
                     onClick = {
                         ConfigState.set(spec.key, spec.defaultString)
@@ -116,13 +115,13 @@ private fun PackageListDialog(
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
-                TextButton(
+                AppDialogButton(
                     text = stringResource(R.string.action_confirm),
                     onClick = {
                         ConfigState.set(spec.key, input)
                         onDismiss()
                     },
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                    primary = true,
                     modifier = Modifier.weight(1f),
                 )
             }

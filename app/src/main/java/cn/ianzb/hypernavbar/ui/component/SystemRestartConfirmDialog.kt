@@ -11,9 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
  * 重启系统前的二次确认对话框。
@@ -26,7 +23,7 @@ fun SystemRestartConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    WindowDialog(
+    AppDialog(
         show = true,
         title = stringResource(R.string.restart_system_confirm_title),
         summary = stringResource(R.string.restart_system_confirm_message),
@@ -36,16 +33,16 @@ fun SystemRestartConfirmDialog(
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            TextButton(
+            AppDialogButton(
                 text = stringResource(R.string.action_cancel),
                 onClick = onDismiss,
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(8.dp))
-            TextButton(
+            AppDialogButton(
                 text = stringResource(R.string.restart_system_confirm_action),
                 onClick = onConfirm,
-                colors = ButtonDefaults.textButtonColorsPrimary(),
+                destructive = true,
                 modifier = Modifier.weight(1f),
             )
         }

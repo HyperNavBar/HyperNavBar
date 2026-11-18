@@ -40,26 +40,26 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import cn.ianzb.hypernavbar.R
+import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
 import cn.ianzb.hypernavbar.ui.component.effect.BgEffectBackground
-import cn.ianzb.hypernavbar.ui.util.BlurredBar
 import cn.ianzb.hypernavbar.ui.util.ColorBlendToken
-import cn.ianzb.hypernavbar.ui.util.blurSource
+import cn.ianzb.hypernavbar.ui.util.PageBackdrop
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
 import cn.ianzb.hypernavbar.ui.util.pageContentPadding
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
+import cn.ianzb.hypernavbar.ui.util.pageStartInset
 import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
-import cn.ianzb.hypernavbar.ui.util.rememberBlurState
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import top.yukonga.miuix.kmp.blur.BlurDefaults
@@ -75,6 +75,7 @@ import top.yukonga.miuix.kmp.basic.Text as MiuixText
 fun AboutPageContent(
     openLicensePage: () -> Unit,
     isBlurEnabled: Boolean = true,
+    extraBottomPadding: Dp = 0.dp,
 ) {
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     val lazyListState = rememberLazyListState()
@@ -95,9 +96,9 @@ fun AboutPageContent(
         }
     }
 
-    val hazeState = rememberBlurState()
+    val pageBackdrop = if (isBlurEnabled) rememberBlurBackdrop() else null
     val collapsed by remember { derivedStateOf { scrollProgress == 1f } }
-    val blurActive by remember(hazeState, isBlurEnabled) { derivedStateOf { isBlurEnabled && hazeState != null && scrollProgress == 1f } }
+    val blurActive by remember(pageBackdrop) { derivedStateOf { pageBackdrop != null && scrollProgress == 1f } }
 
     Scaffold(
         topBar = {
@@ -109,23 +110,22 @@ fun AboutPageContent(
             val titleColor = colorScheme.onSurface.copy(
                 alpha = ((scrollProgress - 0.35f) / 0.65f).coerceIn(0f, 1f),
             )
-            BlurredBar(hazeState, blurActive) {
-                SmallTopAppBar(
-                    title = stringResource(R.string.about),
-                    scrollBehavior = topAppBarScrollBehavior,
-                    color = barColor,
-                    titleColor = titleColor,
-                    defaultWindowInsetsPadding = false,
-                )
-            }
+            AppTopAppBar(
+                expandable = false,
+                title = stringResource(R.string.about),
+                scrollBehavior = topAppBarScrollBehavior,
+                color = barColor,
+                backdrop = pageBackdrop.takeIf { blurActive },
+                titleAlpha = { titleColor.alpha },
+            )
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
-        Box(modifier = Modifier.blurSource(if (isBlurEnabled) hazeState else null)) {
+        PageBackdrop(pageBackdrop) {
             AboutContent(
                 padding = PaddingValues(
                     top = innerPadding.calculateTopPadding(),
-                    bottom = 0.dp,
+                    bottom = extraBottomPadding,
                 ),
                 topAppBarScrollBehavior = topAppBarScrollBehavior,
                 lazyListState = lazyListState,
@@ -213,6 +213,7 @@ private fun AboutContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .pageStartInset()
                 .padding(
                     top = logoPadding.calculateTopPadding() + 52.dp,
                     start = logoPadding.calculateLeftPadding(LayoutDirection.Ltr),
@@ -308,6 +309,7 @@ private fun AboutContent(
             state = lazyListState,
             modifier = Modifier
                 .fillMaxSize()
+                .pageStartInset()
                 .pageScrollModifiers(
                     showTopAppBar = true,
                     topAppBarScrollBehavior = topAppBarScrollBehavior,

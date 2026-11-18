@@ -7,10 +7,33 @@ import cn.ianzb.hypernavbar.rules.SystemVersionDetector
 import org.json.JSONArray
 import org.json.JSONObject
 
+enum class BottomBarStyle(val value: Int) {
+    HyperOS(1), IOS(2);
+
+    companion object {
+        fun fromSaved(value: Any?, floating: Boolean?, liquid: Boolean): BottomBarStyle =
+            when (value?.toString()?.toIntOrNull()) {
+                HyperOS.value, 0 -> HyperOS
+                IOS.value -> IOS
+                else -> if (floating == true && liquid) IOS else HyperOS
+            }
+    }
+}
+
+enum class RailStyle(val value: Int) {
+    Off(0), Capsule(1), Left(2);
+
+    companion object {
+        fun fromSaved(value: Any?, floating: Boolean?): RailStyle =
+            entries.firstOrNull { it.name == value || it.value == value?.toString()?.toIntOrNull() }
+                ?: if (floating == true) Off else Capsule
+    }
+}
+
 data class AppSettings(
     val themeMode: String = "System",
-    val isFloatingNavbar: Boolean = false,
-    val isLiquidGlass: Boolean = false,
+    val bottomBarStyle: BottomBarStyle = BottomBarStyle.HyperOS,
+    val railStyle: RailStyle = RailStyle.Capsule,
     val isBlurEnabled: Boolean = true,
     val applyIntervalMinutes: Int = 1,
     val autoApplyAfterEdit: Boolean = true,
@@ -23,8 +46,8 @@ data class AppSettings(
     fun toJson(): String {
         val json = JSONObject()
         json.put("themeMode", themeMode)
-        json.put("isFloatingNavbar", isFloatingNavbar)
-        json.put("isLiquidGlass", isLiquidGlass)
+        json.put("bottomBarStyle", bottomBarStyle.value)
+        json.put("railStyle", railStyle.value)
         json.put("isBlurEnabled", isBlurEnabled)
         json.put("applyIntervalMinutes", applyIntervalMinutes)
         json.put("autoApplyAfterEdit", autoApplyAfterEdit)
@@ -40,10 +63,11 @@ data class AppSettings(
         fun fromJson(json: String): AppSettings {
             return try {
                 val obj = JSONObject(json)
+                val floatingNavbar = obj.opt("isFloatingNavbar") as? Boolean
                 AppSettings(
                     themeMode = obj.optString("themeMode", "System"),
-                    isFloatingNavbar = obj.optBoolean("isFloatingNavbar", false),
-                    isLiquidGlass = obj.optBoolean("isLiquidGlass", false),
+                    bottomBarStyle = BottomBarStyle.fromSaved(obj.opt("bottomBarStyle"), floatingNavbar, obj.optBoolean("isLiquidGlass", false)),
+                    railStyle = RailStyle.fromSaved(obj.opt("railStyle"), floatingNavbar),
                     isBlurEnabled = obj.optBoolean("isBlurEnabled", true),
                     applyIntervalMinutes = obj.optInt("applyIntervalMinutes", 1),
                     autoApplyAfterEdit = obj.optBoolean("autoApplyAfterEdit", true),
@@ -60,7 +84,9 @@ data class AppSettings(
 
         private const val PREFS_NAME = "app_settings"
         private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_BOTTOM_BAR_STYLE = "bottom_bar_style"
         private const val KEY_FLOATING_NAVBAR = "floating_navbar"
+        private const val KEY_RAIL_STYLE = "rail_style"
         private const val KEY_LIQUID_GLASS = "liquid_glass"
         private const val KEY_BLUR_ENABLED = "blur_enabled"
         private const val KEY_APPLY_INTERVAL = "apply_interval"
@@ -72,10 +98,12 @@ data class AppSettings(
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val language = LocaleHelper.getSavedLanguage(context).code
             val forcedMode = SystemVersionDetector.getForcedMode(context)
+            val saved = prefs.all
+            val floatingNavbar = saved[KEY_FLOATING_NAVBAR] as? Boolean
             return AppSettings(
                 themeMode = prefs.getString(KEY_THEME_MODE, "System") ?: "System",
-                isFloatingNavbar = prefs.getBoolean(KEY_FLOATING_NAVBAR, false),
-                isLiquidGlass = prefs.getBoolean(KEY_LIQUID_GLASS, false),
+                bottomBarStyle = BottomBarStyle.fromSaved(saved[KEY_BOTTOM_BAR_STYLE], floatingNavbar, saved[KEY_LIQUID_GLASS] == true),
+                railStyle = RailStyle.fromSaved(saved[KEY_RAIL_STYLE], floatingNavbar),
                 isBlurEnabled = prefs.getBoolean(KEY_BLUR_ENABLED, true),
                 applyIntervalMinutes = prefs.getInt(KEY_APPLY_INTERVAL, 1),
                 autoApplyAfterEdit = prefs.getBoolean(KEY_AUTO_APPLY_AFTER_EDIT, true),
@@ -89,8 +117,8 @@ data class AppSettings(
         fun save(context: Context, settings: AppSettings) {
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
                 putString(KEY_THEME_MODE, settings.themeMode)
-                putBoolean(KEY_FLOATING_NAVBAR, settings.isFloatingNavbar)
-                putBoolean(KEY_LIQUID_GLASS, settings.isLiquidGlass)
+                putInt(KEY_BOTTOM_BAR_STYLE, settings.bottomBarStyle.value)
+                putInt(KEY_RAIL_STYLE, settings.railStyle.value)
                 putBoolean(KEY_BLUR_ENABLED, settings.isBlurEnabled)
                 putInt(KEY_APPLY_INTERVAL, settings.applyIntervalMinutes)
                 putBoolean(KEY_AUTO_APPLY_AFTER_EDIT, settings.autoApplyAfterEdit)

@@ -44,13 +44,16 @@ import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.hook.rule.SystemVersion
 import cn.ianzb.hypernavbar.rules.RulesManager
 import cn.ianzb.hypernavbar.rules.SystemVersionDetector
+import cn.ianzb.hypernavbar.ui.component.AppDialog
+import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
+import cn.ianzb.hypernavbar.ui.component.SectionTitle
 import cn.ianzb.hypernavbar.ui.icons.CheckCircleOutlineIcon
 import cn.ianzb.hypernavbar.ui.icons.ErrorOutlineIcon
-import cn.ianzb.hypernavbar.ui.util.BlurredBar
-import cn.ianzb.hypernavbar.ui.util.blurSource
+import cn.ianzb.hypernavbar.ui.util.PageBackdrop
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.rememberBlurState
+import cn.ianzb.hypernavbar.ui.util.pageStartInset
+import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
 import cn.ianzb.hypernavbar.ui.util.shouldShowSplitPane
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
@@ -58,13 +61,10 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import top.yukonga.miuix.kmp.window.WindowDialog
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 @SuppressLint("LocalContext")
@@ -130,28 +130,26 @@ fun HomePageView(
         }
     }
 
-    val hazeState = rememberBlurState()
-    val blurActive = isBlurEnabled && hazeState != null
+    val pageBackdrop = if (isBlurEnabled) rememberBlurBackdrop() else null
+    val blurActive = pageBackdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     Scaffold(
         topBar = {
-            BlurredBar(hazeState, blurActive, scrollBehavior) {
-                TopAppBar(
-                    title = title,
-                    color = barColor,
-                    scrollBehavior = scrollBehavior,
-                )
-            }
+            AppTopAppBar(
+                title = title,
+                color = barColor,
+                backdrop = pageBackdrop,
+                scrollBehavior = scrollBehavior,
+            )
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
-        Box(
-            modifier = Modifier.blurSource(if (isBlurEnabled) hazeState else null)
-        ) {
+        PageBackdrop(pageBackdrop) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    .pageStartInset()
                     .pageScrollModifiers(
                         showTopAppBar = true,
                         topAppBarScrollBehavior = scrollBehavior,
@@ -282,9 +280,9 @@ fun HomePageView(
                 }
 
                 item {
-                    SmallTitle(
+                    SectionTitle(
                         text = stringResource(R.string.home_device_info),
-                        modifier = Modifier.padding(top = 12.dp)
+                        followsContent = true,
                     )
                     Card(
                         modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)
@@ -318,7 +316,7 @@ fun HomePageView(
     }
     
     // Mode selection dialog
-    WindowDialog(
+    AppDialog(
         show = showModeDialog,
         title = stringResource(R.string.home_immersion_mode_title),
         summary = stringResource(R.string.home_immersion_mode_summary),

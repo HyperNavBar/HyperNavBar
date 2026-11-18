@@ -10,10 +10,10 @@ object ConfigBackup {
 
     private const val SKIP_PREFIX = "runtime_"
 
-    fun exportJson(): String {
+    fun exportJson(allowedKeys: Set<String>? = null): String {
         val json = JSONObject()
         PrefsStore.getAll().forEach { (key, value) ->
-            if (key.startsWith(SKIP_PREFIX)) return@forEach
+            if (key.startsWith(SKIP_PREFIX) || allowedKeys != null && key !in allowedKeys) return@forEach
             when (value) {
                 is Set<*> -> json.put(key, JSONArray(value))
                 else -> json.put(key, value)

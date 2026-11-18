@@ -9,16 +9,18 @@ activityCompose = "1.13.0"
 kotlin = "2.4.21"
 composeBom = "2026.09.00"
 
-miuix = "0.9.4"
+miuix = "0.9.5-beta01"
 materialIcons = "1.7.8"
 
-haze = "2.1.0"
 json = "20260814"
 
 libxposed = "102.0.0"
 dexkit = "2.3.0"
 
+commonmark = "0.30.0"
+
 [libraries]
+commonmark = { group = "org.commonmark", name = "commonmark", version.ref = "commonmark" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
@@ -36,7 +38,9 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 
 miuix-core = { group = "top.yukonga.miuix.kmp", name = "miuix-core-android", version.ref = "miuix" }
 miuix-ui = { group = "top.yukonga.miuix.kmp", name = "miuix-ui-android", version.ref = "miuix" }
-miuix-shader = { group = "top.yukonga.miuix.kmp", name = "miuix-shader-android", version.ref = "miuix" }
+miuix-material = { group = "top.yukonga.miuix.kmp", name = "miuix-material-android", version.ref = "miuix" }
+miuix-glass = { group = "top.yukonga.miuix.kmp", name = "miuix-glass-android", version.ref = "miuix" }
+miuix-glass-icons = { group = "top.yukonga.miuix.kmp", name = "miuix-glass-icons-android", version.ref = "miuix" }
 miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur-android", version.ref = "miuix" }
 miuix-preference = { group = "top.yukonga.miuix.kmp", name = "miuix-preference-android", version.ref = "miuix" }
 miuix-icons = { group = "top.yukonga.miuix.kmp", name = "miuix-icons-android", version.ref = "miuix" }
@@ -44,8 +48,6 @@ miuix-squircle = { group = "top.yukonga.miuix.kmp", name = "miuix-squircle-andro
 miuix-navigation = { group = "top.yukonga.miuix.kmp", name = "miuix-nav-android", version.ref = "miuix" }
 material-icons-core = { group = "androidx.compose.material", name = "material-icons-core", version.ref = "materialIcons" }
 
-haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
-haze-blur = { group = "dev.chrisbanes.haze", name = "haze-blur", version.ref = "haze" }
 json = { group = "org.json", name = "json", version.ref = "json" }
 
 libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposed" }

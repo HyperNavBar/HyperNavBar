@@ -1,9 +1,13 @@
 package cn.ianzb.hypernavbar.ui.component.pref
 
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
@@ -13,15 +17,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -33,22 +44,22 @@ import cn.ianzb.hypernavbar.prefs.ConfigState
 import cn.ianzb.hypernavbar.prefs.OptionRegistry
 import cn.ianzb.hypernavbar.prefs.OptionSpec
 import cn.ianzb.hypernavbar.prefs.OptionType
-import cn.ianzb.hypernavbar.ui.util.BlurredBar
-import cn.ianzb.hypernavbar.ui.util.blurSource
+import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
+import cn.ianzb.hypernavbar.ui.component.AppTopBarAction
+import cn.ianzb.hypernavbar.ui.component.SectionTitle
+import cn.ianzb.hypernavbar.ui.component.search.LocalAppSearchState
+import cn.ianzb.hypernavbar.ui.util.PageBackdrop
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.rememberBlurState
+import cn.ianzb.hypernavbar.ui.util.pageStartInset
+import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SearchBar
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.icon.glass.Refresh
+import top.yukonga.miuix.kmp.icon.glass.Search
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
@@ -139,13 +150,13 @@ fun HookOptionsPage(
 ) {
     val context = LocalContext.current
     val scrollBehavior = MiuixScrollBehavior()
-    val hazeState = rememberBlurState()
-    val blurActive = isBlurEnabled && hazeState != null
+    val pageBackdrop = if (isBlurEnabled) rememberBlurBackdrop() else null
+    val blurActive = pageBackdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     val listState = rememberLazyListState()
-    var query by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
+    val searchState = LocalAppSearchState.current
+    var highlightedIndex by remember { mutableStateOf<Int?>(null) }
     var pendingScrollIndex by remember { mutableStateOf<Int?>(null) }
     var showQuickActions by remember { mutableStateOf(false) }
 
@@ -184,142 +195,120 @@ fun HookOptionsPage(
     }
 
     // 点击搜索结果后，收起搜索并滚动到对应分区。
-    LaunchedEffect(expanded, pendingScrollIndex) {
+    LaunchedEffect(searchState?.expanded, pendingScrollIndex) {
         val target = pendingScrollIndex
-        if (!expanded && target != null) {
+        if (searchState?.expanded != true && target != null) {
+            highlightedIndex = null
             listState.animateScrollToItem(target)
+            scrollBehavior.state.heightOffset = scrollBehavior.state.heightOffsetLimit
+            scrollBehavior.state.contentOffset = scrollBehavior.state.heightOffsetLimit.coerceAtMost(-1f)
+            highlightedIndex = target
             pendingScrollIndex = null
         }
     }
 
+    val resultContent by rememberUpdatedState<@Composable ColumnScope.(String) -> Unit> { query ->
+        val results = OptionRegistry.search(context, query)
+            .filter { searchTargets.containsKey(it.key) }
+            .distinctBy { spec ->
+                when (val target = searchTargets[spec.key]) {
+                    is SearchTarget.Section -> "s:${target.section.titleRes}"
+                    is SearchTarget.SubPage -> "p:${target.path.joinToString("/")}"
+                    null -> spec.key
+                }
+            }
+        if (results.isEmpty()) {
+            MiuixText(
+                text = stringResource(R.string.search_empty),
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = MiuixTheme.textStyles.footnote2,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        } else {
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                results.forEach { spec ->
+                    val target = searchTargets[spec.key]
+                    BasicComponent(
+                        title = stringResource(spec.titleRes),
+                        summary = when (target) {
+                            is SearchTarget.Section -> hookSectionTitle(target.section)
+                            is SearchTarget.SubPage -> target.path.map { stringResource(it) }.joinToString(" / ")
+                            null -> null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            when (target) {
+                                is SearchTarget.Section ->
+                                    pendingScrollIndex = sections.indexOf(target.section) + if (topContent != null) 1 else 0
+                                is SearchTarget.SubPage -> target.subPage.onOpen()
+                                null -> Unit
+                            }
+                            searchState?.close()
+                        },
+                    )
+                }
+            }
+        }
+    }
+    DisposableEffect(searchState) {
+        val slot: @Composable ColumnScope.(String) -> Unit = { query -> resultContent(query) }
+        searchState?.results = slot
+        onDispose { if (searchState?.results === slot) searchState.results = null }
+    }
+
     Scaffold(
         topBar = {
-            BlurredBar(hazeState, blurActive, scrollBehavior) {
-                TopAppBar(
-                    title = title,
-                    color = barColor,
-                    scrollBehavior = scrollBehavior,
-                    actions = {
-                        topBarActions?.invoke()
-                        if (quickActionPackages.isNotEmpty()) {
-                            IconButton(onClick = { showQuickActions = true }) {
-                                Icon(
-                                    imageVector = MiuixIcons.Refresh,
-                                    contentDescription = stringResource(R.string.quick_action_title),
-                                    tint = MiuixTheme.colorScheme.onSurface,
-                                )
-                            }
+            AppTopAppBar(
+                title = title,
+                color = barColor,
+                backdrop = pageBackdrop,
+                scrollBehavior = scrollBehavior,
+                actions = {
+                    if (searchState != null) {
+                        AppTopBarAction(onClick = searchState::open) {
+                            Icon(MiuixIcons.Glass.Search, stringResource(R.string.search_hint))
                         }
-                    },
-                )
-            }
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    topBarActions?.invoke()
+                    if (quickActionPackages.isNotEmpty()) {
+                        AppTopBarAction(onClick = { showQuickActions = true }) {
+                            Icon(
+                                imageVector = MiuixIcons.Glass.Refresh,
+                                contentDescription = stringResource(R.string.quick_action_title),
+                                tint = MiuixTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                },
+            )
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
-        Box(
-            modifier = Modifier.blurSource(if (isBlurEnabled) hazeState else null)
-        ) {
+        PageBackdrop(pageBackdrop) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
+                    .pageStartInset()
                     .pageScrollModifiers(showTopAppBar = true, topAppBarScrollBehavior = scrollBehavior),
                 contentPadding = PaddingValues(
                     top = innerPadding.calculateTopPadding(),
                     bottom = innerPadding.calculateBottomPadding() + extraBottomPadding,
                 ),
             ) {
-                if (!expanded && topContent != null) {
+                if (topContent != null) {
                     item(key = "top_content") { topContent() }
                 }
-                item {
-                    SearchBar(
-                        inputField = {
-                            InputField(
-                                query = query,
-                                onQueryChange = { query = it },
-                                onSearch = { expanded = false },
-                                expanded = expanded,
-                                onExpandedChange = { expanded = it },
-                                label = stringResource(R.string.search_hint),
-                            )
-                        },
-                        outsideEndAction = {
-                            MiuixText(
-                                text = stringResource(R.string.action_cancel),
-                                color = MiuixTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .padding(end = 16.dp)
-                                    .clickable(
-                                        interactionSource = null,
-                                        indication = null,
-                                    ) {
-                                        expanded = false
-                                        query = ""
-                                    },
-                            )
-                        },
-                        expanded = expanded,
-                        onExpandedChange = { expanded = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp, bottom = 8.dp),
-                    ) {
-                        val results = OptionRegistry.search(context, query)
-                            .filter { searchTargets.containsKey(it.key) }
-                            .distinctBy { spec ->
-                                when (val target = searchTargets[spec.key]) {
-                                    is SearchTarget.Section -> "s:${target.section.titleRes}"
-                                    is SearchTarget.SubPage -> "p:${target.path.joinToString("/")}"
-                                    null -> spec.key
-                                }
-                            }
-                        if (results.isEmpty()) {
-                            MiuixText(
-                                text = stringResource(R.string.search_empty),
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                style = MiuixTheme.textStyles.footnote2,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            )
-                        } else {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                results.forEach { spec ->
-                                    val target = searchTargets[spec.key]
-                                    BasicComponent(
-                                        title = stringResource(spec.titleRes),
-                                        summary = when (target) {
-                                            is SearchTarget.Section -> hookSectionTitle(target.section)
-                                            is SearchTarget.SubPage -> target.path.map { stringResource(it) }.joinToString(" / ")
-                                            null -> null
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        onClick = {
-                                            when (target) {
-                                                is SearchTarget.Section ->
-                                                    pendingScrollIndex = sections.indexOf(target.section) + 1
-                                                is SearchTarget.SubPage -> target.subPage.onOpen()
-                                                null -> Unit
-                                            }
-                                            expanded = false
-                                            query = ""
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (!expanded) {
-                    sections.forEach { section ->
-                        item(key = section.titleRes) {
-                            HookSectionCard(section) {
-                                section.specs.forEach { spec ->
-                                    HookOptionView(
-                                        spec = spec,
-                                        onArrowClick = { onArrowClick(spec) },
-                                    )
-                                }
+                sections.forEachIndexed { index, section ->
+                    item(key = section.titleRes) {
+                        val highlighted = highlightedIndex == index + if (topContent != null) 1 else 0
+                        HookSectionCard(section, highlight = highlighted, followsContent = index > 0 || topContent != null) {
+                            section.specs.forEach { spec ->
+                                HookOptionView(
+                                    spec = spec,
+                                    onArrowClick = { onArrowClick(spec) },
+                                )
                             }
                         }
                     }
@@ -343,6 +332,8 @@ fun HookOptionsPage(
 fun HookSectionCard(
     section: HookSection,
     modifier: Modifier = Modifier,
+    highlight: Boolean = false,
+    followsContent: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val osVersion = remember { SystemVersion.current() }
@@ -351,7 +342,7 @@ fun HookSectionCard(
         .firstOrNull { it.noteRes != 0 && !it.satisfiedBy(osVersion) }
         ?.noteRes
     Column(modifier = modifier.fillMaxWidth()) {
-        SmallTitle(text = hookSectionTitle(section))
+        SectionTitle(text = hookSectionTitle(section), followsContent = followsContent)
         if (unmetNoteRes != null) {
             MiuixText(
                 text = stringResource(unmetNoteRes),
@@ -360,8 +351,21 @@ fun HookSectionCard(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
             )
         }
-        Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-            content()
+        val flash = remember { Animatable(0f) }
+        LaunchedEffect(highlight) {
+            flash.snapTo(0f)
+            if (highlight) repeat(2) {
+                flash.animateTo(0.12f, tween(140))
+                flash.animateTo(0f, tween(220))
+            }
+        }
+        Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+            Box(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                    .background(MiuixTheme.colorScheme.onSurface.copy(alpha = flash.value)),
+            ) {
+                Column { content() }
+            }
         }
     }
 }

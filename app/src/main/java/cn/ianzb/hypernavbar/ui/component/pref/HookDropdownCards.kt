@@ -6,9 +6,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import cn.ianzb.hypernavbar.prefs.ConfigState
 import cn.ianzb.hypernavbar.prefs.OptionSpec
+import cn.ianzb.hypernavbar.ui.util.LocalPreferenceBackdrop
+import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.preference.CheckboxLocation
 import top.yukonga.miuix.kmp.preference.CheckboxPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 
 /**
  * 下拉卡片：第一个选项为“默认（不 hook）”，其它选项按值 hook。
@@ -22,7 +23,8 @@ fun HookDropdownCard(
     val value = ConfigState.string(spec.key, spec.defaultString)
     val items = spec.entryResIds.map { stringResource(it) }
     val selectedIndex = spec.entryValues.indexOf(value).takeIf { it >= 0 } ?: 0
-    WindowDropdownPreference(
+    GlassDropdownPreference(
+        backdrop = LocalPreferenceBackdrop.current,
         items = items,
         selectedIndex = selectedIndex,
         title = stringResource(spec.titleRes),

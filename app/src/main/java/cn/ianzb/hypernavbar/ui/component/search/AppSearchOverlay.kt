@@ -13,20 +13,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.add
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.captionBar
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
@@ -56,6 +48,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
+import cn.ianzb.hypernavbar.ui.component.appTopBarSafeInsets
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
@@ -138,12 +131,7 @@ fun AppSearchOverlay(
     val density = LocalDensity.current
 
     // 搜索框与页面本身一样从状态栏下方开始，展开过程中随上边距一起落位。
-    val topInsets = WindowInsets.systemBars
-        .add(WindowInsets.captionBar)
-        .add(WindowInsets.displayCutout)
-        .only(WindowInsetsSides.Top)
-    val topInset = topInsets.asPaddingValues().calculateTopPadding()
-    val topInsetPx = with(density) { topInset.toPx() }
+    val topInsets = appTopBarSafeInsets()
     val endSpacePx = with(density) { SearchFieldEndSpaceDp.dp.toPx() }
     val cancelTravelPx = with(density) { SearchCancelTravelDp.dp.toPx() }
 
@@ -184,7 +172,7 @@ fun AppSearchOverlay(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = GlassTopAppBarDefaults.HorizontalPadding, vertical = 4.dp)
-                    .graphicsLayer { translationY = -topInsetPx * (1f - progress.value) },
+                    .graphicsLayer { translationY = -topInsets.getTop(this) * (1f - progress.value) },
             ) {
                 BasicTextField(
                     value = query,

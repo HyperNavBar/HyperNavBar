@@ -4,7 +4,14 @@ import android.os.Build
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.captionBar
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
@@ -54,7 +61,7 @@ fun AppTopAppBar(
     GlassTopAppBar(
         title = title,
         isContentScrolled = scrollBehavior.state.contentOffset + scrollBehavior.state.overscrollOffset < 0f,
-        contentModifier = Modifier.statusBarsPadding().padding(start = startInset),
+        contentModifier = Modifier.windowInsetsPadding(appTopBarSafeInsets()).padding(start = startInset),
         backdrop = backdrop.takeIf { glass },
         progressiveBlur = glass && backdrop != null,
         scrollBehavior = scrollBehavior,
@@ -99,3 +106,10 @@ fun AppTopBarAction(
 
 private fun isGlassTopBarAvailable(): Boolean =
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && isRuntimeShaderSupported()
+
+@Composable
+internal fun appTopBarSafeInsets(): WindowInsets =
+    WindowInsets.systemBars
+        .union(WindowInsets.captionBar)
+        .union(WindowInsets.displayCutout)
+        .only(WindowInsetsSides.Top)

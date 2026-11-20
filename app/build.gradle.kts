@@ -34,8 +34,8 @@ android {
         applicationId = "cn.ianzb.hypernavbar"
         minSdk = 35
         targetSdk = 37
-        versionCode = 32
-        versionName = "3.2.1"
+        versionCode = 33
+        versionName = "3.2.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -118,6 +118,7 @@ dependencies {
     implementation(libs.miuix.squircle)
     implementation(libs.miuix.navigation)
 }
+
 
 
 

@@ -212,7 +212,7 @@ private fun BackNavigationButton(
     val tint = if (glass) MiuixTheme.colorScheme.onSurface else MiuixTheme.colorScheme.onBackground
     val content: @Composable () -> Unit = {
         Icon(
-            imageVector = if (glass) MiuixIcons.Glass.ChevronBackward else MiuixIcons.Glass.Back,
+            imageVector = if (glass) MiuixIcons.Glass.ChevronBackward else MiuixIcons.Back,
             contentDescription = stringResource(R.string.action_back),
             tint = tint,
             modifier = Modifier.size(if (glass) 28.dp else 24.dp),

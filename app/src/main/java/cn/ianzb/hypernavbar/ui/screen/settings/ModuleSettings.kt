@@ -1,8 +1,6 @@
 package cn.ianzb.hypernavbar.ui.screen.settings
 
-import android.content.Intent
 import android.widget.Toast
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -10,10 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.hook.device.DeviceContext
 import cn.ianzb.hypernavbar.hook.device.DeviceType
@@ -27,9 +23,10 @@ import cn.ianzb.hypernavbar.rules.RuleCombiner
 import cn.ianzb.hypernavbar.rules.RuleConverter
 import cn.ianzb.hypernavbar.rules.RuleFetcher
 import cn.ianzb.hypernavbar.rules.RulesManager
-import cn.ianzb.hypernavbar.ui.component.SectionTitle
-import cn.ianzb.hypernavbar.ui.screen.safemode.SafeModeActivity
-import cn.ianzb.hypernavbar.ui.screen.scope.ScopeListActivity
+import cn.ianzb.hypernavbar.ui.component.AppArrowPreference
+import cn.ianzb.hypernavbar.ui.component.AppSectionCard
+import cn.ianzb.hypernavbar.ui.screen.subpage.AppSubPage
+import cn.ianzb.hypernavbar.ui.screen.subpage.rememberOpenAppSubPage
 import cn.ianzb.hypernavbar.ui.util.LocalPreferenceBackdrop
 import cn.ianzb.hypernavbar.xposed.RootHelper
 import cn.ianzb.hypernavbar.xposed.SafeModeReader
@@ -38,21 +35,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 @Composable
 internal fun ModuleSettings() {
     val context = LocalContext.current
+    val openSafeMode = rememberOpenAppSubPage(AppSubPage.SafeMode)
+    val openScope = rememberOpenAppSubPage(AppSubPage.Scope)
     val scope = rememberCoroutineScope()
     val safeModeCount = SafeModeReader.safeModePackages.size
     val systemVersion = remember { SystemVersion.current() }
     var clearingCache by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { SafeModeReader.refresh() }
 
-    SectionTitle(text = stringResource(R.string.settings_module))
-    Card(Modifier.padding(horizontal = 12.dp)) {
+    AppSectionCard(title = stringResource(R.string.settings_module)) {
         val deviceValues = listOf(DeviceType.OVERRIDE_AUTO) + DeviceType.entries.map { it.key }
         val deviceLabels = listOf(
             stringResource(R.string.device_type_default, stringResource(deviceLabel(DeviceContext.detected.type))),
@@ -69,25 +65,18 @@ internal fun ModuleSettings() {
         if (safeModeCount > 0) {
             BasicComponent(
                 title = stringResource(R.string.safe_mode_active_title),
-                summary = stringResource(R.string.safe_mode_manage_summary_active, safeModeCount),
             )
         }
-        ArrowPreference(
+        AppArrowPreference(
             title = stringResource(R.string.safe_mode_manage),
-            summary = if (safeModeCount > 0) {
-                stringResource(R.string.safe_mode_manage_summary_active, safeModeCount)
-            } else {
-                stringResource(R.string.safe_mode_manage_summary_none)
-            },
-            onClick = { context.startActivity(Intent(context, SafeModeActivity::class.java)) },
+            onClick = openSafeMode,
         )
-        ArrowPreference(
+        AppArrowPreference(
             title = stringResource(R.string.features_scope_title),
-            onClick = { context.startActivity(Intent(context, ScopeListActivity::class.java)) },
+            onClick = openScope,
         )
-        ArrowPreference(
+        AppArrowPreference(
             title = stringResource(R.string.module_scope_request),
-            summary = stringResource(R.string.module_scope_request_summary),
             enabled = XposedServiceManager.isActivated && systemVersion.immersiveSupported,
             onClick = {
                 scope.launch {
@@ -120,9 +109,8 @@ internal fun ModuleSettings() {
                 }
             },
         )
-        ArrowPreference(
+        AppArrowPreference(
             title = stringResource(R.string.module_clear_dexkit),
-            summary = stringResource(R.string.module_clear_dexkit_summary),
             enabled = XposedServiceManager.isRootAvailable && XposedServiceManager.scope.isNotEmpty() && !clearingCache,
             onClick = {
                 clearingCache = true

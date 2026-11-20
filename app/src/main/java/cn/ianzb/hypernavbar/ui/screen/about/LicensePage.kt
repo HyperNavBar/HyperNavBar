@@ -1,42 +1,26 @@
 package cn.ianzb.hypernavbar.ui.screen.about
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.add
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
-import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
+import cn.ianzb.hypernavbar.ui.component.AppArrowPreference
+import cn.ianzb.hypernavbar.ui.component.AppSectionCard
 import cn.ianzb.hypernavbar.ui.component.SectionTitle
-import cn.ianzb.hypernavbar.ui.util.PageBackdrop
+import cn.ianzb.hypernavbar.ui.component.SubPageScaffold
+import cn.ianzb.hypernavbar.ui.util.LocalSubPageScrollBehavior
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
@@ -59,6 +43,7 @@ private val licenseSections: List<LicenseSection> = listOf(
     LicenseSection(
         titleRes = R.string.licenses_section_core,
         libraries = listOf(
+            LibraryInfo("commonmark-java", "0.30.0", "BSD-2-Clause", "https://github.com/commonmark/commonmark-java"),
             LibraryInfo("Kotlin", "2.4.21", "Apache-2.0", "https://kotlinlang.org/"),
             LibraryInfo(
                 "Kotlin Coroutines",
@@ -73,7 +58,7 @@ private val licenseSections: List<LicenseSection> = listOf(
         libraries = listOf(
             LibraryInfo(
                 "Miuix (compose-miuix-ui)",
-                "0.9.5-beta01",
+                "0.9.5-beta02",
                 "Apache-2.0",
                 "https://github.com/compose-miuix-ui/miuix",
             ),
@@ -88,12 +73,6 @@ private val licenseSections: List<LicenseSection> = listOf(
                 "BOM 2026.09.00",
                 "Apache-2.0",
                 "https://developer.android.com/jetpack/androidx/releases/compose-material3",
-            ),
-            LibraryInfo(
-                "Material Icons Core",
-                "1.7.8",
-                "Apache-2.0",
-                "https://developer.android.com/jetpack/androidx/compose/material-icons",
             ),
             LibraryInfo(
                 "Miuix iOS liquid glass example",
@@ -185,97 +164,64 @@ fun LicensePageContent(
     onBack: () -> Unit,
     isBlurEnabled: Boolean = true,
 ) {
-    val topAppBarScrollBehavior = MiuixScrollBehavior()
-    val pageBackdrop = if (isBlurEnabled) rememberBlurBackdrop() else null
-    val blurActive = pageBackdrop != null
-    val barColor = if (blurActive) Color.Transparent else colorScheme.surface
-
-    Scaffold(
-        topBar = {
-            AppTopAppBar(
-                title = stringResource(R.string.third_party_licenses_title),
-                color = barColor,
-                backdrop = pageBackdrop,
-                scrollBehavior = topAppBarScrollBehavior,
-                onBack = onBack,
-            )
-        },
-        popupHost = { },
-        contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
-    ) { innerPadding ->
+    SubPageScaffold(
+        title = stringResource(R.string.third_party_licenses_title),
+        isBlurEnabled = isBlurEnabled,
+        onBack = onBack,
+    ) { contentPadding ->
         val uriHandler = LocalUriHandler.current
         val lazyListState = rememberLazyListState()
-        val layoutDirection = LocalLayoutDirection.current
-        val cutoutPadding = WindowInsets.displayCutout.asPaddingValues()
-        val contentPadding = PaddingValues(
-            top = innerPadding.calculateTopPadding(),
-            bottom = innerPadding.calculateBottomPadding(),
-            start = innerPadding.calculateStartPadding(layoutDirection) + cutoutPadding.calculateLeftPadding(LayoutDirection.Ltr),
-            end = innerPadding.calculateEndPadding(layoutDirection) + cutoutPadding.calculateRightPadding(LayoutDirection.Ltr),
-        )
+        val scrollBehavior = LocalSubPageScrollBehavior.current
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier.fillMaxSize().then(
+                if (scrollBehavior != null) Modifier.pageScrollModifiers(
+                    showTopAppBar = true,
+                    topAppBarScrollBehavior = scrollBehavior,
+                    contentState = lazyListState,
+                ) else Modifier,
+            ),
+            contentPadding = contentPadding,
+        ) {
+            item {
+                MiuixText(
+                    text = stringResource(R.string.licenses_header),
+                    color = colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.footnote2,
+                    textAlign = TextAlign.Start,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 28.dp, end = 28.dp, top = 12.dp),
+                )
+            }
 
-        PageBackdrop(pageBackdrop) {
-            LazyColumn(
-                state = lazyListState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pageScrollModifiers(
-                        showTopAppBar = true,
-                        topAppBarScrollBehavior = topAppBarScrollBehavior,
-                    )
-                    .padding(
-                        start = contentPadding.calculateStartPadding(layoutDirection),
-                        end = contentPadding.calculateEndPadding(layoutDirection),
-                    ),
-                contentPadding = PaddingValues(
-                    top = contentPadding.calculateTopPadding(),
-                    bottom = contentPadding.calculateBottomPadding(),
-                ),
-            ) {
-                item {
-                    MiuixText(
-                        text = stringResource(R.string.licenses_header),
-                        color = colorScheme.onSurfaceVariantSummary,
-                        style = MiuixTheme.textStyles.footnote2,
-                        textAlign = TextAlign.Start,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 28.dp, end = 28.dp, top = 12.dp),
-                    )
+            licenseSections.forEach { section ->
+                item(key = "section_${section.titleRes}") {
+                    SectionTitle(text = stringResource(section.titleRes), followsContent = false)
                 }
-
-                licenseSections.forEach { section ->
-                    item(key = "section_${section.titleRes}") {
-                        SectionTitle(text = stringResource(section.titleRes), followsContent = true)
-                    }
-                    itemsIndexed(
-                        items = section.libraries,
-                        key = { _, library -> "${section.titleRes}_${library.name}" },
-                    ) { index, library ->
-                        Card(
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = if (index == section.libraries.lastIndex) 0.dp else 12.dp)
-                        ) {
-                            ArrowPreference(
-                                title = library.name,
-                                summary = buildString {
-                                    if (library.version.isNotBlank() && library.version != "-") {
-                                        append("v").append(library.version).append(" · ")
-                                    }
-                                    append(library.license)
-                                },
-                                onClick = {
-                                    uriHandler.openUri(library.website)
-                                },
-                            )
-                        }
+                itemsIndexed(
+                    items = section.libraries,
+                    key = { _, library -> "${section.titleRes}_${library.name}" },
+                ) { _, library ->
+                    AppSectionCard {
+                        AppArrowPreference(
+                            title = library.name,
+                            summary = buildString {
+                                if (library.version.isNotBlank() && library.version != "-") {
+                                    append("v").append(library.version).append(" · ")
+                                }
+                                append(library.license)
+                            },
+                            onClick = {
+                                uriHandler.openUri(library.website)
+                            },
+                        )
                     }
                 }
+            }
 
-                item {
-                    Spacer(Modifier.height(12.dp))
-                }
+            item {
+                Spacer(Modifier.height(12.dp))
             }
         }
     }

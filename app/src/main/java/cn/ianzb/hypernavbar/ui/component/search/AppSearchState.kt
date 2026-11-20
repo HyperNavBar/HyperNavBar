@@ -7,13 +7,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.unit.Dp
 
 @Stable
 internal class AppSearchState {
     var expanded by mutableStateOf(false)
         private set
 
-    var results by mutableStateOf<(@Composable ColumnScope.(String) -> Unit)?>(null)
+    var results by mutableStateOf<(@Composable ColumnScope.(String, () -> Dp) -> Unit)?>(null)
+
+    var scrollOffset: () -> Float = { 0f }
 
     fun open() {
         if (results != null) expanded = true
@@ -25,3 +28,6 @@ internal class AppSearchState {
 }
 
 internal val LocalAppSearchState = staticCompositionLocalOf<AppSearchState?> { null }
+
+@Composable
+internal fun rememberAppSearchOpen(): (() -> Unit)? = LocalAppSearchState.current?.let { it::open }

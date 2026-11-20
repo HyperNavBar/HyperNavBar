@@ -26,14 +26,18 @@ enum class RailStyle(val value: Int) {
     companion object {
         fun fromSaved(value: Any?, floating: Boolean?): RailStyle =
             entries.firstOrNull { it.name == value || it.value == value?.toString()?.toIntOrNull() }
-                ?: if (floating == true) Off else Capsule
+                ?: when (floating) {
+                    true -> Off
+                    false -> Capsule
+                    null -> Left
+                }
     }
 }
 
 data class AppSettings(
     val themeMode: String = "System",
     val bottomBarStyle: BottomBarStyle = BottomBarStyle.HyperOS,
-    val railStyle: RailStyle = RailStyle.Capsule,
+    val railStyle: RailStyle = RailStyle.Left,
     val isBlurEnabled: Boolean = true,
     val applyIntervalMinutes: Int = 1,
     val autoApplyAfterEdit: Boolean = true,

@@ -9,8 +9,7 @@ activityCompose = "1.13.0"
 kotlin = "2.4.21"
 composeBom = "2026.09.00"
 
-miuix = "0.9.5-beta01"
-materialIcons = "1.7.8"
+miuix = "0.9.5-beta02"
 
 json = "20260814"
 
@@ -46,7 +45,6 @@ miuix-preference = { group = "top.yukonga.miuix.kmp", name = "miuix-preference-a
 miuix-icons = { group = "top.yukonga.miuix.kmp", name = "miuix-icons-android", version.ref = "miuix" }
 miuix-squircle = { group = "top.yukonga.miuix.kmp", name = "miuix-squircle-android", version.ref = "miuix" }
 miuix-navigation = { group = "top.yukonga.miuix.kmp", name = "miuix-nav-android", version.ref = "miuix" }
-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core", version.ref = "materialIcons" }
 
 json = { group = "org.json", name = "json", version.ref = "json" }
 

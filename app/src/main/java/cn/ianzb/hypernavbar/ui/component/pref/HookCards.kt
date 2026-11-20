@@ -15,6 +15,7 @@ import cn.ianzb.hypernavbar.hook.rule.SystemVersion
 import cn.ianzb.hypernavbar.prefs.ConfigState
 import cn.ianzb.hypernavbar.prefs.OptionSpec
 import cn.ianzb.hypernavbar.prefs.OsRequirement
+import cn.ianzb.hypernavbar.ui.component.AppArrowPreference
 import cn.ianzb.hypernavbar.xposed.HookStatusReader
 import cn.ianzb.hypernavbar.xposed.XposedServiceManager
 import top.yukonga.miuix.kmp.basic.Badge
@@ -22,7 +23,6 @@ import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 带 switch 的卡片：关时不 hook，开时 hook。 */
@@ -73,7 +73,7 @@ fun HookArrowCard(
     onClick: () -> Unit,
 ) {
     val enabled = rememberDependencyEnabled(spec)
-    ArrowPreference(
+    AppArrowPreference(
         title = stringResource(spec.titleRes),
         summary = spec.summaryRes.takeIf { it != 0 }?.let { stringResource(it) },
         onClick = onClick,

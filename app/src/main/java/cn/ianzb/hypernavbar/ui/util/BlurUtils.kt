@@ -8,28 +8,29 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.captionBar
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.collectLatest
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
@@ -54,6 +55,10 @@ class SubPageScrollGate {
 }
 
 val LocalSubPageScrollGate = staticCompositionLocalOf<SubPageScrollGate?> { null }
+
+@Composable
+internal fun rememberTopBarBackdrop(blurActive: Boolean): LayerBackdrop? =
+    if (blurActive) rememberBlurBackdrop() else null
 
 @Composable
 fun rememberBlurBackdrop(): LayerBackdrop? {
@@ -81,17 +86,26 @@ fun Modifier.pageScrollModifiers(
     contentState: LazyListState? = null,
 ): Modifier {
     val gate = LocalSubPageScrollGate.current
+    val state = topAppBarScrollBehavior.state
     if (gate != null && contentState != null) {
-        LaunchedEffect(gate, contentState) {
-            snapshotFlow { contentState.canScrollForward || contentState.canScrollBackward }
-                .collect { gate.contentScrollable = it }
+        LaunchedEffect(gate, contentState, state) {
+            fun canClassify() = !contentState.isScrollInProgress &&
+                state.heightOffset == 0f && state.overscrollOffset == 0f
+            fun canScroll() = contentState.canScrollForward || contentState.canScrollBackward
+
+            snapshotFlow { if (canClassify()) canScroll() else null }
+                .collectLatest { scrollable ->
+                    if (scrollable == null) return@collectLatest
+                    // 等展开布局稳定后再判断，避免接近一屏的列表在手势中途切换滚动行为。
+                    withFrameNanos { }
+                    if (canClassify()) gate.contentScrollable = canScroll()
+                }
         }
     }
-    val state = topAppBarScrollBehavior.state
     val onOffsetChanged: (Float) -> Unit = remember(state, gate) {
         { offset ->
             state.overscrollOffset = offset
-            if (gate != null && !gate.contentScrollable) state.heightOffset = offset
+            if (gate != null && !gate.contentScrollable) state.heightOffset = offset.coerceAtMost(0f)
         }
     }
     return scrollEndHaptic()
@@ -153,25 +167,31 @@ object ColorBlendToken {
 val LocalPreferenceBackdrop = staticCompositionLocalOf<LayerBackdrop?> { null }
 
 
-val LocalAppPageStartInset = staticCompositionLocalOf<State<Dp>> { mutableStateOf(0.dp) }
+val LocalAppPageStartInset: ProvidableCompositionLocal<() -> Dp> = staticCompositionLocalOf { { 0.dp } }
 
+/**
+ * 把 [LocalAppPageStartInset] 应用到内容容器的起始边。
+ *
+ * 只给滚动容器/内容列使用，不要加到页面根布局或背景图层上。
+ */
 @Composable
-fun Modifier.pageStartInset(): Modifier {
+fun Modifier.pageStartInset(): Modifier = padding(PaddingValues(0.dp).withPageStartInset())
+
+/** 在测量阶段随侧栏让出起始边距。 */
+@Composable
+internal fun PaddingValues.withPageStartInset(): PaddingValues {
+    val base = this
     val inset = LocalAppPageStartInset.current
-    return layout { measurable, constraints ->
-        val start = inset.value.roundToPx().coerceIn(0, constraints.maxWidth)
-        val placeable = measurable.measure(
-            Constraints(
-                minWidth = (constraints.minWidth - start).coerceAtLeast(0),
-                maxWidth = if (constraints.hasBoundedWidth) constraints.maxWidth - start else Constraints.Infinity,
-                minHeight = constraints.minHeight,
-                maxHeight = constraints.maxHeight,
-            ),
-        )
-        layout(placeable.width + start, placeable.height) { placeable.placeRelative(start, 0) }
+    return remember(base, inset) {
+        object : PaddingValues by base {
+            override fun calculateLeftPadding(layoutDirection: LayoutDirection): Dp =
+                base.calculateLeftPadding(layoutDirection) + if (layoutDirection == LayoutDirection.Ltr) inset() else 0.dp
+
+            override fun calculateRightPadding(layoutDirection: LayoutDirection): Dp =
+                base.calculateRightPadding(layoutDirection) + if (layoutDirection == LayoutDirection.Rtl) inset() else 0.dp
+        }
     }
 }
-
 @Composable
 fun PageBackdrop(backdrop: LayerBackdrop?, content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalPreferenceBackdrop provides backdrop) {

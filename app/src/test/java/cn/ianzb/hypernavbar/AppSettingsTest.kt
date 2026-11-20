@@ -59,7 +59,7 @@ class AppSettingsTest {
         val settings = AppSettings.fromJson("{}")
 
         assertEquals(BottomBarStyle.HyperOS, settings.bottomBarStyle)
-        assertEquals(RailStyle.Capsule, settings.railStyle)
+        assertEquals(RailStyle.Left, settings.railStyle)
     }
 
     // ---------------------------------------------------------------- legacy string rail
@@ -137,7 +137,7 @@ class AppSettingsTest {
 
         val withoutFloating = AppSettings.fromJson("""{"bottomBarStyle":99,"railStyle":99}""")
         assertEquals(BottomBarStyle.HyperOS, withoutFloating.bottomBarStyle)
-        assertEquals(RailStyle.Capsule, withoutFloating.railStyle)
+        assertEquals(RailStyle.Left, withoutFloating.railStyle)
     }
 
     // ---------------------------------------------------------------- defaults
@@ -148,7 +148,7 @@ class AppSettingsTest {
 
         assertEquals("System", settings.themeMode)
         assertEquals(BottomBarStyle.HyperOS, settings.bottomBarStyle)
-        assertEquals(RailStyle.Capsule, settings.railStyle)
+        assertEquals(RailStyle.Left, settings.railStyle)
         assertTrue(settings.isBlurEnabled)
         assertEquals(1, settings.applyIntervalMinutes)
         assertTrue(settings.autoApplyAfterEdit)

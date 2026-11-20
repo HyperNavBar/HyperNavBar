@@ -79,8 +79,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
     buildFeatures {
         compose = true
@@ -117,7 +117,6 @@ dependencies {
     implementation(libs.miuix.icons)
     implementation(libs.miuix.squircle)
     implementation(libs.miuix.navigation)
-    implementation(libs.material.icons.core)
 }
 
 

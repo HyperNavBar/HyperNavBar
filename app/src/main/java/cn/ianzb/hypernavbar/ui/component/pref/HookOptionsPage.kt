@@ -11,18 +11,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -47,7 +49,9 @@ import cn.ianzb.hypernavbar.prefs.OptionType
 import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
 import cn.ianzb.hypernavbar.ui.component.AppTopBarAction
 import cn.ianzb.hypernavbar.ui.component.SectionTitle
+import cn.ianzb.hypernavbar.ui.component.appTopBarSafeInsets
 import cn.ianzb.hypernavbar.ui.component.search.LocalAppSearchState
+import cn.ianzb.hypernavbar.ui.component.sectionCardPadding
 import cn.ianzb.hypernavbar.ui.util.PageBackdrop
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import cn.ianzb.hypernavbar.ui.util.pageStartInset
@@ -57,6 +61,7 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.glass.GlassSearchOverlayDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.glass.Refresh
 import top.yukonga.miuix.kmp.icon.glass.Search
@@ -207,7 +212,10 @@ fun HookOptionsPage(
         }
     }
 
-    val resultContent by rememberUpdatedState<@Composable ColumnScope.(String) -> Unit> { query ->
+    val resultScroll = rememberLazyListState()
+    val resultContent by rememberUpdatedState<@Composable ColumnScope.(String, () -> Dp) -> Unit> { query, searchTopPadding ->
+        if (query.isBlank()) return@rememberUpdatedState
+        LaunchedEffect(query) { resultScroll.scrollToItem(0) }
         val results = OptionRegistry.search(context, query)
             .filter { searchTargets.containsKey(it.key) }
             .distinctBy { spec ->
@@ -217,43 +225,72 @@ fun HookOptionsPage(
                     null -> spec.key
                 }
             }
-        if (results.isEmpty()) {
+        val resultsTop = appTopBarSafeInsets().asPaddingValues().calculateTopPadding() +
+            GlassSearchOverlayDefaults.BarHeight + GlassSearchOverlayDefaults.VerticalPadding * 2
+        val hasResults = results.isNotEmpty()
+        val padding = remember(resultsTop, searchTopPadding, hasResults) {
+            val base = PaddingValues(horizontal = if (hasResults) 12.dp else 28.dp, vertical = 24.dp)
+            object : PaddingValues by base {
+                override fun calculateTopPadding() =
+                    resultsTop + searchTopPadding() + if (hasResults) 4.dp else 12.dp
+            }
+        }
+        val resultInsets = Modifier.windowInsetsPadding(
+            WindowInsets.displayCutout.union(WindowInsets.navigationBars).only(WindowInsetsSides.Horizontal),
+        ).pageStartInset()
+        if (!hasResults) {
             MiuixText(
                 text = stringResource(R.string.search_empty),
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 style = MiuixTheme.textStyles.footnote2,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = resultInsets.padding(padding),
             )
         } else {
-            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                results.forEach { spec ->
-                    val target = searchTargets[spec.key]
-                    BasicComponent(
-                        title = stringResource(spec.titleRes),
-                        summary = when (target) {
-                            is SearchTarget.Section -> hookSectionTitle(target.section)
-                            is SearchTarget.SubPage -> target.path.map { stringResource(it) }.joinToString(" / ")
-                            null -> null
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            when (target) {
-                                is SearchTarget.Section ->
-                                    pendingScrollIndex = sections.indexOf(target.section) + if (topContent != null) 1 else 0
-                                is SearchTarget.SubPage -> target.subPage.onOpen()
-                                null -> Unit
-                            }
-                            searchState?.close()
-                        },
-                    )
+            LazyColumn(
+                modifier = resultInsets.fillMaxWidth(),
+                state = resultScroll,
+                contentPadding = padding,
+            ) {
+                item {
+                    Card {
+                        results.forEach { spec ->
+                            val target = searchTargets[spec.key]
+                            BasicComponent(
+                                title = stringResource(spec.titleRes),
+                                summary = when (target) {
+                                    is SearchTarget.Section -> hookSectionTitle(target.section)
+                                    is SearchTarget.SubPage -> target.path.map { stringResource(it) }.joinToString(" / ")
+                                    null -> null
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    when (target) {
+                                        is SearchTarget.Section ->
+                                            pendingScrollIndex = sections.indexOf(target.section) + if (topContent != null) 1 else 0
+                                        is SearchTarget.SubPage -> target.subPage.onOpen()
+                                        null -> Unit
+                                    }
+                                    searchState?.close()
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }
     }
     DisposableEffect(searchState) {
-        val slot: @Composable ColumnScope.(String) -> Unit = { query -> resultContent(query) }
-        searchState?.results = slot
-        onDispose { if (searchState?.results === slot) searchState.results = null }
+        val slot: @Composable ColumnScope.(String, () -> Dp) -> Unit = { query, top -> resultContent(query, top) }
+        if (searchState != null) {
+            searchState.results = slot
+            searchState.scrollOffset = { resultScroll.firstVisibleItemScrollOffset.toFloat() }
+        }
+        onDispose {
+            if (searchState?.results === slot) {
+                searchState.results = null
+                searchState.scrollOffset = { 0f }
+            }
+        }
     }
 
     Scaffold(
@@ -342,7 +379,7 @@ fun HookSectionCard(
         .firstOrNull { it.noteRes != 0 && !it.satisfiedBy(osVersion) }
         ?.noteRes
     Column(modifier = modifier.fillMaxWidth()) {
-        SectionTitle(text = hookSectionTitle(section), followsContent = followsContent)
+        SectionTitle(text = hookSectionTitle(section))
         if (unmetNoteRes != null) {
             MiuixText(
                 text = stringResource(unmetNoteRes),
@@ -359,7 +396,7 @@ fun HookSectionCard(
                 flash.animateTo(0f, tween(220))
             }
         }
-        Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+        Card(modifier = Modifier.sectionCardPadding()) {
             Box(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
                     .background(MiuixTheme.colorScheme.onSurface.copy(alpha = flash.value)),

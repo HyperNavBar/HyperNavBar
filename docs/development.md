@@ -22,13 +22,13 @@
 
 - `masterKey` 非空时，卡片顶部渲染一个 `SwitchPreference`（标题取 `spec.titleRes`），其开关状态**只控制滑块启用 / 禁用**（`enabled = enabled && masterEnabled`）；滑块**始终显示**，不随开关隐藏。
 - **标题必须用 `sliderValueLabelRes`（可直接复用 `titleRes` 的字符串资源）**：该标签显示在滑块行**数值左侧**，与滑块同属一个组件；`sliderUnitRes` 显示在数值**右侧**作为单位后缀（如 `%`、`dp`）。两者都不设时，组件才会退化为「滑动组件外部的独立标题」（规范不推荐）。
-- 点击滑块行空白弹出居中输入对话框：最小值 / 最大值分行显示、当前值与默认值同行，「取消 / 恢复默认 / 确定」三键。
+- 点击滑块行空白打开贴底玻璃弹层，显示最小值、最大值、当前值和默认值，并提供「取消 / 恢复默认 / 确定」。文本、数值和包名列表弹层使用 GlassTextField。
 
 <br>
 
 ## 3. 功能页提示与搜索
 
-`topContent` 是分区列表上方的提示区，用于放置系统版本要求等说明卡片（参见 `FeatureNotice`）。搜索从功能页顶栏，或悬浮玻璃底栏的搜索按钮打开，结果点击后定位到分区或打开子页面。
+`topContent` 是分区列表上方的提示区，用于放置系统版本要求等说明卡片（参见 `FeatureNotice`）。搜索从功能页顶栏，或悬浮玻璃底栏的搜索按钮打开，结果点击后定位到分区或打开子页面。官方 GlassSearchOverlay 通过结果滚动驱动渐进模糊并遵循背景模糊设置。宽屏可在搜索时切换侧栏形态，保留关键词并实时调整搜索框和结果位置。
 
 <br>
 
@@ -63,8 +63,14 @@ Hook 侧 `HookPrefs` 提供 `registerListener(onChange)`，用于需要「改配
 
 顶栏统一走 `AppTopAppBar`。页面采样层仅记录顶栏下方的内容。下拉、对话框和底部弹层使用 miuix Glass 组件，从 `LocalPreferenceBackdrop` 读取背景并在根 Scaffold 的弹层宿主渲染。关闭背景模糊时传入空背景，由组件渲染实色材质。
 
-新增顶栏动作使用 `AppTopBarAction`，文本对话框动作使用 `AppDialogButton`。项目通过 Android SDK 37.2 编译以兼容 miuix 0.9.5-beta01。
+新增顶栏动作使用 `AppTopBarAction`，文本对话框动作使用 `AppDialogButton`。项目通过 Android SDK 37.2 编译以兼容 miuix 0.9.5-beta02。
 
 ## 8. 卡片分组标题
 
 常规分组标题使用 `SectionTitle`。位于页面顶部的标题沿用 miuix 内边距，接在上一张卡片或说明后的标题传入 `followsContent = true`，由组件统一增加 12 dp 的组间留白。相邻分组之间的卡片无需另加底部间距。
+
+## 9. 宽屏二级页与默认外观
+
+作用域、安全模式和许可证页用 AppSubPage 路由接入主导航。通过 rememberOpenAppSubPage 打开，独立 Activity 入口继续复用相同内容。SubPageScaffold 提供系统安全区和动态侧栏留白。侧栏形变的留白在布局阶段计算，标题透明度在绘制阶段读取。App 模块编译目标为 JVM 21。
+
+默认使用悬浮底栏、宽屏左侧面板和背景模糊，已保存的界面配置继续生效。安全模式页直接显示应用列表。设置等模板页面的卡片组使用 AppSectionCard，统一卡片左右及底部留白。

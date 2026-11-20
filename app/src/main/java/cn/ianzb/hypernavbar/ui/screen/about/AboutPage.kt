@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import cn.ianzb.hypernavbar.R
+import cn.ianzb.hypernavbar.ui.component.AppArrowPreference
 import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
 import cn.ianzb.hypernavbar.ui.component.effect.BgEffectBackground
 import cn.ianzb.hypernavbar.ui.util.ColorBlendToken
@@ -55,6 +56,7 @@ import cn.ianzb.hypernavbar.ui.util.pageContentPadding
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import cn.ianzb.hypernavbar.ui.util.pageStartInset
 import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
+import cn.ianzb.hypernavbar.ui.util.withPageStartInset
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -65,7 +67,6 @@ import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
 import androidx.compose.ui.graphics.BlendMode as ComposeBlendMode
@@ -145,6 +146,7 @@ private fun AboutContent(
     openLicensePage: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
+    val projectUrl = stringResource(R.string.about_source_code_summary)
     val contentBackdrop = rememberBlurBackdrop()
     var blurRadius by remember { mutableFloatStateOf(60f) }
     var noiseCoefficient by remember { mutableFloatStateOf(BlurDefaults.NoiseCoefficient) }
@@ -213,12 +215,8 @@ private fun AboutContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .pageStartInset()
-                .padding(
-                    top = logoPadding.calculateTopPadding() + 52.dp,
-                    start = logoPadding.calculateLeftPadding(LayoutDirection.Ltr),
-                    end = logoPadding.calculateRightPadding(LayoutDirection.Ltr),
-                )
+                .padding(logoPadding.withPageStartInset())
+                .padding(top = 52.dp)
                 .onSizeChanged { size ->
                     with(density) { logoHeightDp = size.height.toDp() }
                 },
@@ -314,11 +312,11 @@ private fun AboutContent(
                     showTopAppBar = true,
                     topAppBarScrollBehavior = topAppBarScrollBehavior,
                 ),
-            contentPadding = PaddingValues(
-                top = scrollPadding.calculateTopPadding(),
-                start = scrollPadding.calculateLeftPadding(LayoutDirection.Ltr),
-                end = scrollPadding.calculateRightPadding(LayoutDirection.Ltr),
-            ),
+            contentPadding = remember(scrollPadding) {
+                object : PaddingValues by scrollPadding {
+                    override fun calculateBottomPadding() = 0.dp
+                }
+            },
         ) {
             item(key = "logoSpacer") {
                 Box(
@@ -362,12 +360,12 @@ private fun AboutContent(
                             Color.Transparent,
                         ),
                     ) {
-                        ArrowPreference(
+                        AppArrowPreference(
                             title = stringResource(R.string.about_source_code),
-                            summary = stringResource(R.string.about_source_code_summary),
-                            onClick = { uriHandler.openUri("https://github.com/HyperNavBar/HyperNavBar") },
+                            summary = projectUrl,
+                            onClick = { uriHandler.openUri(projectUrl) },
                         )
-                        ArrowPreference(
+                        AppArrowPreference(
                             title = stringResource(R.string.about_telegram),
                             summary = stringResource(R.string.about_telegram_summary),
                             onClick = { uriHandler.openUri("https://t.me/HyperNavBar") },
@@ -400,12 +398,12 @@ private fun AboutContent(
                             Color.Transparent,
                         ),
                     ) {
-                        ArrowPreference(
+                        AppArrowPreference(
                             title = stringResource(R.string.license_agpl),
                             summary = stringResource(R.string.license_agpl_summary),
                             onClick = { uriHandler.openUri("https://www.gnu.org/licenses/agpl-3.0.txt") },
                         )
-                        ArrowPreference(
+                        AppArrowPreference(
                             title = stringResource(R.string.about_dependencies),
                             onClick = openLicensePage,
                         )

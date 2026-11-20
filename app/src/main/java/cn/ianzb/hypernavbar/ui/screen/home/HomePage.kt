@@ -47,8 +47,7 @@ import cn.ianzb.hypernavbar.rules.SystemVersionDetector
 import cn.ianzb.hypernavbar.ui.component.AppDialog
 import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
 import cn.ianzb.hypernavbar.ui.component.SectionTitle
-import cn.ianzb.hypernavbar.ui.icons.CheckCircleOutlineIcon
-import cn.ianzb.hypernavbar.ui.icons.ErrorOutlineIcon
+import cn.ianzb.hypernavbar.ui.component.sectionCardPadding
 import cn.ianzb.hypernavbar.ui.util.PageBackdrop
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
@@ -61,6 +60,9 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.Error
+import top.yukonga.miuix.kmp.icon.glass.Ok
 import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -207,7 +209,7 @@ fun HomePageView(
 
                     val cardsModifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
+                        .sectionCardPadding(top = 12.dp)
                         .padding(top = 12.dp)
                         .height(IntrinsicSize.Min)
 
@@ -282,7 +284,7 @@ fun HomePageView(
                 item {
                     SectionTitle(
                         text = stringResource(R.string.home_device_info),
-                        followsContent = true,
+                        followsContent = false,
                     )
                     Card(
                         modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)
@@ -387,9 +389,9 @@ private fun StatusCard(
                 Icon(
                     modifier = Modifier.size(iconSize),
                     imageVector = if (hasRoot && immersionSupported)
-                        CheckCircleOutlineIcon
+                        MiuixIcons.Glass.Ok
                     else
-                        ErrorOutlineIcon,
+                        MiuixIcons.Glass.Error,
                     tint = iconTint,
                     contentDescription = null
                 )

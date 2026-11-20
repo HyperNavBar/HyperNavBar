@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,7 +24,7 @@ import cn.ianzb.hypernavbar.prefs.OptionSpec
 import cn.ianzb.hypernavbar.ui.component.AppDialog
 import cn.ianzb.hypernavbar.ui.component.AppDialogButton
 import cn.ianzb.hypernavbar.ui.util.claimPagerSwipe
-import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.glass.GlassTextField
 import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -112,8 +114,7 @@ private fun SliderValueDialog(
     onDismiss: () -> Unit,
 ) {
     val current = ConfigState.float(spec.key, spec.defaultFloat)
-    var input by remember { mutableStateOf(formatNumber(current, spec.sliderDecimals)) }
-    var isError by remember { mutableStateOf(false) }
+    val input = rememberTextFieldState(formatNumber(current, spec.sliderDecimals))
 
     AppDialog(
         show = true,
@@ -149,17 +150,14 @@ private fun SliderValueDialog(
                 )
             }
             Spacer(Modifier.padding(top = 8.dp))
-            TextField(
-                value = input,
-                onValueChange = {
-                    input = it
-                    isError = parseInput(it, spec) == null
-                },
+            GlassTextField(
+                state = input,
                 label = stringResource(R.string.hook_slider_dialog_input),
-                singleLine = true,
+                lineLimits = TextFieldLineLimits.SingleLine,
                 modifier = Modifier.fillMaxWidth(),
             )
-            if (isError) {
+            val parsedInput = parseInput(input.text.toString(), spec)
+            if (parsedInput == null) {
                 MiuixText(
                     text = stringResource(
                         R.string.hook_slider_dialog_range,
@@ -192,7 +190,7 @@ private fun SliderValueDialog(
                 AppDialogButton(
                     text = stringResource(R.string.action_confirm),
                     onClick = {
-                        parseInput(input, spec)?.let { ConfigState.set(spec.key, it) }
+                        parsedInput?.let { ConfigState.set(spec.key, it) }
                         onDismiss()
                     },
                     primary = true,

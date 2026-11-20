@@ -1,6 +1,5 @@
 package cn.ianzb.hypernavbar.ui.screen.features
 
-import android.content.Intent
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,7 +10,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -22,8 +20,8 @@ import cn.ianzb.hypernavbar.prefs.OptionType
 import cn.ianzb.hypernavbar.prefs.OsRequirement
 import cn.ianzb.hypernavbar.ui.component.pref.HookOptionsPage
 import cn.ianzb.hypernavbar.ui.component.pref.HookSection
-import cn.ianzb.hypernavbar.ui.screen.safemode.SafeModeActivity
-import cn.ianzb.hypernavbar.ui.screen.scope.ScopeListActivity
+import cn.ianzb.hypernavbar.ui.screen.subpage.AppSubPage
+import cn.ianzb.hypernavbar.ui.screen.subpage.rememberOpenAppSubPage
 import cn.ianzb.hypernavbar.xposed.XposedServiceManager
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
@@ -43,7 +41,8 @@ fun FeaturesPageView(
     isBlurEnabled: Boolean = true,
     extraBottomPadding: Dp = 0.dp,
 ) {
-    val context = LocalContext.current
+    val openScope = rememberOpenAppSubPage(AppSubPage.Scope)
+    val openSafeMode = rememberOpenAppSubPage(AppSubPage.SafeMode)
     val specs = remember { featureSpecs() }
     val sections = remember(specs) { featureSections(specs) }
 
@@ -66,8 +65,8 @@ fun FeaturesPageView(
         customActionPackages = listOf(XposedServiceManager.SYSTEM_UI_PACKAGE),
         onArrowClick = { spec ->
             when (spec.key) {
-                "feature_scope" -> context.startActivity(Intent(context, ScopeListActivity::class.java))
-                "feature_safemode" -> context.startActivity(Intent(context, SafeModeActivity::class.java))
+                "feature_scope" -> openScope()
+                "feature_safemode" -> openSafeMode()
             }
         },
     )

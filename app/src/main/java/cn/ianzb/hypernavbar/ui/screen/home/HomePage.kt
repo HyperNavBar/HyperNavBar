@@ -48,6 +48,9 @@ import cn.ianzb.hypernavbar.ui.component.AppDialog
 import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
 import cn.ianzb.hypernavbar.ui.component.SectionTitle
 import cn.ianzb.hypernavbar.ui.component.sectionCardPadding
+import cn.ianzb.hypernavbar.ui.icons.CheckCircleOutlineIcon
+import cn.ianzb.hypernavbar.ui.icons.ErrorOutlineIcon
+import cn.ianzb.hypernavbar.ui.icons.RemoveCircleOutlineIcon
 import cn.ianzb.hypernavbar.ui.util.PageBackdrop
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
@@ -60,9 +63,6 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.glass.Error
-import top.yukonga.miuix.kmp.icon.glass.Ok
 import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -388,10 +388,11 @@ private fun StatusCard(
             ) {
                 Icon(
                     modifier = Modifier.size(iconSize),
-                    imageVector = if (hasRoot && immersionSupported)
-                        MiuixIcons.Glass.Ok
-                    else
-                        MiuixIcons.Glass.Error,
+                    imageVector = when {
+                        !immersionSupported -> ErrorOutlineIcon
+                        !hasRoot -> RemoveCircleOutlineIcon
+                        else -> CheckCircleOutlineIcon
+                    },
                     tint = iconTint,
                     contentDescription = null
                 )

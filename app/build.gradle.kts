@@ -112,6 +112,7 @@ dependencies {
     implementation(libs.commonmark)
     implementation(libs.miuix.glass)
     implementation(libs.miuix.glass.icons)
+    implementation(libs.material.icons)
     implementation(libs.miuix.blur)
     implementation(libs.miuix.preference)
     implementation(libs.miuix.icons)

@@ -75,6 +75,12 @@ private val licenseSections: List<LicenseSection> = listOf(
                 "https://developer.android.com/jetpack/androidx/releases/compose-material3",
             ),
             LibraryInfo(
+                "Compose Material Icons Core",
+                "1.7.8",
+                "Apache-2.0",
+                "https://developer.android.com/jetpack/androidx/releases/compose-material",
+            ),
+            LibraryInfo(
                 "Miuix iOS liquid glass example",
                 "-",
                 "Apache-2.0",

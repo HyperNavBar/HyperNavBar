@@ -12,6 +12,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.Choreographer
+import android.view.InputDevice
+import android.view.InputEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -40,8 +42,8 @@ import kotlin.math.roundToInt
  *   快照兜底；
  * - 宿主保活：官方「隐藏手势提示线」开启时不创建提示线，按需在
  *   `NavigationBarControllerImpl#createNavigationBar` 期间临时放行、并在规则启用时重建宿主；
- * - 触摸 / 滑动：被动监听（`NavigationBarFrame#dispatchTouchEvent` + `InputMonitorCompat`），
- *   不消费输入事件。
+ * - 触摸 / 滑动：优先观察小米 Shell 现有的 MultiTaskSwitch 输入流，旧版继续使用导航栏与
+ *   InputMonitorCompat。仅观察，不消费或修改输入事件。
  */
 class GestureHandleHook : BaseHook() {
 
@@ -67,6 +69,10 @@ class GestureHandleHook : BaseHook() {
     private var inputMonitor: Any? = null
     private var inputReceiver: Any? = null
     private var inputMonitorInstalled = false
+    private val touchSource = GestureTouchSource()
+
+    @Volatile
+    private var observeMiuiInput = false
 
     private val handles: MutableMap<View, HandleVisual?> =
         Collections.synchronizedMap(WeakHashMap<View, HandleVisual?>())
@@ -96,6 +102,7 @@ class GestureHandleHook : BaseHook() {
         installDrawHooks()
         installForegroundHook()
         installTouchObserver()
+        installMiuiTouchObserver()
         installHostHooks()
         HookHelper.log("$tag: installed @ ${target.packageName}")
     }
@@ -163,10 +170,44 @@ class GestureHandleHook : BaseHook() {
         val method = Reflect.findMethodIfExists(frame, "dispatchTouchEvent", MotionEvent::class.java) ?: return
         HookHelper.intercept(method) { chain ->
             runCatching {
-                observeTouch(chain.thisObject as? View, chain.args.getOrNull(0) as? MotionEvent)
+                observeLegacyTouch(chain.thisObject as? View, chain.args.getOrNull(0) as? MotionEvent)
             }
             chain.proceed()
         }
+    }
+
+    private fun installMiuiTouchObserver() {
+        runCatching {
+            val receiver = Reflect.findClassIfExists(MIUI_INPUT_RECEIVER, loader) ?: return
+            // 先确认可跟踪销毁，避免新路径失效时无法重新启用旧输入流。
+            val dispose = receiver.getDeclaredMethod("dispose").apply { isAccessible = true }
+            val onInput = receiver.getDeclaredMethod("onInputEvent", InputEvent::class.java)
+                .apply { isAccessible = true }
+            HookHelper.hookAfter(dispose) { param ->
+                val owner = param.thisObject ?: return@hookAfter
+                dispatch {
+                    if (touchSource.clearMiui(owner)) {
+                        finishActiveGesture(SystemClock.uptimeMillis())
+                        if (receiverInstalled) installInputMonitor()
+                    }
+                }
+            }
+            HookHelper.intercept(onInput) { chain ->
+                runCatching {
+                    val owner = chain.thisObject ?: return@runCatching
+                    val event = chain.args.getOrNull(0) as? MotionEvent ?: return@runCatching
+                    if (!observeMiuiInput || !event.isFromSource(InputDevice.SOURCE_TOUCHSCREEN)) return@runCatching
+                    // Shell 可能在另一个 Looper；不能把将被系统回收的 MotionEvent 传过去。
+                    val action = event.actionMasked
+                    val rawX = event.rawX
+                    val rawY = event.rawY
+                    dispatch {
+                        runCatching { observeMiuiTouch(owner, action, rawX, rawY) }
+                    }
+                }
+                chain.proceed()
+            }
+        }.onFailure { HookHelper.log("$tag: MIUI input observer unavailable", it) }
     }
 
     private fun installHostHooks() {
@@ -254,6 +295,7 @@ class GestureHandleHook : BaseHook() {
         val config = readConfig()
         if (config != lastConfig) {
             lastConfig = config
+            observeMiuiInput = config.enabled && (config.motion || config.touchReveal)
             policy.configure(
                 config.rules,
                 config.follow,
@@ -421,25 +463,41 @@ class GestureHandleHook : BaseHook() {
 
     // ---------------- 触摸 / 滑动监听 ----------------
 
-    private fun observeTouch(frame: View?, event: MotionEvent?) {
-        event ?: return
+    private fun observeMiuiTouch(receiver: Any, action: Int, rawX: Float, rawY: Float) {
+        if (!observeMiuiInput) return
+        val wasLegacy = touchSource.acceptLegacy
+        if (!touchSource.acceptMiui(receiver, action == MotionEvent.ACTION_DOWN)) return
+        if (wasLegacy) {
+            finishActiveGesture(SystemClock.uptimeMillis())
+            stopInputMonitor()
+            HookHelper.log("$tag: using MIUI MultiTaskSwitch input")
+        }
+        observeTouch(null, action, rawX, rawY)
+    }
+
+    private fun observeLegacyTouch(frame: View?, event: MotionEvent?) {
+        if (event != null && touchSource.acceptLegacy) {
+            observeTouch(frame, event.actionMasked, event.rawX, event.rawY)
+        }
+    }
+
+    private fun observeTouch(frame: View?, action: Int, rawX: Float, rawY: Float) {
         val config = lastConfig ?: return
         if (!config.enabled || (!config.touchReveal && !config.motion)) return
         if (frame != null && !appliesTo(frame)) return
         val now = SystemClock.uptimeMillis()
         main?.removeCallbacks(detachedGestureTimeout)
-        val action = event.actionMasked
         if (action == MotionEvent.ACTION_DOWN) {
             activeTouchHandle?.let { finishActiveGesture(now) }
-            val handle = handleAt(frame, event.rawX, event.rawY)
+            val handle = handleAt(frame, rawX, rawY) ?: return
+            if (!appliesTo(handle)) return
             activeTouchHandle = handle
             activeSwipeRevealed = false
-            if (handle == null || !appliesTo(handle)) return
             if (config.touchReveal) {
                 policy.touchDown(now)
                 scheduleHide()
             }
-            if (config.motion) motion.start(event.rawX, event.rawY, now)
+            if (config.motion) motion.start(rawX, rawY, now)
             invalidateHandles()
             return
         }
@@ -456,14 +514,14 @@ class GestureHandleHook : BaseHook() {
             }
         }
         if (action == MotionEvent.ACTION_MOVE && config.motion) {
-            revealForSwipe(handle, event, now)
+            revealForSwipe(handle, rawX, rawY, now)
             if (activeSwipeRevealed) policy.swipeEvent(now)
-            updateMotion(handle, event, config.motionRangeDp)
+            updateMotion(handle, rawX, rawY, config.motionRangeDp)
             invalidateHandles()
         } else if (terminal) {
             if (config.motion && action != MotionEvent.ACTION_POINTER_DOWN) {
-                revealForSwipe(handle, event, now)
-                updateMotion(handle, event, config.motionRangeDp)
+                revealForSwipe(handle, rawX, rawY, now)
+                updateMotion(handle, rawX, rawY, config.motionRangeDp)
             }
             finishActiveGesture(now)
         }
@@ -481,24 +539,24 @@ class GestureHandleHook : BaseHook() {
         invalidateHandles()
     }
 
-    private fun revealForSwipe(handle: View, event: MotionEvent, now: Long) {
+    private fun revealForSwipe(handle: View, rawX: Float, rawY: Float, now: Long) {
         if (activeSwipeRevealed) return
         val slop = ViewConfiguration.get(handle.context).scaledTouchSlop.toFloat()
-        if (!motion.movedBeyond(event.rawX, event.rawY, slop)) return
+        if (!motion.movedBeyond(rawX, rawY, slop)) return
         activeSwipeRevealed = true
         policy.swipeDown(now)
         scheduleHide()
     }
 
-    private fun updateMotion(handle: View, event: MotionEvent, maxOffsetDp: Float) {
+    private fun updateMotion(handle: View, rawX: Float, rawY: Float, maxOffsetDp: Float) {
         val pill = pillRect(handle) ?: return
         val density = handle.resources.displayMetrics.density
         val margin = 2f * density
         // 单方向最大位移：跟随范围设置，且不超过小白条到宿主边缘的剩余空间
         val cap = maxOffsetDp.coerceAtLeast(0f) * density
         motion.move(
-            event.rawX,
-            event.rawY,
+            rawX,
+            rawY,
             minOf(cap, maxOf(0f, pill.left - margin)),
             minOf(cap, maxOf(0f, handle.width - pill.right - margin)),
             minOf(cap, maxOf(0f, pill.top - margin)),
@@ -614,7 +672,7 @@ class GestureHandleHook : BaseHook() {
     }
 
     private fun installInputMonitor() {
-        if (!enabled() || hasInputMonitor() || loader == null) return
+        if (!enabled() || !touchSource.acceptLegacy || hasInputMonitor() || loader == null) return
         var monitor: Any? = null
         runCatching {
             // 导航栏窗口收不到全部手势输入流：改用与 SystemUI 相同的被动监听包装，不抢占事件
@@ -626,7 +684,7 @@ class GestureHandleHook : BaseHook() {
             )
             val listener = Proxy.newProxyInstance(loader, arrayOf(listenerType)) { _, method, args ->
                 if (method.name == "onInputEvent" && args?.size == 1 && args[0] is MotionEvent) {
-                    runCatching { observeTouch(null, args[0] as MotionEvent) }
+                    runCatching { observeLegacyTouch(null, args[0] as MotionEvent) }
                 }
                 null
             }
@@ -706,6 +764,8 @@ class GestureHandleHook : BaseHook() {
         const val HANDLE = "com.android.systemui.navigationbar.gestural.NavigationHandle"
         const val QUICKSWITCH_HANDLE = "com.android.systemui.navigationbar.gestural.QuickswitchOrientedNavHandle"
         const val NAV_BAR_FRAME = "com.android.systemui.navigationbar.views.NavigationBarFrame"
+        const val MIUI_INPUT_RECEIVER =
+            "com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchEventController\$EventReceiver"
         const val TOP_OBSERVER = "com.miui.systemui.functions.MiuiTopActivityObserver"
         const val CONTROLLER = "com.android.systemui.navigationbar.NavigationBarControllerImpl"
 

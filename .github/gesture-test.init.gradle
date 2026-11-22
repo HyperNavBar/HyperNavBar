@@ -1,0 +1,11 @@
+gradle.beforeProject { project ->
+    project.pluginManager.withPlugin('com.android.application') {
+        project.extensions.getByName('androidComponents').finalizeDsl { android ->
+            android.buildFeatures.resValues = true
+            def debug = android.buildTypes.getByName('debug')
+            debug.applicationIdSuffix = '.gesturetest'
+            debug.versionNameSuffix = '-gesturetest'
+            debug.resValue('string', 'app_name', 'HyperNavBar Gesture Test')
+        }
+    }
+}

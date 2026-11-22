@@ -82,7 +82,8 @@ class GestureHandleHook : BaseHook() {
 
     private val motion = GestureHandleMotion()
     private val viewport = GestureHandleViewport()
-    private val upperWindow = GestureHandleUpperWindow()
+    private val trace = GestureHandleTrace()
+    private val upperWindow = GestureHandleUpperWindow(trace)
     private val policy = GestureHandlePolicy()
     private var getPillRectMethod: Method? = null
     private var refreshPillGeometryMethod: Method? = null
@@ -316,6 +317,10 @@ class GestureHandleHook : BaseHook() {
                 if (geometry != null) {
                     dx = geometry.local.clampX(motionFrame.x)
                     val upperY = geometry.extended.clampY(motionFrame.y)
+                    trace.sample("draw") {
+                        "motionY=${motionFrame.y} upperY=$upperY localUp=${geometry.local.up}" +
+                            " extendedUp=${geometry.extended.up} pill=${geometry.pill} alpha=$alpha"
+                    }
                     if (upperY < -geometry.local.up && drawInUpperWindow(view, geometry.pill, dx, upperY, alpha)) {
                         return null
                     }
@@ -608,6 +613,7 @@ class GestureHandleHook : BaseHook() {
             val handle = handleAt(frame, rawX, rawY) ?: return
             if (!appliesTo(handle)) return
             activeTouchHandle = handle
+            trace.start()
             touchStartY = rawY
             activeSwipeRevealed = false
             if (config.touchReveal) {
@@ -671,6 +677,7 @@ class GestureHandleHook : BaseHook() {
             rawY < touchStartY - 6f * density
         ) upperWindow.prepare(handle, maxOffsetDp * density)
         val limits = motionGeometry(handle, maxOffsetDp)?.extended ?: GestureHandleBounds.NONE
+        trace.sample("input") { "fingerDy=${rawY - touchStartY} limits=$limits" }
         motion.move(
             rawX,
             rawY,
@@ -685,8 +692,14 @@ class GestureHandleHook : BaseHook() {
     private fun motionGeometry(handle: View, capDp: Float, canvas: Canvas? = null): MotionGeometry? {
         // 横屏快捷切换另有绘制几何，不能拿普通 NavigationHandle 的胶囊轮廓做限幅。
         if (handle.javaClass.name != HANDLE || !capDp.isFinite() || capDp <= 0f) return null
-        val area = viewport.resolve(handle) ?: return null
-        if (canvas != null && !viewport.intersectCanvasClip(canvas)) return null
+        val area = viewport.resolve(handle) ?: run {
+            trace.sample("stock-unavailable") { "layout=${handle.width}x${handle.height} shown=${handle.isShown}" }
+            return null
+        }
+        if (canvas != null && !viewport.intersectCanvasClip(canvas)) {
+            trace.sample("stock-canvas-clipped") { "area=$area" }
+            return null
+        }
         // 每次都获取当前胶囊外框。原有的手指命中检测仍可使用按尺寸缓存的几何。
         val pill = runCatching {
             if (canvas != null) refreshPillGeometryMethod?.invoke(handle, true)

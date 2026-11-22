@@ -13,9 +13,9 @@ gradle.beforeProject { project ->
             gesturePerf.initWith(debug)
             gesturePerf.matchingFallbacks = ['debug']
             gesturePerf.debuggable = false
-            gesturePerf.applicationIdSuffix = '.gestureup'
-            gesturePerf.versionNameSuffix = '-gestureup'
-            gesturePerf.resValue('string', 'app_name', 'HyperNavBar Gesture Up')
+            gesturePerf.applicationIdSuffix = '.gestureupdiag'
+            gesturePerf.versionNameSuffix = '-gestureupdiag'
+            gesturePerf.resValue('string', 'app_name', 'HyperNavBar Gesture Up Test')
         }
     }
 }

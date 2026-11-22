@@ -16,7 +16,7 @@ import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /** Visual-only extension above the navigation bar window. All calls run on the main thread. */
-internal class GestureHandleUpperWindow {
+internal class GestureHandleUpperWindow(private val trace: GestureHandleTrace) {
     private var panel: PillView? = null
     private var wm: WindowManager? = null
     private var owner = WeakReference<View>(null)
@@ -47,7 +47,7 @@ internal class GestureHandleUpperWindow {
         runCatching {
             val context = handle.context.createWindowContext(display, NAVIGATION_BAR_PANEL, null)
             val manager = context.getSystemService(WindowManager::class.java) ?: return
-            val view = PillView(context)
+            val view = PillView(context, trace)
             val params = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 height,
@@ -77,13 +77,21 @@ internal class GestureHandleUpperWindow {
         val view = panel ?: return null
         if (owner.get() !== handle || !handle.isShown || !view.isShown ||
             handle.resources.configuration.orientation != Configuration.ORIENTATION_PORTRAIT ||
-            !view.isLaidOut || view.height != requestedHeight || !view.getLocalVisibleRect(visible)
-        ) return null
+            !view.isLaidOut || view.height <= 0 || !view.getLocalVisibleRect(visible)
+        ) {
+            trace.sample("panel-unavailable") {
+                "owner=${owner.get() === handle} hostShown=${handle.isShown} panelShown=${view.isShown}" +
+                    " laidOut=${view.isLaidOut} height=${view.height} requested=$requestedHeight"
+            }
+            return null
+        }
         handle.getLocationOnScreen(handleLocation)
         view.getLocationOnScreen(panelLocation)
         val x = (panelLocation[0] - handleLocation[0]).toFloat()
         val y = (panelLocation[1] - handleLocation[1]).toFloat()
-        return GestureHandleBounds.Edges(x + visible.left, y + visible.top, x + visible.right, y + visible.bottom)
+        val bounds = GestureHandleBounds.Edges(x + visible.left, y + visible.top, x + visible.right, y + visible.bottom)
+        trace.sample("panel") { "owner=(${handleLocation[0]},${handleLocation[1]}) viewport=$bounds height=${view.height}" }
+        return bounds
     }
 
     fun show(handle: View, pill: RectF, dx: Float, dy: Float, paint: Paint, radius: Float, fade: Float): Boolean {
@@ -92,7 +100,10 @@ internal class GestureHandleUpperWindow {
         if (radius <= 0f || !radius.isFinite() ||
             pill.left + dx < area.left || pill.right + dx > area.right ||
             pill.top + dy < area.top || pill.bottom + dy > area.bottom
-        ) return false
+        ) {
+            trace.sample("panel-rejected") { "pill=$pill offset=($dx,$dy) radius=$radius bounds=$area" }
+            return false
+        }
         var alpha = fade
         var target: View? = handle
         while (target != null) {
@@ -107,6 +118,7 @@ internal class GestureHandleUpperWindow {
         view.pill.set(pill)
         view.pill.offset(dx + handleLocation[0] - panelLocation[0], dy + handleLocation[1] - panelLocation[1])
         view.radius = radius
+        trace.sample("panel-accepted") { "pill=${view.pill} radius=$radius alpha=${view.paint.alpha} dy=$dy" }
         view.invalidate()
         return true
     }
@@ -150,7 +162,7 @@ internal class GestureHandleUpperWindow {
         }
     }
 
-    private class PillView(context: Context) : View(context) {
+    private class PillView(context: Context, private val trace: GestureHandleTrace) : View(context) {
         val pill = RectF()
         val paint = Paint()
         var radius = 0f
@@ -160,7 +172,10 @@ internal class GestureHandleUpperWindow {
         }
 
         override fun onDraw(canvas: Canvas) {
-            if (!pill.isEmpty) canvas.drawRoundRect(pill, radius, radius, paint)
+            if (!pill.isEmpty) {
+                trace.sample("panel-draw") { "pill=$pill alpha=${paint.alpha}" }
+                canvas.drawRoundRect(pill, radius, radius, paint)
+            }
         }
     }
 

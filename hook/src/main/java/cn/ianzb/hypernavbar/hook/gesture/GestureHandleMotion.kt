@@ -96,24 +96,28 @@ internal class GestureHandleMotion {
     }
 
     fun x(now: Long): Float {
-        advance(now)
-        return x
+        return frame(now).x
     }
 
     fun y(now: Long): Float {
-        advance(now)
-        return y
+        return frame(now).y
     }
 
     /** 是否仍需继续重绘。 */
     fun running(now: Long): Boolean {
+        return frame(now).running
+    }
+
+    /** 同一帧只推进一次动画，绘制端复用这份快照。 */
+    fun frame(now: Long): Frame {
         advance(now)
         val holding = dragging || now < holdUntil
-        return kotlin.math.abs(x - (if (holding) targetX else 0f)) > SETTLED_DISTANCE ||
+        val running = kotlin.math.abs(x - (if (holding) targetX else 0f)) > SETTLED_DISTANCE ||
             kotlin.math.abs(y - (if (holding) targetY else 0f)) > SETTLED_DISTANCE ||
             kotlin.math.abs(velocityX) > SETTLED_SPEED ||
             kotlin.math.abs(velocityY) > SETTLED_SPEED ||
             (!dragging && now < holdUntil && (targetX != 0f || targetY != 0f))
+        return Frame(x, y, running)
     }
 
     private fun advance(now: Long) {
@@ -181,4 +185,10 @@ internal class GestureHandleMotion {
         private const val SETTLED_DISTANCE = 0.15f
         private const val SETTLED_SPEED = 2f
     }
+
+    data class Frame(
+        val x: Float,
+        val y: Float,
+        val running: Boolean,
+    )
 }

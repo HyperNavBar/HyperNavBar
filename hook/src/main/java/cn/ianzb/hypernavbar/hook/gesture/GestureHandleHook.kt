@@ -76,6 +76,8 @@ class GestureHandleHook : BaseHook() {
 
     private val handles: MutableMap<View, HandleVisual?> =
         Collections.synchronizedMap(WeakHashMap<View, HandleVisual?>())
+    private val pillCache: MutableMap<View, CachedPill?> =
+        Collections.synchronizedMap(WeakHashMap<View, CachedPill?>())
 
     private val motion = GestureHandleMotion()
     private val policy = GestureHandlePolicy()
@@ -91,6 +93,28 @@ class GestureHandleHook : BaseHook() {
     private var cachedRulesRaw: String? = null
     private var cachedRules: Map<String, String> = emptyMap()
     private var lastConfig: Config? = null
+    @Volatile
+    private var configDirty = true
+    private var prefsListenerInstalled = false
+
+    private val touchLock = Any()
+    private var pendingMove: PendingTouch? = null
+    private var moveWakeScheduled = false
+    private var moveFrameScheduled = false
+    private val moveWakeRunnable = Runnable { scheduleMoveFrame() }
+    private val moveFrameCallback = Choreographer.FrameCallback {
+        val sample = synchronized(touchLock) {
+            moveFrameScheduled = false
+            pendingMove.also { pendingMove = null }
+        }
+        sample?.let { observeTouch(it.frame, it.action, it.rawX, it.rawY) }
+        synchronized(touchLock) {
+            if (pendingMove != null && !moveWakeScheduled) {
+                moveWakeScheduled = true
+                main?.post(moveWakeRunnable)
+            }
+        }
+    }
 
     private val hideRunnable = Runnable { invalidateHandles() }
     private val detachedGestureTimeout = Runnable { finishActiveGesture(SystemClock.uptimeMillis()) }
@@ -126,6 +150,7 @@ class GestureHandleHook : BaseHook() {
                 HookHelper.hookAfter(method) { param ->
                     val view = param.thisObject as? View ?: return@hookAfter
                     handles.remove(view)
+                    pillCache.remove(view)
                     if (activeTouchHandle === view) {
                         main?.removeCallbacks(detachedGestureTimeout)
                         main?.postDelayed(detachedGestureTimeout, 750L)
@@ -201,9 +226,7 @@ class GestureHandleHook : BaseHook() {
                     val action = event.actionMasked
                     val rawX = event.rawX
                     val rawY = event.rawY
-                    dispatch {
-                        runCatching { observeMiuiTouch(owner, action, rawX, rawY) }
-                    }
+                    observeMiuiTouch(owner, action, rawX, rawY)
                 }
                 chain.proceed()
             }
@@ -248,15 +271,19 @@ class GestureHandleHook : BaseHook() {
         return try {
             trackHandle(view)
             val now = SystemClock.uptimeMillis()
-            val config = applyConfig(now)
+            val config = lastConfig ?: applyConfig(now)
             val systemHidden = rulesPresent && stockHidden
-            val hidden = if (appliesTo(view)) policy.hidden(now, systemHidden) else systemHidden
+            val applies = appliesTo(view)
+            val hidden = if (applies) policy.hidden(now, systemHidden) else systemHidden
             val visual = synchronized(handles) {
                 val existing = handles[view]
                 if (existing != null) existing else HandleVisual(hidden).also { handles[view] = it }
             }
             val alpha = visual.fade.alpha(hidden, now, config.motion && policy.swipeRevealActive(now))
-            if (visual.fade.running(now) || motion.running(now)) view.postInvalidateOnAnimation()
+            val motionFrame = if (config.motion && applies) motion.frame(now) else null
+            if (visual.fade.running(now) || motionFrame?.running == true) {
+                view.postInvalidateOnAnimation()
+            }
             if (alpha <= 0f) return null
             val canvas = chain.args.getOrNull(0) as? Canvas ?: return chain.proceed()
             val save = if (alpha >= 1f) {
@@ -267,7 +294,7 @@ class GestureHandleHook : BaseHook() {
                 )
             }
             try {
-                if (config.motion && appliesTo(view)) canvas.translate(motion.x(now), motion.y(now))
+                if (motionFrame != null) canvas.translate(motionFrame.x, motionFrame.y)
                 chain.proceed()
             } finally {
                 canvas.restoreToCount(save)
@@ -292,7 +319,9 @@ class GestureHandleHook : BaseHook() {
 
     /** 读取配置并同步到策略；返回当前快照。 */
     private fun applyConfig(now: Long): Config {
+        lastConfig?.let { if (!configDirty) return it }
         val config = readConfig()
+        configDirty = false
         if (config != lastConfig) {
             lastConfig = config
             observeMiuiInput = config.enabled && (config.motion || config.touchReveal)
@@ -372,7 +401,8 @@ class GestureHandleHook : BaseHook() {
         )
     }
 
-    private fun enabled(): Boolean = HookPrefs.getBoolean(HookKeys.GESTURE_HANDLE, false)
+    private fun enabled(): Boolean =
+        lastConfig?.enabled ?: HookPrefs.getBoolean(HookKeys.GESTURE_HANDLE, false)
 
     // ---------------- 宿主保活 ----------------
 
@@ -468,17 +498,64 @@ class GestureHandleHook : BaseHook() {
         val wasLegacy = touchSource.acceptLegacy
         if (!touchSource.acceptMiui(receiver, action == MotionEvent.ACTION_DOWN)) return
         if (wasLegacy) {
-            finishActiveGesture(SystemClock.uptimeMillis())
-            stopInputMonitor()
-            HookHelper.log("$tag: using MIUI MultiTaskSwitch input")
+            dispatch {
+                finishActiveGesture(SystemClock.uptimeMillis())
+                stopInputMonitor()
+                HookHelper.log("$tag: using MIUI MultiTaskSwitch input")
+            }
         }
-        observeTouch(null, action, rawX, rawY)
+        enqueueTouch(null, action, rawX, rawY)
     }
 
     private fun observeLegacyTouch(frame: View?, event: MotionEvent?) {
         if (event != null && touchSource.acceptLegacy) {
-            observeTouch(frame, event.actionMasked, event.rawX, event.rawY)
+            enqueueTouch(frame, event.actionMasked, event.rawX, event.rawY)
         }
+    }
+
+    /**
+     * MIUI 的输入回调频率可能高于屏幕刷新率。MOVE 只保留最新坐标并按帧处理，
+     * DOWN/UP/CANCEL 则立即排到主线程，避免 Handler 消息堆积拖慢 SystemUI。
+     */
+    private fun enqueueTouch(frame: View?, action: Int, rawX: Float, rawY: Float) {
+        val sample = PendingTouch(frame, action, rawX, rawY)
+        if (action == MotionEvent.ACTION_MOVE) {
+            val shouldWake = synchronized(touchLock) {
+                pendingMove = sample
+                if (moveWakeScheduled) {
+                    false
+                } else {
+                    moveWakeScheduled = true
+                    true
+                }
+            }
+            if (shouldWake) main?.post(moveWakeRunnable)
+            return
+        }
+        dispatch {
+            flushPendingMove()
+            observeTouch(frame, action, rawX, rawY)
+        }
+    }
+
+    private fun scheduleMoveFrame() {
+        synchronized(touchLock) {
+            moveWakeScheduled = false
+            if (moveFrameScheduled) return
+            moveFrameScheduled = true
+        }
+        Choreographer.getInstance().postFrameCallback(moveFrameCallback)
+    }
+
+    private fun flushPendingMove() {
+        main?.removeCallbacks(moveWakeRunnable)
+        Choreographer.getInstance().removeFrameCallback(moveFrameCallback)
+        val sample = synchronized(touchLock) {
+            moveWakeScheduled = false
+            moveFrameScheduled = false
+            pendingMove.also { pendingMove = null }
+        }
+        sample?.let { observeTouch(it.frame, it.action, it.rawX, it.rawY) }
     }
 
     private fun observeTouch(frame: View?, action: Int, rawX: Float, rawY: Float) {
@@ -549,8 +626,9 @@ class GestureHandleHook : BaseHook() {
     }
 
     private fun updateMotion(handle: View, rawX: Float, rawY: Float, maxOffsetDp: Float) {
-        val pill = pillRect(handle) ?: return
-        val density = handle.resources.displayMetrics.density
+        val cached = cachedPillRect(handle) ?: return
+        val pill = cached.rect
+        val density = cached.density
         val margin = 2f * density
         // 单方向最大位移：跟随范围设置，且不超过小白条到宿主边缘的剩余空间
         val cap = maxOffsetDp.coerceAtLeast(0f) * density
@@ -576,7 +654,7 @@ class GestureHandleHook : BaseHook() {
             val location = IntArray(2)
             view.getLocationOnScreen(location)
             val density = view.resources.displayMetrics.density
-            val pill = pillRect(view)
+            val pill = cachedPillRect(view)?.rect
             val onPill = pill != null &&
                 rawX >= location[0] + pill.left - 12f * density &&
                 rawX <= location[0] + pill.right + 12f * density &&
@@ -604,6 +682,22 @@ class GestureHandleHook : BaseHook() {
         return RectF(0f, bottomEdge - 2f * radius.toFloat(), handle.width.toFloat(), bottomEdge)
     }
 
+    private fun cachedPillRect(handle: View): CachedPill? {
+        val width = handle.width
+        val height = handle.height
+        val existing = synchronized(pillCache) { pillCache[handle] }
+        if (existing != null && existing.width == width && existing.height == height) return existing
+        val rect = pillRect(handle)?.let { RectF(it) } ?: return null
+        return CachedPill(
+            width = width,
+            height = height,
+            density = handle.resources.displayMetrics.density,
+            rect = rect,
+        ).also { cached ->
+            synchronized(pillCache) { pillCache[handle] = cached }
+        }
+    }
+
     private fun trackHandle(view: View) {
         synchronized(handles) {
             if (handles.containsKey(view)) return
@@ -621,6 +715,13 @@ class GestureHandleHook : BaseHook() {
         main = Handler(Looper.getMainLooper())
         runtimeContext = context.applicationContext ?: context
         receiverInstalled = true
+        if (!prefsListenerInstalled) {
+            prefsListenerInstalled = true
+            HookPrefs.registerListener {
+                configDirty = true
+                dispatch { applyConfig(SystemClock.uptimeMillis()) }
+            }
+        }
         installInputMonitor()
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_USER_PRESENT)
@@ -744,6 +845,20 @@ class GestureHandleHook : BaseHook() {
     private class HandleVisual(hidden: Boolean) {
         val fade = GestureHandleFade(hidden)
     }
+
+    private data class CachedPill(
+        val width: Int,
+        val height: Int,
+        val density: Float,
+        val rect: RectF,
+    )
+
+    private data class PendingTouch(
+        val frame: View?,
+        val action: Int,
+        val rawX: Float,
+        val rawY: Float,
+    )
 
     private data class Config(
         val enabled: Boolean,

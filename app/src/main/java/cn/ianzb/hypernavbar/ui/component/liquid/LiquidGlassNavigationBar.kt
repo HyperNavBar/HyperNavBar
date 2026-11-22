@@ -37,7 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.computedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -143,14 +143,14 @@ private const val GRAVITY_ANGLE_STEP_RAD = (3.0 * PI / 180.0).toFloat()
  *
  * Returned as [State] so the read can be deferred to the draw phase: the sensor writes tilt
  * state unthrottled (~50Hz), and a composition-time read would recompose the whole caller
- * scope on every tick. The derivedStateOf equality check then drops draw invalidations to
+ * scope on every tick. The computedStateOf equality check then drops draw invalidations to
  * quantization-step crossings.
  */
 @Composable
 private fun rememberQuantizedGravityAngle(): State<Float> {
     val tiltState = rememberDeviceTilt()
     return remember(tiltState) {
-        derivedStateOf {
+        computedStateOf {
             val tilt = tiltState.value
             val gx = tilt.gravityX
             val gy = tilt.gravityY
@@ -180,7 +180,7 @@ private fun rememberGravityRotatedStroke(
 ): State<EdgeStroke> {
     val gravityAngle = rememberQuantizedGravityAngle()
     return remember(gravityAngle, base, extraDegrees) {
-        derivedStateOf {
+        computedStateOf {
             val rad = gravityAngle.value + (extraDegrees * PI / 180.0).toFloat()
             val opposite = rad + PI.toFloat()
             base.copy(
@@ -227,7 +227,7 @@ internal fun IosLiquidGlassNavigationBar(
     val offsetAnimation = remember { Animatable(0f) }
     val rubberBandPx = with(density) { 4.dp.toPx() }
     val panelOffset by remember(rubberBandPx) {
-        derivedStateOf {
+        computedStateOf {
             if (totalWidthPx == 0f) {
                 0f
             } else {

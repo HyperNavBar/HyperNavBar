@@ -7,9 +7,11 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -28,7 +30,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.computedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +46,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.rules.RulesManager
 import cn.ianzb.hypernavbar.ui.component.LocalAppTopBarCenterObstructionStart
@@ -66,13 +69,16 @@ import cn.ianzb.hypernavbar.ui.screen.subpage.LocalOpenAppSubPage
 import cn.ianzb.hypernavbar.ui.screen.subpage.rememberAppPageBackStack
 import cn.ianzb.hypernavbar.ui.screen.subpage.rememberOpenAppSubPage
 import cn.ianzb.hypernavbar.ui.theme.AppTheme
+import cn.ianzb.hypernavbar.ui.util.LocalAppContainerSize
 import cn.ianzb.hypernavbar.ui.util.LocalAppPageStartInset
 import cn.ianzb.hypernavbar.ui.util.LocalPreferenceBackdrop
 import cn.ianzb.hypernavbar.ui.util.applyWindowBackground
 import cn.ianzb.hypernavbar.ui.util.pagerSwipeOverride
 import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
 import cn.ianzb.hypernavbar.ui.util.shouldShowSplitPane
+import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -95,11 +101,15 @@ import top.yukonga.miuix.kmp.icon.glass.Search
 import top.yukonga.miuix.kmp.icon.glass.SettingsOutline
 import top.yukonga.miuix.kmp.icon.glass.Tune
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
+import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
+import top.yukonga.miuix.kmp.nav.transition.NavMotion
+import top.yukonga.miuix.kmp.nav.transition.NavSettleSpec
+import top.yukonga.miuix.kmp.nav.transition.NavTransitions
+import top.yukonga.miuix.kmp.nav.transition.navGraphicsTransition
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PagerGestureNestedScrollConnection
 import top.yukonga.miuix.kmp.utils.springAnimateToPage
-import kotlin.math.abs
 
 class MainActivity : ComponentActivity() {
 
@@ -213,52 +223,57 @@ class MainActivity : ComponentActivity() {
                 // MainScreen records this layer for navigation and root popup surfaces.
                 CompositionLocalProvider(LocalPreferenceBackdrop provides backdrop) {
                     Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) {
-                        MainScreen(
-                            backdrop = backdrop,
-                            hasRoot = hasRoot,
-                            rootChecked = rootChecked,
-                            themeMode = themeMode,
-                            bottomBarStyle = bottomBarStyle,
-                            railStyle = railStyle,
-                            isBlurEnabled = isBlurEnabled,
-                            applyIntervalMinutes = applyIntervalMinutes,
-                            autoApplyAfterEdit = autoApplyAfterEdit,
-                            checkUpdateOnLaunch = checkUpdateOnLaunch,
-                            hideLauncherIcon = hideLauncherIcon,
-                            isCheckingUpdate = isCheckingUpdate,
-                            onRetryRootCheck = {
-                                scope.launch {
-                                    rootChecked = false
-                                    withContext(Dispatchers.IO) {
-                                        hasRoot = RootHelper.checkRoot()
-                                    }
-                                    rootChecked = true
-                                }
-                            },
-                            onThemeModeChange = { themeMode = it; persistState() },
-                            onBottomBarChange = { bottomBarStyle = it; persistState() },
-                            onRailStyleChange = { railStyle = it; persistState() },
-                            onBlurEnabledChange = { isBlurEnabled = it; persistState() },
-                            onApplyIntervalChange = { applyIntervalMinutes = it; persistState() },
-                            onAutoApplyAfterEditChange = { autoApplyAfterEdit = it; persistState() },
-                            onCheckUpdateOnLaunchChange = { checkUpdateOnLaunch = it; persistState() },
-                            onHideLauncherIconChange = {
-                                hideLauncherIcon = it
-                                LauncherIconController.apply(this@MainActivity, it)
-                                persistState()
-                            },
-                            onCheckUpdate = { checkUpdate() },
-                        )
+                        BoxWithConstraints(Modifier.fillMaxSize()) {
+                            val size = IntSize(constraints.maxWidth, constraints.maxHeight)
+                            CompositionLocalProvider(LocalAppContainerSize provides size) {
+                                MainScreen(
+                                    backdrop = backdrop,
+                                    hasRoot = hasRoot,
+                                    rootChecked = rootChecked,
+                                    themeMode = themeMode,
+                                    bottomBarStyle = bottomBarStyle,
+                                    railStyle = railStyle,
+                                    isBlurEnabled = isBlurEnabled,
+                                    applyIntervalMinutes = applyIntervalMinutes,
+                                    autoApplyAfterEdit = autoApplyAfterEdit,
+                                    checkUpdateOnLaunch = checkUpdateOnLaunch,
+                                    hideLauncherIcon = hideLauncherIcon,
+                                    isCheckingUpdate = isCheckingUpdate,
+                                    onRetryRootCheck = {
+                                        scope.launch {
+                                            rootChecked = false
+                                            withContext(Dispatchers.IO) {
+                                                hasRoot = RootHelper.checkRoot()
+                                            }
+                                            rootChecked = true
+                                        }
+                                    },
+                                    onThemeModeChange = { themeMode = it; persistState() },
+                                    onBottomBarChange = { bottomBarStyle = it; persistState() },
+                                    onRailStyleChange = { railStyle = it; persistState() },
+                                    onBlurEnabledChange = { isBlurEnabled = it; persistState() },
+                                    onApplyIntervalChange = { applyIntervalMinutes = it; persistState() },
+                                    onAutoApplyAfterEditChange = { autoApplyAfterEdit = it; persistState() },
+                                    onCheckUpdateOnLaunchChange = { checkUpdateOnLaunch = it; persistState() },
+                                    onHideLauncherIconChange = {
+                                        hideLauncherIcon = it
+                                        LauncherIconController.apply(this@MainActivity, it)
+                                        persistState()
+                                    },
+                                    onCheckUpdate = { checkUpdate() },
+                                )
 
-                        updateInfo?.let { info ->
-                            UpdateDialog(
-                                info = info,
-                                onDismissRequest = { updateInfo = null },
-                                onConfirm = {
-                                    updateInfo = null
-                                    runCatching { uriHandler.openUri(info.releaseUrl) }
-                                },
-                            )
+                                updateInfo?.let { info ->
+                                    UpdateDialog(
+                                        info = info,
+                                        onDismissRequest = { updateInfo = null },
+                                        onConfirm = {
+                                            updateInfo = null
+                                            runCatching { uriHandler.openUri(info.releaseUrl) }
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -363,8 +378,16 @@ private fun MainScreen(
         GlassNavigationItem(icon = icons[index], label = label)
     }
 
+    var skipRouteTransition by remember { mutableStateOf(false) }
+    LaunchedEffect(skipRouteTransition) {
+        if (skipRouteTransition) {
+            delay(100)
+            skipRouteTransition = false
+        }
+    }
     val onItemSelected: (Int) -> Unit = select@{ index ->
         searchState.close()
+        if (useRail && isSubPage) skipRouteTransition = true
         closeSubPage()
         if (index == selectedIndex) return@select
         homeRefreshKey++
@@ -399,7 +422,7 @@ private fun MainScreen(
             pageNestedScrollConnection = PagerGestureNestedScrollConnection,
         ) { page ->
             val pageProgress: () -> Float = remember(useRail, sidebarState, pagerState, page) {
-                val hidden = derivedStateOf {
+                val hidden = computedStateOf {
                     abs(page - pagerState.currentPage - pagerState.currentPageOffsetFraction) >= 1f
                 }
                 var lastVisibleProgress: Float? = null
@@ -471,10 +494,10 @@ private fun MainScreen(
         }
     }
 
-    val railTitleObstruction: () -> Dp = remember(useRail, sidebarState, sidebarInset) {
+    val railTitleObstruction: () -> Dp = remember(useRail, sidebarState) {
         {
             if (useRail && !sidebarState.expanded && sidebarState.collapsedWidth > 0.dp) {
-                (sidebarState.collapsedStart - sidebarInset()).coerceAtLeast(0.dp)
+                sidebarState.collapsedStart
             } else {
                 Dp.Unspecified
             }
@@ -519,7 +542,12 @@ private fun MainScreen(
                             .then(if (!useRail && backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
                             .background(surfaceColor),
                     ) {
-                        NavDisplay(backStack = backStack, onBack = closeSubPage) {
+                        NavDisplay(
+                            backStack = backStack,
+                            onBack = closeSubPage,
+                            transition = if (skipRouteTransition) InstantNavTransition else NavTransitions.MiuixDefault,
+                            effects = if (useRail) NavDisplayEffects(cornerClipRadius = 0.dp) else NavDisplayEffects(),
+                        ) {
                             entry<AppPageRoute.Main> {
                                 pagerContent(navigationBarHeight)
                             }
@@ -547,7 +575,7 @@ private fun MainScreen(
             if (useRail) {
                 GlassNavigationRail(
                     items = railItems,
-                    selectedIndex = selectedIndex,
+                    selectedIndex = if (isSubPage) -1 else selectedIndex,
                     onSelect = onItemSelected,
                     backdrop = backdrop,
                     state = sidebarState,
@@ -556,6 +584,10 @@ private fun MainScreen(
         }
     }
 }
+
+private val InstantNavTransition = navGraphicsTransition(
+    motion = NavMotion(programmatic = NavSettleSpec.Tween(durationMillis = 0, easing = LinearEasing)),
+) {}
 
 /** 玻璃底栏收敛后的胶囊宽度（miuix 示例 4 个 tab 的实测值，本项目同为 4 个 tab）。 */
 private val NavigationBarCapsuleMaxWidth = 344.dp

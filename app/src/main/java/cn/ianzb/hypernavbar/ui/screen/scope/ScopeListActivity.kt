@@ -3,14 +3,20 @@ package cn.ianzb.hypernavbar.ui.screen.scope
 import android.widget.Toast
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -32,6 +38,7 @@ import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import cn.ianzb.hypernavbar.xposed.AppRestarter
 import cn.ianzb.hypernavbar.xposed.SafeModeReader
 import cn.ianzb.hypernavbar.xposed.XposedServiceManager
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -39,9 +46,14 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.GlassTextField
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.Close
+import top.yukonga.miuix.kmp.icon.glass.Search
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import kotlin.time.Duration.Companion.milliseconds
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 /**
@@ -94,6 +106,25 @@ internal fun ScopeListContent(contentPadding: PaddingValues) {
     val scrollBehavior = LocalSubPageScrollBehavior.current
     val excluded = remember(blacklist, scope) { (blacklist - scope.toSet()).sorted() }
 
+    val searchField = rememberTextFieldState()
+    val query = searchField.text.toString().trim()
+    val packageManager = context.packageManager
+    val labels by produceState<Map<String, String>>(emptyMap(), scope, excluded, packageManager) {
+        value = withContext(Dispatchers.IO) {
+            (scope + excluded).associateWith { packageName ->
+                runCatching {
+                    packageManager.getApplicationInfo(packageName, 0).loadLabel(packageManager).toString()
+                }.getOrDefault("")
+            }
+        }
+    }
+    fun List<String>.matchingQuery(): List<String> = if (query.isEmpty()) this else filter { packageName ->
+        packageName.contains(query, ignoreCase = true) ||
+            labels[packageName]?.contains(query, ignoreCase = true) == true
+    }
+    val visibleScope = remember(scope, query, labels) { scope.matchingQuery() }
+    val visibleExcluded = remember(excluded, query, labels) { excluded.matchingQuery() }
+
     val listState = rememberLazyListState()
     LazyColumn(
         state = listState,
@@ -139,17 +170,37 @@ internal fun ScopeListContent(contentPadding: PaddingValues) {
                 }
             }
         }
-        if (scope.isEmpty()) {
+        item(key = "scope-search") {
+            GlassTextField(
+                state = searchField,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
+                label = stringResource(R.string.search_hint),
+                useLabelAsPlaceholder = true,
+                lineLimits = TextFieldLineLimits.SingleLine,
+                leadingIcon = {
+                    Icon(MiuixIcons.Glass.Search, null, Modifier.size(28.dp))
+                },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        GlassIconButton(onClick = searchField::clearText, surfaceAlpha = 0f, size = 36.dp) {
+                            Icon(MiuixIcons.Glass.Close, stringResource(R.string.search_clear), Modifier.size(28.dp))
+                        }
+                    }
+                },
+            )
+        }
+
+        if (visibleScope.isEmpty() && visibleExcluded.isEmpty()) {
             item {
                 MiuixText(
-                    text = stringResource(R.string.scope_empty),
+                    text = stringResource(if (query.isEmpty()) R.string.scope_empty else R.string.search_empty),
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     style = MiuixTheme.textStyles.footnote2,
                     modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp),
                 )
             }
         } else {
-            items(scope, key = { it }) { packageName ->
+            items(visibleScope, key = { it }) { packageName ->
                 val inSafeMode = packageName in safeModePackages
                 val status = if (inSafeMode) stringResource(R.string.scope_safe_mode) else null
 
@@ -172,7 +223,6 @@ internal fun ScopeListContent(contentPadding: PaddingValues) {
                 ScopedAppCard(
                     packageName = packageName,
                     status = status,
-                    topSpace = if (requestedCount == 0 && packageName == scope.first()) 12.dp else 0.dp,
                     endActions = { appName ->
                         TextButton(
                             text = stringResource(R.string.scope_exclude),
@@ -233,11 +283,11 @@ internal fun ScopeListContent(contentPadding: PaddingValues) {
             }
         }
 
-        if (excluded.isNotEmpty()) {
+        if (visibleExcluded.isNotEmpty()) {
             item {
                 SectionTitle(text = stringResource(R.string.scope_excluded_title), followsContent = false)
             }
-            items(excluded, key = { "excluded:$it" }) { pkg ->
+            items(visibleExcluded, key = { "excluded:$it" }) { pkg ->
                 ScopedAppCard(
                     packageName = pkg,
                     endActions = {

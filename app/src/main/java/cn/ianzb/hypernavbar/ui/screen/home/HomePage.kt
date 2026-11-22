@@ -51,7 +51,7 @@ import cn.ianzb.hypernavbar.ui.component.sectionCardPadding
 import cn.ianzb.hypernavbar.ui.icons.CheckCircleOutlineIcon
 import cn.ianzb.hypernavbar.ui.icons.ErrorOutlineIcon
 import cn.ianzb.hypernavbar.ui.icons.RemoveCircleOutlineIcon
-import cn.ianzb.hypernavbar.ui.util.PageBackdrop
+import cn.ianzb.hypernavbar.ui.util.PageBodyBackdrop
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import cn.ianzb.hypernavbar.ui.util.pageStartInset
@@ -147,7 +147,7 @@ fun HomePageView(
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
-        PageBackdrop(pageBackdrop) {
+        PageBodyBackdrop(pageBackdrop) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()

@@ -25,6 +25,7 @@ import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.ui.component.AppDialog
 import cn.ianzb.hypernavbar.ui.component.AppDialogButton
 import cn.ianzb.hypernavbar.ui.component.SystemRestartConfirmDialog
+import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
 import cn.ianzb.hypernavbar.xposed.AppRestarter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -32,8 +33,10 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.preference.CheckboxLocation
 import top.yukonga.miuix.kmp.preference.CheckboxPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 /**
@@ -74,7 +77,13 @@ fun QuickActionDialog(
         onDismissRequest = onDismiss,
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            val panelColor = MiuixTheme.colorScheme.onBackground.copy(
+                alpha = if (isInDarkTheme()) 36f / 255f else 15f / 255f,
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.defaultColors(color = panelColor),
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()

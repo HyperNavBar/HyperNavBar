@@ -61,9 +61,9 @@ Hook 侧 `HookPrefs` 提供 `registerListener(onChange)`，用于需要「改配
 
 ## 7. HyperOS 4 玻璃组件
 
-顶栏统一走 `AppTopAppBar`。页面采样层仅记录顶栏下方的内容。下拉、对话框和底部弹层使用 miuix Glass 组件，从 `LocalPreferenceBackdrop` 读取背景并在根 Scaffold 的弹层宿主渲染。关闭背景模糊时传入空背景，由组件渲染实色材质。
+顶栏统一走 `AppTopAppBar`。顶栏采样全宽正文，弹层通过 LocalPreferenceBackdrop 采样含顶栏的页面。根 Scaffold 在采样层之外绘制弹层。下拉、对话框和底部弹层使用 miuix Glass 组件，从 `LocalPreferenceBackdrop` 读取背景并在根 Scaffold 的弹层宿主渲染。关闭背景模糊时传入空背景，由组件渲染实色材质。
 
-新增顶栏动作使用 `AppTopBarAction`，文本对话框动作使用 `AppDialogButton`。项目通过 Android SDK 37.2 编译以兼容 miuix 0.9.5-beta02。
+新增顶栏动作使用 `AppTopBarAction`，文本对话框动作使用 `AppDialogButton`。项目通过 Android SDK 37.2 编译以兼容 miuix 0.9.5-beta03。
 
 ## 8. 卡片分组标题
 
@@ -71,6 +71,6 @@ Hook 侧 `HookPrefs` 提供 `registerListener(onChange)`，用于需要「改配
 
 ## 9. 宽屏二级页与默认外观
 
-作用域、安全模式和许可证页用 AppSubPage 路由接入主导航。通过 rememberOpenAppSubPage 打开，独立 Activity 入口继续复用相同内容。SubPageScaffold 提供系统安全区和动态侧栏留白。侧栏形变的留白在布局阶段计算，标题透明度在绘制阶段读取。App 模块编译目标为 JVM 21。
+作用域、安全模式和许可证页用 AppSubPage 路由接入主导航。通过 rememberOpenAppSubPage 打开，独立 Activity 入口继续复用相同内容，并提供外层 Scaffold 承载弹层。宽屏二级页取消主标签高亮，选择侧栏标签时直接退出二级路由。SubPageScaffold 提供系统安全区和动态侧栏留白。侧栏形变的留白在布局阶段计算，标题透明度在绘制阶段读取。App 模块编译目标为 JVM 21。
 
-默认使用悬浮底栏、宽屏左侧面板和背景模糊，已保存的界面配置继续生效。安全模式页直接显示应用列表。设置等模板页面的卡片组使用 AppSectionCard，统一卡片左右及底部留白。
+默认使用悬浮底栏、宽屏左侧面板和背景模糊，已保存的界面配置继续生效。安全模式页直接显示应用列表。设置页使用 AppCardRow 和 appGroupedCardItems 按行加载，以字符串资源 ID 作为行键。分组统一处理首尾圆角、外边距和模糊采样接缝。

@@ -15,6 +15,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,6 +29,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.collectLatest
@@ -143,11 +145,12 @@ fun pageContentPadding(
 
 @Composable
 fun shouldShowSplitPane(): Boolean {
-    val windowInfo = LocalWindowInfo.current
+    val size = LocalAppContainerSize.current ?: LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     return with(density) {
-        val widthDp = windowInfo.containerSize.width.toDp()
-        val heightDp = windowInfo.containerSize.height.toDp()
+        val widthDp = size.width.toDp()
+        val heightDp = size.height.toDp()
+        if (widthDp <= 0.dp) return@with false
         val ratio = heightDp / widthDp
         widthDp >= 840.dp || (widthDp >= 600.dp && ratio < 1.2f)
     }
@@ -193,10 +196,26 @@ internal fun PaddingValues.withPageStartInset(): PaddingValues {
     }
 }
 @Composable
-fun PageBackdrop(backdrop: LayerBackdrop?, content: @Composable () -> Unit) {
+fun PageBackdrop(
+    backdrop: LayerBackdrop?,
+    modifier: Modifier = Modifier.fillMaxSize(),
+    content: @Composable () -> Unit,
+) {
     CompositionLocalProvider(LocalPreferenceBackdrop provides backdrop) {
-        Box(Modifier.fillMaxSize().then(if (backdrop == null) Modifier else Modifier.layerBackdrop(backdrop))) {
-            content()
-        }
+        PageBodyBackdrop(backdrop, modifier, content)
     }
 }
+
+/** Records page content for its top bar without changing the popup sampling source. */
+@Composable
+internal fun PageBodyBackdrop(
+    backdrop: LayerBackdrop?,
+    modifier: Modifier = Modifier.fillMaxSize(),
+    content: @Composable () -> Unit,
+) {
+    Box(modifier.then(if (backdrop == null) Modifier else Modifier.layerBackdrop(backdrop))) {
+        content()
+    }
+}
+
+internal val LocalAppContainerSize = compositionLocalOf<IntSize?> { null }

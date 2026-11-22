@@ -5,9 +5,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.WindowInsets
 import cn.ianzb.hypernavbar.ui.screen.about.LicensePageContent
 import cn.ianzb.hypernavbar.ui.theme.AppTheme
 import cn.ianzb.hypernavbar.ui.util.applyWindowBackground
+import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 
 class LicenseActivity : ComponentActivity() {
@@ -33,7 +35,9 @@ class LicenseActivity : ComponentActivity() {
 
         setContent {
             AppTheme(themeMode = themeMode) {
-                LicensePageContent(onBack = { finish() }, isBlurEnabled = isBlurEnabled)
+                Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) {
+                    LicensePageContent(onBack = { finish() }, isBlurEnabled = isBlurEnabled)
+                }
             }
         }
     }

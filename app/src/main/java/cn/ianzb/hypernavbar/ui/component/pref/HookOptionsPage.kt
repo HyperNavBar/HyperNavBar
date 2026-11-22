@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
@@ -52,7 +53,7 @@ import cn.ianzb.hypernavbar.ui.component.SectionTitle
 import cn.ianzb.hypernavbar.ui.component.appTopBarSafeInsets
 import cn.ianzb.hypernavbar.ui.component.search.LocalAppSearchState
 import cn.ianzb.hypernavbar.ui.component.sectionCardPadding
-import cn.ianzb.hypernavbar.ui.util.PageBackdrop
+import cn.ianzb.hypernavbar.ui.util.PageBodyBackdrop
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import cn.ianzb.hypernavbar.ui.util.pageStartInset
 import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
@@ -312,6 +313,7 @@ fun HookOptionsPage(
                         AppTopBarAction(onClick = { showQuickActions = true }) {
                             Icon(
                                 imageVector = MiuixIcons.Glass.Refresh,
+                                modifier = Modifier.size(28.dp),
                                 contentDescription = stringResource(R.string.quick_action_title),
                                 tint = MiuixTheme.colorScheme.onSurface,
                             )
@@ -322,7 +324,7 @@ fun HookOptionsPage(
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
-        PageBackdrop(pageBackdrop) {
+        PageBodyBackdrop(pageBackdrop) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier

@@ -58,7 +58,7 @@ private val licenseSections: List<LicenseSection> = listOf(
         libraries = listOf(
             LibraryInfo(
                 "Miuix (compose-miuix-ui)",
-                "0.9.5-beta02",
+                "0.9.5-beta03",
                 "Apache-2.0",
                 "https://github.com/compose-miuix-ui/miuix",
             ),

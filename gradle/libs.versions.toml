@@ -9,7 +9,7 @@ activityCompose = "1.13.0"
 kotlin = "2.4.21"
 composeBom = "2026.09.00"
 
-miuix = "0.9.5-beta02"
+miuix = "0.9.5-beta03"
 materialIcons = "1.7.8"
 
 json = "20260814"

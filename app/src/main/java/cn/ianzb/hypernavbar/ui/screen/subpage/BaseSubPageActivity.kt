@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import cn.ianzb.hypernavbar.AppSettings
@@ -14,6 +15,7 @@ import cn.ianzb.hypernavbar.LocaleHelper
 import cn.ianzb.hypernavbar.ui.component.SubPageScaffold
 import cn.ianzb.hypernavbar.ui.theme.AppTheme
 import cn.ianzb.hypernavbar.ui.util.applyWindowBackground
+import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 
 /**
@@ -61,13 +63,15 @@ abstract class BaseSubPageActivity : ComponentActivity() {
 
         setContent {
             AppTheme(themeMode = themeMode) {
-                SubPageScaffold(
-                    title = stringResource(titleRes),
-                    isBlurEnabled = settings.isBlurEnabled,
-                    onBack = { finish() },
-                    topBarActions = topBarActions,
-                ) { padding ->
-                    SubPageContent(settings.isBlurEnabled, padding)
+                Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) {
+                    SubPageScaffold(
+                        title = stringResource(titleRes),
+                        isBlurEnabled = settings.isBlurEnabled,
+                        onBack = { finish() },
+                        topBarActions = topBarActions,
+                    ) { padding ->
+                        SubPageContent(settings.isBlurEnabled, padding)
+                    }
                 }
             }
         }

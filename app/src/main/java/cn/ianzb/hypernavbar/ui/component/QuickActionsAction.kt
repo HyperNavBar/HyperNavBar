@@ -1,5 +1,6 @@
 package cn.ianzb.hypernavbar.ui.component
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -7,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.ui.component.pref.QuickActionDialog
 import top.yukonga.miuix.kmp.basic.Icon
@@ -33,6 +35,7 @@ fun QuickActionsAction(
     AppTopBarAction(onClick = { showDialog = true }, modifier = modifier) {
         Icon(
             imageVector = MiuixIcons.Glass.Refresh,
+            modifier = Modifier.size(28.dp),
             contentDescription = stringResource(R.string.quick_action_title),
             tint = MiuixTheme.colorScheme.onSurface,
         )

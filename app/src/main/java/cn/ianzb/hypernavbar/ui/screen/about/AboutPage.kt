@@ -22,7 +22,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.computedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,7 +50,7 @@ import cn.ianzb.hypernavbar.ui.component.AppArrowPreference
 import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
 import cn.ianzb.hypernavbar.ui.component.effect.BgEffectBackground
 import cn.ianzb.hypernavbar.ui.util.ColorBlendToken
-import cn.ianzb.hypernavbar.ui.util.PageBackdrop
+import cn.ianzb.hypernavbar.ui.util.PageBodyBackdrop
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
 import cn.ianzb.hypernavbar.ui.util.pageContentPadding
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
@@ -82,7 +82,7 @@ fun AboutPageContent(
     val lazyListState = rememberLazyListState()
 
     val scrollProgress by remember {
-        derivedStateOf {
+        computedStateOf {
             when {
                 lazyListState.firstVisibleItemIndex > 0 -> 1f
                 else -> {
@@ -98,8 +98,8 @@ fun AboutPageContent(
     }
 
     val pageBackdrop = if (isBlurEnabled) rememberBlurBackdrop() else null
-    val collapsed by remember { derivedStateOf { scrollProgress == 1f } }
-    val blurActive by remember(pageBackdrop) { derivedStateOf { pageBackdrop != null && scrollProgress == 1f } }
+    val collapsed by remember { computedStateOf { scrollProgress == 1f } }
+    val blurActive by remember(pageBackdrop) { computedStateOf { pageBackdrop != null && scrollProgress == 1f } }
 
     Scaffold(
         topBar = {
@@ -122,7 +122,7 @@ fun AboutPageContent(
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
-        PageBackdrop(pageBackdrop) {
+        PageBodyBackdrop(pageBackdrop) {
             AboutContent(
                 padding = PaddingValues(
                     top = innerPadding.calculateTopPadding(),
@@ -130,7 +130,8 @@ fun AboutPageContent(
                 ),
                 topAppBarScrollBehavior = topAppBarScrollBehavior,
                 lazyListState = lazyListState,
-                scrollProgressProvider = { scrollProgress },
+                isBlurEnabled = isBlurEnabled,
+            scrollProgressProvider = { scrollProgress },
                 openLicensePage = openLicensePage,
             )
         }
@@ -139,6 +140,7 @@ fun AboutPageContent(
 
 @Composable
 private fun AboutContent(
+    isBlurEnabled: Boolean,
     padding: PaddingValues,
     topAppBarScrollBehavior: ScrollBehavior,
     lazyListState: LazyListState,
@@ -147,7 +149,7 @@ private fun AboutContent(
 ) {
     val uriHandler = LocalUriHandler.current
     val projectUrl = stringResource(R.string.about_source_code_summary)
-    val contentBackdrop = rememberBlurBackdrop()
+    val contentBackdrop = if (isBlurEnabled) rememberBlurBackdrop() else null
     var blurRadius by remember { mutableFloatStateOf(60f) }
     var noiseCoefficient by remember { mutableFloatStateOf(BlurDefaults.NoiseCoefficient) }
     var brightness by remember { mutableFloatStateOf(0f) }

@@ -76,7 +76,8 @@ import cn.ianzb.hypernavbar.ui.component.AppDialogButton
 import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
 import cn.ianzb.hypernavbar.ui.component.AppTopBarAction
 import cn.ianzb.hypernavbar.ui.component.SectionTitle
-import cn.ianzb.hypernavbar.ui.util.PageBackdrop
+import cn.ianzb.hypernavbar.ui.util.LocalPreferenceBackdrop
+import cn.ianzb.hypernavbar.ui.util.PageBodyBackdrop
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import cn.ianzb.hypernavbar.ui.util.pageStartInset
 import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
@@ -205,6 +206,7 @@ fun RulesPageView(
 
     val pageBackdrop = if (isBlurEnabled) rememberBlurBackdrop() else null
     val blurActive = pageBackdrop != null
+    val popupBackdrop = LocalPreferenceBackdrop.current
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     fun reloadConfigs() {
@@ -675,7 +677,7 @@ fun RulesPageView(
 
         // Preset sources sheet
         GlassBottomSheet(
-            backdrop = pageBackdrop,
+            backdrop = popupBackdrop,
             title = stringResource(R.string.rules_preset),
             show = showPresetSheet,
             onDismissRequest = { showPresetSheet = false },
@@ -733,7 +735,7 @@ fun RulesPageView(
 
         // Add subscription sheet
         GlassBottomSheet(
-            backdrop = pageBackdrop,
+            backdrop = popupBackdrop,
             title = stringResource(R.string.rules_add),
             show = showAddSheet,
             onDismissRequest = { resetAddState() },
@@ -795,7 +797,7 @@ fun RulesPageView(
 
         // Edit subscription sheet
         GlassBottomSheet(
-            backdrop = pageBackdrop,
+            backdrop = popupBackdrop,
             title = stringResource(R.string.rules_edit),
             show = showEditSheet,
             onDismissRequest = { resetEditState() },
@@ -876,7 +878,7 @@ fun RulesPageView(
 
         // Actions sheet (edit/move/delete/refresh)
         GlassBottomSheet(
-            backdrop = pageBackdrop,
+            backdrop = popupBackdrop,
             title = actionsTarget?.name?.ifEmpty { actionsTarget?.url?.ifEmpty { stringResource(R.string.rules_local_rule) } } ?: "",
             show = showActionsSheet,
             onDismissRequest = { showActionsSheet = false },
@@ -962,7 +964,7 @@ fun RulesPageView(
         )
 
         // Main content
-        PageBackdrop(pageBackdrop) {
+        PageBodyBackdrop(pageBackdrop) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()

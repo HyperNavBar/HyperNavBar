@@ -24,7 +24,7 @@ import cn.ianzb.hypernavbar.rules.RuleConverter
 import cn.ianzb.hypernavbar.rules.RuleFetcher
 import cn.ianzb.hypernavbar.rules.RulesManager
 import cn.ianzb.hypernavbar.ui.component.AppArrowPreference
-import cn.ianzb.hypernavbar.ui.component.AppSectionCard
+import cn.ianzb.hypernavbar.ui.component.AppCardRow
 import cn.ianzb.hypernavbar.ui.screen.subpage.AppSubPage
 import cn.ianzb.hypernavbar.ui.screen.subpage.rememberOpenAppSubPage
 import cn.ianzb.hypernavbar.ui.util.LocalPreferenceBackdrop
@@ -38,7 +38,7 @@ import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 
 @Composable
-internal fun ModuleSettings() {
+internal fun rememberModuleSettingsRows(): Array<AppCardRow?> {
     val context = LocalContext.current
     val openSafeMode = rememberOpenAppSubPage(AppSubPage.SafeMode)
     val openScope = rememberOpenAppSubPage(AppSubPage.Scope)
@@ -48,90 +48,98 @@ internal fun ModuleSettings() {
     var clearingCache by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { SafeModeReader.refresh() }
 
-    AppSectionCard(title = stringResource(R.string.settings_module)) {
-        val deviceValues = listOf(DeviceType.OVERRIDE_AUTO) + DeviceType.entries.map { it.key }
-        val deviceLabels = listOf(
-            stringResource(R.string.device_type_default, stringResource(deviceLabel(DeviceContext.detected.type))),
-        ) + DeviceType.entries.map { stringResource(deviceLabel(it)) }
-        val device = ConfigState.string(DeviceContext.KEY_DEVICE_TYPE, DeviceType.OVERRIDE_AUTO)
-        GlassDropdownPreference(
-            title = stringResource(R.string.settings_device_type),
-            summary = stringResource(R.string.settings_device_type_summary),
-            items = deviceLabels,
-            selectedIndex = deviceValues.indexOf(device).coerceAtLeast(0),
-            onSelectedIndexChange = { ConfigState.set(DeviceContext.KEY_DEVICE_TYPE, deviceValues[it]) },
-            backdrop = LocalPreferenceBackdrop.current,
-        )
-        if (safeModeCount > 0) {
-            BasicComponent(
-                title = stringResource(R.string.safe_mode_active_title),
+    return arrayOf(
+        AppCardRow(R.string.settings_device_type) {
+            val deviceValues = listOf(DeviceType.OVERRIDE_AUTO) + DeviceType.entries.map { it.key }
+            val deviceLabels = listOf(
+                stringResource(R.string.device_type_default, stringResource(deviceLabel(DeviceContext.detected.type))),
+            ) + DeviceType.entries.map { stringResource(deviceLabel(it)) }
+            val device = ConfigState.string(DeviceContext.KEY_DEVICE_TYPE, DeviceType.OVERRIDE_AUTO)
+            GlassDropdownPreference(
+                title = stringResource(R.string.settings_device_type),
+                summary = stringResource(R.string.settings_device_type_summary),
+                items = deviceLabels,
+                selectedIndex = deviceValues.indexOf(device).coerceAtLeast(0),
+                onSelectedIndexChange = { ConfigState.set(DeviceContext.KEY_DEVICE_TYPE, deviceValues[it]) },
+                backdrop = LocalPreferenceBackdrop.current,
             )
-        }
-        AppArrowPreference(
-            title = stringResource(R.string.safe_mode_manage),
-            onClick = openSafeMode,
-        )
-        AppArrowPreference(
-            title = stringResource(R.string.features_scope_title),
-            onClick = openScope,
-        )
-        AppArrowPreference(
-            title = stringResource(R.string.module_scope_request),
-            enabled = XposedServiceManager.isActivated && systemVersion.immersiveSupported,
-            onClick = {
-                scope.launch {
-                    val packages = withContext(Dispatchers.IO) {
-                        val requested = mutableListOf("system")
-                        if (systemVersion.isOs4 && PrefsStore.getBoolean(HookKeys.GESTURE_HANDLE, false)) {
-                            requested += XposedServiceManager.SYSTEM_UI_PACKAGE
+        },
+        if (safeModeCount > 0) AppCardRow(R.string.safe_mode_active_title) {
+            BasicComponent(title = stringResource(R.string.safe_mode_active_title))
+        } else null,
+        AppCardRow(R.string.safe_mode_manage) {
+            AppArrowPreference(
+                title = stringResource(R.string.safe_mode_manage),
+                onClick = openSafeMode,
+            )
+        },
+        AppCardRow(R.string.features_scope_title) {
+            AppArrowPreference(
+                title = stringResource(R.string.features_scope_title),
+                onClick = openScope,
+            )
+        },
+        AppCardRow(R.string.module_scope_request) {
+            AppArrowPreference(
+                title = stringResource(R.string.module_scope_request),
+                enabled = XposedServiceManager.isActivated && systemVersion.immersiveSupported,
+                onClick = {
+                    scope.launch {
+                        val packages = withContext(Dispatchers.IO) {
+                            val requested = mutableListOf("system")
+                            if (systemVersion.isOs4 && PrefsStore.getBoolean(HookKeys.GESTURE_HANDLE, false)) {
+                                requested += XposedServiceManager.SYSTEM_UI_PACKAGE
+                            }
+                            if (PrefsStore.getBoolean(HookKeys.MASTER, false)) {
+                                val configs = RulesManager.loadAll(context)
+                                val cached = configs.mapNotNull { config ->
+                                    RuleFetcher.parseJson(config.cachedContent).getOrNull()?.let { config.id to it }
+                                }.toMap()
+                                requested += RuleConverter.scopeRequestPackages(
+                                    RuleCombiner.combine(configs, cached),
+                                    masterEnabled = true,
+                                )
+                            }
+                            HookBlacklist.filter(requested.distinct())
                         }
-                        if (PrefsStore.getBoolean(HookKeys.MASTER, false)) {
-                            val configs = RulesManager.loadAll(context)
-                            val cached = configs.mapNotNull { config ->
-                                RuleFetcher.parseJson(config.cachedContent).getOrNull()?.let { config.id to it }
-                            }.toMap()
-                            requested += RuleConverter.scopeRequestPackages(
-                                RuleCombiner.combine(configs, cached),
-                                masterEnabled = true,
-                            )
-                        }
-                        HookBlacklist.filter(requested.distinct())
-                    }
-                    if (packages.isNotEmpty()) {
-                        XposedServiceManager.ensureScope(packages) { ok, message ->
-                            scope.launch {
-                                val text = if (ok) context.getString(R.string.module_scope_request_success)
-                                else context.getString(R.string.module_scope_request_failed, message.orEmpty())
-                                Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+                        if (packages.isNotEmpty()) {
+                            XposedServiceManager.ensureScope(packages) { ok, message ->
+                                scope.launch {
+                                    val text = if (ok) context.getString(R.string.module_scope_request_success)
+                                    else context.getString(R.string.module_scope_request_failed, message.orEmpty())
+                                    Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     }
-                }
-            },
-        )
-        AppArrowPreference(
-            title = stringResource(R.string.module_clear_dexkit),
-            enabled = XposedServiceManager.isRootAvailable && XposedServiceManager.scope.isNotEmpty() && !clearingCache,
-            onClick = {
-                clearingCache = true
-                scope.launch {
-                    val success = try {
-                        withContext(Dispatchers.IO) {
-                            val targets = XposedServiceManager.scope.filter { packageName.matches(it) }
-                            RootHelper.deleteDexKitCache(targets, DexKitCacheManager.CACHE_DIR)
+                },
+            )
+        },
+        AppCardRow(R.string.module_clear_dexkit) {
+            AppArrowPreference(
+                title = stringResource(R.string.module_clear_dexkit),
+                enabled = XposedServiceManager.isRootAvailable && XposedServiceManager.scope.isNotEmpty() && !clearingCache,
+                onClick = {
+                    clearingCache = true
+                    scope.launch {
+                        val success = try {
+                            withContext(Dispatchers.IO) {
+                                val targets = XposedServiceManager.scope.filter { packageName.matches(it) }
+                                RootHelper.deleteDexKitCache(targets, DexKitCacheManager.CACHE_DIR)
+                            }
+                        } finally {
+                            clearingCache = false
                         }
-                    } finally {
-                        clearingCache = false
+                        Toast.makeText(
+                            context,
+                            if (success) R.string.module_clear_dexkit_success else R.string.module_clear_dexkit_failed,
+                            Toast.LENGTH_SHORT,
+                        ).show()
                     }
-                    Toast.makeText(
-                        context,
-                        if (success) R.string.module_clear_dexkit_success else R.string.module_clear_dexkit_failed,
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                }
-            },
-        )
-    }
+                },
+            )
+        },
+    )
 }
 
 private val packageName = Regex("[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)+")

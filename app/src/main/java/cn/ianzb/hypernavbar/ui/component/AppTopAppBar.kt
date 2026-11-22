@@ -14,8 +14,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ProvidableCompositionLocal
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
@@ -81,7 +80,7 @@ fun AppTopAppBar(
             if (onBack != null) {
                 BackNavigationButton(
                     onClick = onBack,
-                    glass = isGlassTopBarAvailable(),
+                    glass = glass,
                     backdrop = backdrop,
                 )
             }
@@ -105,12 +104,8 @@ fun AppTopAppBar(
             SolidColor(color)
         }
     }
-    val contentScrolled by remember(scrollBehavior) {
-        derivedStateOf { scrollBehavior.state.contentOffset < 0f }
-    }
     GlassTopAppBar(
         title = title,
-        isContentScrolled = contentScrolled,
         // 背景带固定在 y=0（覆盖状态栏），前景内容自己让出状态栏高度。
         contentModifier = Modifier.windowInsetsPadding(appTopBarSafeInsets()).pageStartInset(),
         backdrop = if (glass) backdrop else null,
@@ -179,7 +174,7 @@ val LocalAppTopBarTitleAlpha: ProvidableCompositionLocal<() -> Float> = staticCo
  */
 val LocalAppTopBarCompact: ProvidableCompositionLocal<Boolean> = staticCompositionLocalOf { false }
 
-internal val LocalAppTopBarCenterObstructionStart = staticCompositionLocalOf { { Dp.Unspecified } }
+internal val LocalAppTopBarCenterObstructionStart = compositionLocalOf { { Dp.Unspecified } }
 
 /**
  * 顶栏动作图标按钮：处于玻璃顶栏内时用 [GlassIconButton]（自动继承顶栏的 style/material/尺寸），

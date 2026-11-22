@@ -24,8 +24,14 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - name: Install Android SDK packages
-        run: sdkmanager --install 'platforms;android-37.0' 'platforms;android-37.2' 'build-tools;37.0.0'
+      - name: Check preinstalled Android SDK packages
+        run: |
+          for package in platforms/android-37.0/android.jar platforms/android-37.2/android.jar build-tools/37.0.0/aapt2; do
+            if [[ ! -f "$ANDROID_HOME/$package" ]]; then
+              echo "::error::Missing Android SDK file: $ANDROID_HOME/$package"
+              exit 1
+            fi
+          done
 
       - name: Run hook unit tests and build test APK
         run: ./gradlew --init-script .github/gesture-test.init.gradle :hook:testDebugUnitTest :app:assembleDebug

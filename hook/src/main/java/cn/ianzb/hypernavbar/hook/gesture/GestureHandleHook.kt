@@ -80,7 +80,10 @@ class GestureHandleHook : BaseHook() {
         Collections.synchronizedMap(WeakHashMap<View, CachedPill?>())
 
     private val motion = GestureHandleMotion()
+    private val viewport = GestureHandleViewport()
     private val policy = GestureHandlePolicy()
+    private var getPillRectMethod: Method? = null
+    private var refreshPillGeometryMethod: Method? = null
 
     private var controller = WeakReference<Any>(null)
     private var stockHidden = false
@@ -138,6 +141,8 @@ class GestureHandleHook : BaseHook() {
             HookHelper.log("$tag: NavigationHandle.onDraw not found")
             return
         }
+        getPillRectMethod = runCatching { handleClass.getMethod("getPillRect") }.getOrNull()
+        refreshPillGeometryMethod = Reflect.findMethodIfExists(handleClass, "computePillGeometry", Boolean::class.javaPrimitiveType!!)
         HookHelper.intercept(drawMethod) { chain -> draw(chain) }
         handleClass?.let { clazz ->
             Reflect.findMethodIfExists(clazz, "onAttachedToWindow")?.let { method ->
@@ -286,15 +291,24 @@ class GestureHandleHook : BaseHook() {
             }
             if (alpha <= 0f) return null
             val canvas = chain.args.getOrNull(0) as? Canvas ?: return chain.proceed()
+            var dx = 0f
+            var dy = 0f
+            if (motionFrame != null && (motionFrame.x != 0f || motionFrame.y != 0f)) {
+                // 最近任务切换期间父容器可能移动或收窄，松手后也按当前边界裁定偏移。
+                val limits = motionBounds(view, config.motionRangeDp, canvas)
+                dx = limits.clampX(motionFrame.x)
+                dy = limits.clampY(motionFrame.y)
+            }
             val save = if (alpha >= 1f) {
                 canvas.save()
             } else {
                 canvas.saveLayerAlpha(
-                    0f, 0f, view.width.toFloat(), view.height.toFloat(), (alpha * 255f).roundToInt()
+                    minOf(0f, dx), 0f, view.width + maxOf(0f, dx), view.height.toFloat(),
+                    (alpha * 255f).roundToInt(),
                 )
             }
             try {
-                if (motionFrame != null) canvas.translate(motionFrame.x, motionFrame.y)
+                if (dx != 0f || dy != 0f) canvas.translate(dx, dy)
                 chain.proceed()
             } finally {
                 canvas.restoreToCount(save)
@@ -626,20 +640,37 @@ class GestureHandleHook : BaseHook() {
     }
 
     private fun updateMotion(handle: View, rawX: Float, rawY: Float, maxOffsetDp: Float) {
-        val cached = cachedPillRect(handle) ?: return
-        val pill = cached.rect
-        val density = cached.density
-        val margin = 2f * density
-        // 单方向最大位移：跟随范围设置，且不超过小白条到宿主边缘的剩余空间
-        val cap = maxOffsetDp.coerceAtLeast(0f) * density
+        val limits = motionBounds(handle, maxOffsetDp)
         motion.move(
             rawX,
             rawY,
-            minOf(cap, maxOf(0f, pill.left - margin)),
-            minOf(cap, maxOf(0f, handle.width - pill.right - margin)),
-            minOf(cap, maxOf(0f, pill.top - margin)),
-            minOf(cap, maxOf(0f, handle.height - pill.bottom - margin)),
+            limits.left,
+            limits.right,
+            limits.up,
+            limits.down,
             SystemClock.uptimeMillis(),
+        )
+    }
+
+    private fun motionBounds(handle: View, capDp: Float, canvas: Canvas? = null): GestureHandleBounds {
+        // 横屏快捷切换另有绘制几何，不能拿普通 NavigationHandle 的胶囊轮廓做限幅。
+        if (handle.javaClass.name != HANDLE) return GestureHandleBounds.NONE
+        val cap = capDp.takeIf { it.isFinite() && it > 0f } ?: return GestureHandleBounds.NONE
+        val hardware = canvas?.isHardwareAccelerated ?: handle.isHardwareAccelerated
+        val area = viewport.resolve(handle, extendHorizontally = hardware) ?: return GestureHandleBounds.NONE
+        if (canvas != null && !viewport.intersectCanvasClip(handle, canvas)) return GestureHandleBounds.NONE
+        // 每次都获取当前胶囊外框。原有的手指命中检测仍可使用按尺寸缓存的几何。
+        val pill = runCatching {
+            if (canvas != null) refreshPillGeometryMethod?.invoke(handle, true)
+            getPillRectMethod?.invoke(handle) as? RectF
+        }.getOrNull()
+            ?: return GestureHandleBounds.NONE
+        val density = handle.resources.displayMetrics.density
+        return GestureHandleBounds.fit(
+            GestureHandleBounds.Edges(pill.left, pill.top, pill.right, pill.bottom),
+            GestureHandleBounds.Edges(area.left, area.top, area.right, area.bottom),
+            cap * density,
+            2f * density,
         )
     }
 

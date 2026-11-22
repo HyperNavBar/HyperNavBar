@@ -45,7 +45,7 @@ jobs:
         run: |
           apk_dir=app/build/outputs/apk/gesturePerf
           metadata="$apk_dir/output-metadata.json"
-          jq -e '.applicationId == "cn.ianzb.hypernavbar.gestureperf"' "$metadata"
+          jq -e '.applicationId == "cn.ianzb.hypernavbar.gestureup"' "$metadata"
           apk=$(jq -er '.elements[] | select(any(.filters[]?; .filterType == "ABI" and .value == "arm64-v8a")) | .outputFile' "$metadata")
           badging=$("$ANDROID_HOME/build-tools/37.0.0/aapt2" dump badging "$apk_dir/$apk")
           if grep -q '^application-debuggable' <<< "$badging"; then

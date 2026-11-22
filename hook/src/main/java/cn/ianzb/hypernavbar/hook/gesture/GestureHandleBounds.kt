@@ -27,6 +27,18 @@ internal data class GestureHandleBounds(
                 (viewport.bottom - pill.bottom - margin).coerceIn(0f, cap),
             )
         }
+
+        fun fitUpper(pill: Edges, viewport: Edges, panel: Edges?, cap: Float, margin: Float):
+            Pair<GestureHandleBounds, GestureHandleBounds> {
+            val local = fit(pill, viewport, cap, margin)
+            if (panel == null || !panel.isFinite() || pill.top < viewport.top || pill.bottom > viewport.bottom ||
+                pill.left < viewport.left || pill.right > viewport.right ||
+                panel.left > pill.left - local.left || panel.right < pill.right + local.right ||
+                panel.bottom < pill.bottom || panel.top >= viewport.top
+            ) return local to local
+            val upper = fit(pill, panel, cap, margin)
+            return local to local.copy(up = maxOf(local.up, upper.up))
+        }
     }
 
     data class Edges(val left: Float, val top: Float, val right: Float, val bottom: Float) {

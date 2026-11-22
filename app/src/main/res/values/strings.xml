@@ -311,7 +311,7 @@
     <string name="gesture_motion_scale_title">跟随幅度</string>
     <string name="gesture_motion_scale_summary">小白条位移相对手指位移的比例</string>
     <string name="gesture_motion_range_title">跟随范围</string>
-    <string name="gesture_motion_range_summary">单方向最大位移上限（同时受小白条到宿主边缘的距离限制）</string>
+    <string name="gesture_motion_range_summary">单方向最大位移上限，实际位移取决于当前可绘制区域</string>
     <string name="gesture_motion_return_title">回弹速度</string>
     <string name="gesture_motion_return_summary">松手后回中动画的速度倍率，越高回中越快</string>
     <string name="gesture_unit_ms"> ms</string>

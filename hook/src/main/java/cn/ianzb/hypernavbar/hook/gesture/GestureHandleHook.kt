@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Handler
 import android.os.Looper
@@ -81,15 +82,19 @@ class GestureHandleHook : BaseHook() {
 
     private val motion = GestureHandleMotion()
     private val viewport = GestureHandleViewport()
+    private val upperWindow = GestureHandleUpperWindow()
     private val policy = GestureHandlePolicy()
     private var getPillRectMethod: Method? = null
     private var refreshPillGeometryMethod: Method? = null
+    private var pillPaintField: Field? = null
+    private var pillRadiusField: Field? = null
 
     private var controller = WeakReference<Any>(null)
     private var stockHidden = false
     private var rulesPresent = false
 
     private var activeTouchHandle: View? = null
+    private var touchStartY = 0f
     private var activeSwipeRevealed = false
     private var foregroundObserved = false
 
@@ -143,6 +148,10 @@ class GestureHandleHook : BaseHook() {
         }
         getPillRectMethod = runCatching { handleClass.getMethod("getPillRect") }.getOrNull()
         refreshPillGeometryMethod = Reflect.findMethodIfExists(handleClass, "computePillGeometry", Boolean::class.javaPrimitiveType!!)
+        pillPaintField = runCatching { handleClass.getDeclaredField("mPaint").apply { isAccessible = true } }.getOrNull()
+        pillRadiusField = runCatching {
+            handleClass.getDeclaredField("mLastPillRadius").apply { isAccessible = true }
+        }.getOrNull()
         HookHelper.intercept(drawMethod) { chain -> draw(chain) }
         handleClass?.let { clazz ->
             Reflect.findMethodIfExists(clazz, "onAttachedToWindow")?.let { method ->
@@ -156,6 +165,7 @@ class GestureHandleHook : BaseHook() {
                     val view = param.thisObject as? View ?: return@hookAfter
                     handles.remove(view)
                     pillCache.remove(view)
+                    upperWindow.close(view)
                     if (activeTouchHandle === view) {
                         main?.removeCallbacks(detachedGestureTimeout)
                         main?.postDelayed(detachedGestureTimeout, 750L)
@@ -272,7 +282,10 @@ class GestureHandleHook : BaseHook() {
 
     private fun draw(chain: XposedInterface.Chain): Any? {
         val view = chain.thisObject as? View ?: return chain.proceed()
-        if (!enabled() || view.display?.displayId != 0) return chain.proceed()
+        if (!enabled() || view.display?.displayId != 0) {
+            upperWindow.close(view)
+            return chain.proceed()
+        }
         return try {
             trackHandle(view)
             val now = SystemClock.uptimeMillis()
@@ -289,22 +302,32 @@ class GestureHandleHook : BaseHook() {
             if (visual.fade.running(now) || motionFrame?.running == true) {
                 view.postInvalidateOnAnimation()
             }
-            if (alpha <= 0f) return null
+            if (activeTouchHandle == null && motionFrame?.running != true) upperWindow.finishAfterAnimation(view)
+            if (alpha <= 0f) {
+                upperWindow.clear(view)
+                return null
+            }
             val canvas = chain.args.getOrNull(0) as? Canvas ?: return chain.proceed()
             var dx = 0f
             var dy = 0f
             if (motionFrame != null && (motionFrame.x != 0f || motionFrame.y != 0f)) {
                 // 最近任务切换期间父容器可能移动或收窄，松手后也按当前边界裁定偏移。
-                val limits = motionBounds(view, config.motionRangeDp, canvas)
-                dx = limits.clampX(motionFrame.x)
-                dy = limits.clampY(motionFrame.y)
+                val geometry = motionGeometry(view, config.motionRangeDp, canvas)
+                if (geometry != null) {
+                    dx = geometry.local.clampX(motionFrame.x)
+                    val upperY = geometry.extended.clampY(motionFrame.y)
+                    if (upperY < -geometry.local.up && drawInUpperWindow(view, geometry.pill, dx, upperY, alpha)) {
+                        return null
+                    }
+                    dy = geometry.local.clampY(motionFrame.y)
+                }
             }
+            upperWindow.clear(view)
             val save = if (alpha >= 1f) {
                 canvas.save()
             } else {
                 canvas.saveLayerAlpha(
-                    minOf(0f, dx), 0f, view.width + maxOf(0f, dx), view.height.toFloat(),
-                    (alpha * 255f).roundToInt(),
+                    0f, 0f, view.width.toFloat(), view.height.toFloat(), (alpha * 255f).roundToInt(),
                 )
             }
             try {
@@ -314,6 +337,7 @@ class GestureHandleHook : BaseHook() {
                 canvas.restoreToCount(save)
             }
         } catch (t: Throwable) {
+            upperWindow.clear(view)
             HookHelper.log("$tag: draw hook failed", t)
             chain.proceed()
         }
@@ -356,6 +380,7 @@ class GestureHandleHook : BaseHook() {
             if (!config.motion) {
                 policy.clearSwipeReveal()
                 motion.reset()
+                upperWindow.close()
             }
             if (config.hasPolicy && !receiverInstalled) {
                 controller.get()?.let { owner ->
@@ -583,6 +608,7 @@ class GestureHandleHook : BaseHook() {
             val handle = handleAt(frame, rawX, rawY) ?: return
             if (!appliesTo(handle)) return
             activeTouchHandle = handle
+            touchStartY = rawY
             activeSwipeRevealed = false
             if (config.touchReveal) {
                 policy.touchDown(now)
@@ -640,7 +666,11 @@ class GestureHandleHook : BaseHook() {
     }
 
     private fun updateMotion(handle: View, rawX: Float, rawY: Float, maxOffsetDp: Float) {
-        val limits = motionBounds(handle, maxOffsetDp)
+        val density = handle.resources.displayMetrics.density
+        if (handle.javaClass.name == HANDLE && pillPaintField != null && pillRadiusField != null &&
+            rawY < touchStartY - 6f * density
+        ) upperWindow.prepare(handle, maxOffsetDp * density)
+        val limits = motionGeometry(handle, maxOffsetDp)?.extended ?: GestureHandleBounds.NONE
         motion.move(
             rawX,
             rawY,
@@ -652,26 +682,31 @@ class GestureHandleHook : BaseHook() {
         )
     }
 
-    private fun motionBounds(handle: View, capDp: Float, canvas: Canvas? = null): GestureHandleBounds {
+    private fun motionGeometry(handle: View, capDp: Float, canvas: Canvas? = null): MotionGeometry? {
         // 横屏快捷切换另有绘制几何，不能拿普通 NavigationHandle 的胶囊轮廓做限幅。
-        if (handle.javaClass.name != HANDLE) return GestureHandleBounds.NONE
-        val cap = capDp.takeIf { it.isFinite() && it > 0f } ?: return GestureHandleBounds.NONE
-        val hardware = canvas?.isHardwareAccelerated ?: handle.isHardwareAccelerated
-        val area = viewport.resolve(handle, extendHorizontally = hardware) ?: return GestureHandleBounds.NONE
-        if (canvas != null && !viewport.intersectCanvasClip(handle, canvas)) return GestureHandleBounds.NONE
+        if (handle.javaClass.name != HANDLE || !capDp.isFinite() || capDp <= 0f) return null
+        val area = viewport.resolve(handle) ?: return null
+        if (canvas != null && !viewport.intersectCanvasClip(canvas)) return null
         // 每次都获取当前胶囊外框。原有的手指命中检测仍可使用按尺寸缓存的几何。
         val pill = runCatching {
             if (canvas != null) refreshPillGeometryMethod?.invoke(handle, true)
             getPillRectMethod?.invoke(handle) as? RectF
-        }.getOrNull()
-            ?: return GestureHandleBounds.NONE
+        }.getOrNull() ?: return null
         val density = handle.resources.displayMetrics.density
-        return GestureHandleBounds.fit(
+        val fits = GestureHandleBounds.fitUpper(
             GestureHandleBounds.Edges(pill.left, pill.top, pill.right, pill.bottom),
             GestureHandleBounds.Edges(area.left, area.top, area.right, area.bottom),
-            cap * density,
-            2f * density,
+            upperWindow.viewport(handle),
+            capDp * density,
+            2f * density
         )
+        return MotionGeometry(pill, fits.first, fits.second)
+    }
+
+    private fun drawInUpperWindow(handle: View, pill: RectF, dx: Float, dy: Float, alpha: Float): Boolean {
+        val paint = pillPaintField?.get(handle) as? Paint ?: return false
+        val radius = pillRadiusField?.getFloat(handle) ?: return false
+        return upperWindow.show(handle, pill, dx, dy, paint, radius, alpha)
     }
 
     private fun handleAt(frame: View?, rawX: Float, rawY: Float): View? {
@@ -772,6 +807,7 @@ class GestureHandleHook : BaseHook() {
                             policy.clearTouchReveal()
                             policy.clearSwipeReveal()
                             motion.reset()
+                            upperWindow.close()
                             activeTouchHandle = null
                             main?.removeCallbacks(detachedGestureTimeout)
                             main?.removeCallbacks(hideRunnable)
@@ -876,6 +912,12 @@ class GestureHandleHook : BaseHook() {
     private class HandleVisual(hidden: Boolean) {
         val fade = GestureHandleFade(hidden)
     }
+
+    private data class MotionGeometry(
+        val pill: RectF,
+        val local: GestureHandleBounds,
+        val extended: GestureHandleBounds,
+    )
 
     private data class CachedPill(
         val width: Int,

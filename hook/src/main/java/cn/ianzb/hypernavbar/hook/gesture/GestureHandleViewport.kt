@@ -13,14 +13,9 @@ internal class GestureHandleViewport {
     private val clip = Rect()
     private val matrixValues = FloatArray(9)
 
-    fun resolve(handle: View, extendHorizontally: Boolean): RectF? {
+    fun resolve(handle: View): RectF? {
         if (!handle.isAttachedToWindow || handle.width <= 0 || handle.height <= 0) return null
-        area.set(
-            if (extendHorizontally) Float.NEGATIVE_INFINITY else 0f,
-            0f,
-            if (extendHorizontally) Float.POSITIVE_INFINITY else handle.width.toFloat(),
-            handle.height.toFloat(),
-        )
+        area.set(0f, 0f, handle.width.toFloat(), handle.height.toFloat())
         var child = handle
         var originX = 0f
         var originY = 0f
@@ -69,16 +64,10 @@ internal class GestureHandleViewport {
         }
     }
 
-    fun intersectCanvasClip(handle: View, canvas: Canvas): Boolean {
+    fun intersectCanvasClip(canvas: Canvas): Boolean {
         if (!canvas.getClipBounds(clip)) return false
-        // A hardware recording may report its nominal View bounds even when its parent
-        // permits overflow. Honor narrower clips without mistaking the recording size for a clip.
-        val hardware = canvas.isHardwareAccelerated
         return area.intersect(
-            if (hardware && clip.left <= 0) area.left else clip.left.toFloat(),
-            if (hardware && clip.top <= 0) area.top else clip.top.toFloat(),
-            if (hardware && clip.right >= handle.width) area.right else clip.right.toFloat(),
-            if (hardware && clip.bottom >= handle.height) area.bottom else clip.bottom.toFloat(),
+            clip.left.toFloat(), clip.top.toFloat(), clip.right.toFloat(), clip.bottom.toFloat(),
         )
     }
 

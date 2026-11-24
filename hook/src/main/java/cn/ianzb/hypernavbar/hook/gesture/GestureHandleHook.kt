@@ -7,11 +7,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.Choreographer
+import android.view.InputDevice
+import android.view.InputEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -40,8 +43,8 @@ import kotlin.math.roundToInt
  *   快照兜底；
  * - 宿主保活：官方「隐藏手势提示线」开启时不创建提示线，按需在
  *   `NavigationBarControllerImpl#createNavigationBar` 期间临时放行、并在规则启用时重建宿主；
- * - 触摸 / 滑动：被动监听（`NavigationBarFrame#dispatchTouchEvent` + `InputMonitorCompat`），
- *   不消费输入事件。
+ * - 触摸 / 滑动：优先观察小米 Shell 现有的 MultiTaskSwitch 输入流，旧版继续使用导航栏与
+ *   InputMonitorCompat。仅观察，不消费或修改输入事件。
  */
 class GestureHandleHook : BaseHook() {
 
@@ -67,24 +70,60 @@ class GestureHandleHook : BaseHook() {
     private var inputMonitor: Any? = null
     private var inputReceiver: Any? = null
     private var inputMonitorInstalled = false
+    private val touchSource = GestureTouchSource()
+
+    @Volatile
+    private var observeMiuiInput = false
 
     private val handles: MutableMap<View, HandleVisual?> =
         Collections.synchronizedMap(WeakHashMap<View, HandleVisual?>())
+    private val pillCache: MutableMap<View, CachedPill?> =
+        Collections.synchronizedMap(WeakHashMap<View, CachedPill?>())
 
     private val motion = GestureHandleMotion()
+    private val viewport = GestureHandleViewport()
+    private val trace = GestureHandleTrace()
+    private val upperWindow = GestureHandleUpperWindow(trace)
     private val policy = GestureHandlePolicy()
+    private var getPillRectMethod: Method? = null
+    private var refreshPillGeometryMethod: Method? = null
+    private var pillPaintField: Field? = null
+    private var pillRadiusField: Field? = null
 
     private var controller = WeakReference<Any>(null)
     private var stockHidden = false
     private var rulesPresent = false
 
     private var activeTouchHandle: View? = null
+    private var touchStartY = 0f
     private var activeSwipeRevealed = false
     private var foregroundObserved = false
 
     private var cachedRulesRaw: String? = null
     private var cachedRules: Map<String, String> = emptyMap()
     private var lastConfig: Config? = null
+    @Volatile
+    private var configDirty = true
+    private var prefsListenerInstalled = false
+
+    private val touchLock = Any()
+    private var pendingMove: PendingTouch? = null
+    private var moveWakeScheduled = false
+    private var moveFrameScheduled = false
+    private val moveWakeRunnable = Runnable { scheduleMoveFrame() }
+    private val moveFrameCallback = Choreographer.FrameCallback {
+        val sample = synchronized(touchLock) {
+            moveFrameScheduled = false
+            pendingMove.also { pendingMove = null }
+        }
+        sample?.let { observeTouch(it.frame, it.action, it.rawX, it.rawY) }
+        synchronized(touchLock) {
+            if (pendingMove != null && !moveWakeScheduled) {
+                moveWakeScheduled = true
+                main?.post(moveWakeRunnable)
+            }
+        }
+    }
 
     private val hideRunnable = Runnable { invalidateHandles() }
     private val detachedGestureTimeout = Runnable { finishActiveGesture(SystemClock.uptimeMillis()) }
@@ -96,6 +135,7 @@ class GestureHandleHook : BaseHook() {
         installDrawHooks()
         installForegroundHook()
         installTouchObserver()
+        installMiuiTouchObserver()
         installHostHooks()
         HookHelper.log("$tag: installed @ ${target.packageName}")
     }
@@ -107,6 +147,12 @@ class GestureHandleHook : BaseHook() {
             HookHelper.log("$tag: NavigationHandle.onDraw not found")
             return
         }
+        getPillRectMethod = runCatching { handleClass.getMethod("getPillRect") }.getOrNull()
+        refreshPillGeometryMethod = Reflect.findMethodIfExists(handleClass, "computePillGeometry", Boolean::class.javaPrimitiveType!!)
+        pillPaintField = runCatching { handleClass.getDeclaredField("mPaint").apply { isAccessible = true } }.getOrNull()
+        pillRadiusField = runCatching {
+            handleClass.getDeclaredField("mLastPillRadius").apply { isAccessible = true }
+        }.getOrNull()
         HookHelper.intercept(drawMethod) { chain -> draw(chain) }
         handleClass?.let { clazz ->
             Reflect.findMethodIfExists(clazz, "onAttachedToWindow")?.let { method ->
@@ -119,6 +165,8 @@ class GestureHandleHook : BaseHook() {
                 HookHelper.hookAfter(method) { param ->
                     val view = param.thisObject as? View ?: return@hookAfter
                     handles.remove(view)
+                    pillCache.remove(view)
+                    upperWindow.close(view)
                     if (activeTouchHandle === view) {
                         main?.removeCallbacks(detachedGestureTimeout)
                         main?.postDelayed(detachedGestureTimeout, 750L)
@@ -163,10 +211,42 @@ class GestureHandleHook : BaseHook() {
         val method = Reflect.findMethodIfExists(frame, "dispatchTouchEvent", MotionEvent::class.java) ?: return
         HookHelper.intercept(method) { chain ->
             runCatching {
-                observeTouch(chain.thisObject as? View, chain.args.getOrNull(0) as? MotionEvent)
+                observeLegacyTouch(chain.thisObject as? View, chain.args.getOrNull(0) as? MotionEvent)
             }
             chain.proceed()
         }
+    }
+
+    private fun installMiuiTouchObserver() {
+        runCatching {
+            val receiver = Reflect.findClassIfExists(MIUI_INPUT_RECEIVER, loader) ?: return
+            // 先确认可跟踪销毁，避免新路径失效时无法重新启用旧输入流。
+            val dispose = receiver.getDeclaredMethod("dispose").apply { isAccessible = true }
+            val onInput = receiver.getDeclaredMethod("onInputEvent", InputEvent::class.java)
+                .apply { isAccessible = true }
+            HookHelper.hookAfter(dispose) { param ->
+                val owner = param.thisObject ?: return@hookAfter
+                dispatch {
+                    if (touchSource.clearMiui(owner)) {
+                        finishActiveGesture(SystemClock.uptimeMillis())
+                        if (receiverInstalled) installInputMonitor()
+                    }
+                }
+            }
+            HookHelper.intercept(onInput) { chain ->
+                runCatching {
+                    val owner = chain.thisObject ?: return@runCatching
+                    val event = chain.args.getOrNull(0) as? MotionEvent ?: return@runCatching
+                    if (!observeMiuiInput || !event.isFromSource(InputDevice.SOURCE_TOUCHSCREEN)) return@runCatching
+                    // Shell 可能在另一个 Looper；不能把将被系统回收的 MotionEvent 传过去。
+                    val action = event.actionMasked
+                    val rawX = event.rawX
+                    val rawY = event.rawY
+                    observeMiuiTouch(owner, action, rawX, rawY)
+                }
+                chain.proceed()
+            }
+        }.onFailure { HookHelper.log("$tag: MIUI input observer unavailable", it) }
     }
 
     private fun installHostHooks() {
@@ -203,35 +283,66 @@ class GestureHandleHook : BaseHook() {
 
     private fun draw(chain: XposedInterface.Chain): Any? {
         val view = chain.thisObject as? View ?: return chain.proceed()
-        if (!enabled() || view.display?.displayId != 0) return chain.proceed()
+        if (!enabled() || view.display?.displayId != 0) {
+            upperWindow.close(view)
+            return chain.proceed()
+        }
         return try {
             trackHandle(view)
             val now = SystemClock.uptimeMillis()
-            val config = applyConfig(now)
+            val config = lastConfig ?: applyConfig(now)
             val systemHidden = rulesPresent && stockHidden
-            val hidden = if (appliesTo(view)) policy.hidden(now, systemHidden) else systemHidden
+            val applies = appliesTo(view)
+            val hidden = if (applies) policy.hidden(now, systemHidden) else systemHidden
             val visual = synchronized(handles) {
                 val existing = handles[view]
                 if (existing != null) existing else HandleVisual(hidden).also { handles[view] = it }
             }
             val alpha = visual.fade.alpha(hidden, now, config.motion && policy.swipeRevealActive(now))
-            if (visual.fade.running(now) || motion.running(now)) view.postInvalidateOnAnimation()
-            if (alpha <= 0f) return null
+            val motionFrame = if (config.motion && applies) motion.frame(now) else null
+            if (visual.fade.running(now) || motionFrame?.running == true) {
+                view.postInvalidateOnAnimation()
+            }
+            if (activeTouchHandle == null && motionFrame?.running != true) upperWindow.finishAfterAnimation(view)
+            if (alpha <= 0f) {
+                upperWindow.clear(view)
+                return null
+            }
             val canvas = chain.args.getOrNull(0) as? Canvas ?: return chain.proceed()
+            var dx = 0f
+            var dy = 0f
+            if (motionFrame != null && (motionFrame.x != 0f || motionFrame.y != 0f)) {
+                // 最近任务切换期间父容器可能移动或收窄，松手后也按当前边界裁定偏移。
+                val geometry = motionGeometry(view, config.motionRangeDp, canvas)
+                if (geometry != null) {
+                    dx = geometry.local.clampX(motionFrame.x)
+                    val upperY = geometry.extended.clampY(motionFrame.y)
+                    trace.sample("draw") {
+                        "motionY=${motionFrame.y} upperY=$upperY localUp=${geometry.local.up}" +
+                            " extendedUp=${geometry.extended.up} pill=${geometry.pill} alpha=$alpha"
+                    }
+                    if (upperY < -geometry.local.up && drawInUpperWindow(view, geometry.pill, dx, upperY, alpha)) {
+                        return null
+                    }
+                    dy = geometry.local.clampY(motionFrame.y)
+                }
+            }
+            upperWindow.clear(view)
             val save = if (alpha >= 1f) {
                 canvas.save()
             } else {
                 canvas.saveLayerAlpha(
-                    0f, 0f, view.width.toFloat(), view.height.toFloat(), (alpha * 255f).roundToInt()
+                    0f, 0f, view.width.toFloat(), view.height.toFloat(), (alpha * 255f).roundToInt(),
                 )
             }
             try {
-                if (config.motion && appliesTo(view)) canvas.translate(motion.x(now), motion.y(now))
+                if (dx != 0f || dy != 0f) canvas.translate(dx, dy)
                 chain.proceed()
             } finally {
                 canvas.restoreToCount(save)
             }
         } catch (t: Throwable) {
+            upperWindow.clear(view)
             HookHelper.log("$tag: draw hook failed", t)
             chain.proceed()
         }
@@ -251,9 +362,12 @@ class GestureHandleHook : BaseHook() {
 
     /** 读取配置并同步到策略；返回当前快照。 */
     private fun applyConfig(now: Long): Config {
+        lastConfig?.let { if (!configDirty) return it }
         val config = readConfig()
+        configDirty = false
         if (config != lastConfig) {
             lastConfig = config
+            observeMiuiInput = config.enabled && (config.motion || config.touchReveal)
             policy.configure(
                 config.rules,
                 config.follow,
@@ -271,6 +385,7 @@ class GestureHandleHook : BaseHook() {
             if (!config.motion) {
                 policy.clearSwipeReveal()
                 motion.reset()
+                upperWindow.close()
             }
             if (config.hasPolicy && !receiverInstalled) {
                 controller.get()?.let { owner ->
@@ -330,7 +445,8 @@ class GestureHandleHook : BaseHook() {
         )
     }
 
-    private fun enabled(): Boolean = HookPrefs.getBoolean(HookKeys.GESTURE_HANDLE, false)
+    private fun enabled(): Boolean =
+        lastConfig?.enabled ?: HookPrefs.getBoolean(HookKeys.GESTURE_HANDLE, false)
 
     // ---------------- 宿主保活 ----------------
 
@@ -421,25 +537,90 @@ class GestureHandleHook : BaseHook() {
 
     // ---------------- 触摸 / 滑动监听 ----------------
 
-    private fun observeTouch(frame: View?, event: MotionEvent?) {
-        event ?: return
+    private fun observeMiuiTouch(receiver: Any, action: Int, rawX: Float, rawY: Float) {
+        if (!observeMiuiInput) return
+        val wasLegacy = touchSource.acceptLegacy
+        if (!touchSource.acceptMiui(receiver, action == MotionEvent.ACTION_DOWN)) return
+        if (wasLegacy) {
+            dispatch {
+                finishActiveGesture(SystemClock.uptimeMillis())
+                stopInputMonitor()
+                HookHelper.log("$tag: using MIUI MultiTaskSwitch input")
+            }
+        }
+        enqueueTouch(null, action, rawX, rawY)
+    }
+
+    private fun observeLegacyTouch(frame: View?, event: MotionEvent?) {
+        if (event != null && touchSource.acceptLegacy) {
+            enqueueTouch(frame, event.actionMasked, event.rawX, event.rawY)
+        }
+    }
+
+    /**
+     * MIUI 的输入回调频率可能高于屏幕刷新率。MOVE 只保留最新坐标并按帧处理，
+     * DOWN/UP/CANCEL 则立即排到主线程，避免 Handler 消息堆积拖慢 SystemUI。
+     */
+    private fun enqueueTouch(frame: View?, action: Int, rawX: Float, rawY: Float) {
+        val sample = PendingTouch(frame, action, rawX, rawY)
+        if (action == MotionEvent.ACTION_MOVE) {
+            val shouldWake = synchronized(touchLock) {
+                pendingMove = sample
+                if (moveWakeScheduled) {
+                    false
+                } else {
+                    moveWakeScheduled = true
+                    true
+                }
+            }
+            if (shouldWake) main?.post(moveWakeRunnable)
+            return
+        }
+        dispatch {
+            flushPendingMove()
+            observeTouch(frame, action, rawX, rawY)
+        }
+    }
+
+    private fun scheduleMoveFrame() {
+        synchronized(touchLock) {
+            moveWakeScheduled = false
+            if (moveFrameScheduled) return
+            moveFrameScheduled = true
+        }
+        Choreographer.getInstance().postFrameCallback(moveFrameCallback)
+    }
+
+    private fun flushPendingMove() {
+        main?.removeCallbacks(moveWakeRunnable)
+        Choreographer.getInstance().removeFrameCallback(moveFrameCallback)
+        val sample = synchronized(touchLock) {
+            moveWakeScheduled = false
+            moveFrameScheduled = false
+            pendingMove.also { pendingMove = null }
+        }
+        sample?.let { observeTouch(it.frame, it.action, it.rawX, it.rawY) }
+    }
+
+    private fun observeTouch(frame: View?, action: Int, rawX: Float, rawY: Float) {
         val config = lastConfig ?: return
         if (!config.enabled || (!config.touchReveal && !config.motion)) return
         if (frame != null && !appliesTo(frame)) return
         val now = SystemClock.uptimeMillis()
         main?.removeCallbacks(detachedGestureTimeout)
-        val action = event.actionMasked
         if (action == MotionEvent.ACTION_DOWN) {
             activeTouchHandle?.let { finishActiveGesture(now) }
-            val handle = handleAt(frame, event.rawX, event.rawY)
+            val handle = handleAt(frame, rawX, rawY) ?: return
+            if (!appliesTo(handle)) return
             activeTouchHandle = handle
+            trace.start()
+            touchStartY = rawY
             activeSwipeRevealed = false
-            if (handle == null || !appliesTo(handle)) return
             if (config.touchReveal) {
                 policy.touchDown(now)
                 scheduleHide()
             }
-            if (config.motion) motion.start(event.rawX, event.rawY, now)
+            if (config.motion) motion.start(rawX, rawY, now)
             invalidateHandles()
             return
         }
@@ -456,14 +637,14 @@ class GestureHandleHook : BaseHook() {
             }
         }
         if (action == MotionEvent.ACTION_MOVE && config.motion) {
-            revealForSwipe(handle, event, now)
+            revealForSwipe(handle, rawX, rawY, now)
             if (activeSwipeRevealed) policy.swipeEvent(now)
-            updateMotion(handle, event, config.motionRangeDp)
+            updateMotion(handle, rawX, rawY, config.motionRangeDp)
             invalidateHandles()
         } else if (terminal) {
             if (config.motion && action != MotionEvent.ACTION_POINTER_DOWN) {
-                revealForSwipe(handle, event, now)
-                updateMotion(handle, event, config.motionRangeDp)
+                revealForSwipe(handle, rawX, rawY, now)
+                updateMotion(handle, rawX, rawY, config.motionRangeDp)
             }
             finishActiveGesture(now)
         }
@@ -481,30 +662,64 @@ class GestureHandleHook : BaseHook() {
         invalidateHandles()
     }
 
-    private fun revealForSwipe(handle: View, event: MotionEvent, now: Long) {
+    private fun revealForSwipe(handle: View, rawX: Float, rawY: Float, now: Long) {
         if (activeSwipeRevealed) return
         val slop = ViewConfiguration.get(handle.context).scaledTouchSlop.toFloat()
-        if (!motion.movedBeyond(event.rawX, event.rawY, slop)) return
+        if (!motion.movedBeyond(rawX, rawY, slop)) return
         activeSwipeRevealed = true
         policy.swipeDown(now)
         scheduleHide()
     }
 
-    private fun updateMotion(handle: View, event: MotionEvent, maxOffsetDp: Float) {
-        val pill = pillRect(handle) ?: return
+    private fun updateMotion(handle: View, rawX: Float, rawY: Float, maxOffsetDp: Float) {
         val density = handle.resources.displayMetrics.density
-        val margin = 2f * density
-        // 单方向最大位移：跟随范围设置，且不超过小白条到宿主边缘的剩余空间
-        val cap = maxOffsetDp.coerceAtLeast(0f) * density
+        if (handle.javaClass.name == HANDLE && pillPaintField != null && pillRadiusField != null &&
+            rawY < touchStartY - 6f * density
+        ) upperWindow.prepare(handle, maxOffsetDp * density)
+        val limits = motionGeometry(handle, maxOffsetDp)?.extended ?: GestureHandleBounds.NONE
+        trace.sample("input") { "fingerDy=${rawY - touchStartY} limits=$limits" }
         motion.move(
-            event.rawX,
-            event.rawY,
-            minOf(cap, maxOf(0f, pill.left - margin)),
-            minOf(cap, maxOf(0f, handle.width - pill.right - margin)),
-            minOf(cap, maxOf(0f, pill.top - margin)),
-            minOf(cap, maxOf(0f, handle.height - pill.bottom - margin)),
+            rawX,
+            rawY,
+            limits.left,
+            limits.right,
+            limits.up,
+            limits.down,
             SystemClock.uptimeMillis(),
         )
+    }
+
+    private fun motionGeometry(handle: View, capDp: Float, canvas: Canvas? = null): MotionGeometry? {
+        // 横屏快捷切换另有绘制几何，不能拿普通 NavigationHandle 的胶囊轮廓做限幅。
+        if (handle.javaClass.name != HANDLE || !capDp.isFinite() || capDp <= 0f) return null
+        val area = viewport.resolve(handle) ?: run {
+            trace.sample("stock-unavailable") { "layout=${handle.width}x${handle.height} shown=${handle.isShown}" }
+            return null
+        }
+        if (canvas != null && !viewport.intersectCanvasClip(canvas)) {
+            trace.sample("stock-canvas-clipped") { "area=$area" }
+            return null
+        }
+        // 每次都获取当前胶囊外框。原有的手指命中检测仍可使用按尺寸缓存的几何。
+        val pill = runCatching {
+            if (canvas != null) refreshPillGeometryMethod?.invoke(handle, true)
+            getPillRectMethod?.invoke(handle) as? RectF
+        }.getOrNull() ?: return null
+        val density = handle.resources.displayMetrics.density
+        val fits = GestureHandleBounds.fitUpper(
+            GestureHandleBounds.Edges(pill.left, pill.top, pill.right, pill.bottom),
+            GestureHandleBounds.Edges(area.left, area.top, area.right, area.bottom),
+            upperWindow.viewport(handle),
+            capDp * density,
+            2f * density
+        )
+        return MotionGeometry(pill, fits.first, fits.second)
+    }
+
+    private fun drawInUpperWindow(handle: View, pill: RectF, dx: Float, dy: Float, alpha: Float): Boolean {
+        val paint = pillPaintField?.get(handle) as? Paint ?: return false
+        val radius = pillRadiusField?.getFloat(handle) ?: return false
+        return upperWindow.show(handle, pill, dx, dy, paint, radius, alpha)
     }
 
     private fun handleAt(frame: View?, rawX: Float, rawY: Float): View? {
@@ -518,7 +733,7 @@ class GestureHandleHook : BaseHook() {
             val location = IntArray(2)
             view.getLocationOnScreen(location)
             val density = view.resources.displayMetrics.density
-            val pill = pillRect(view)
+            val pill = cachedPillRect(view)?.rect
             val onPill = pill != null &&
                 rawX >= location[0] + pill.left - 12f * density &&
                 rawX <= location[0] + pill.right + 12f * density &&
@@ -546,6 +761,22 @@ class GestureHandleHook : BaseHook() {
         return RectF(0f, bottomEdge - 2f * radius.toFloat(), handle.width.toFloat(), bottomEdge)
     }
 
+    private fun cachedPillRect(handle: View): CachedPill? {
+        val width = handle.width
+        val height = handle.height
+        val existing = synchronized(pillCache) { pillCache[handle] }
+        if (existing != null && existing.width == width && existing.height == height) return existing
+        val rect = pillRect(handle)?.let { RectF(it) } ?: return null
+        return CachedPill(
+            width = width,
+            height = height,
+            density = handle.resources.displayMetrics.density,
+            rect = rect,
+        ).also { cached ->
+            synchronized(pillCache) { pillCache[handle] = cached }
+        }
+    }
+
     private fun trackHandle(view: View) {
         synchronized(handles) {
             if (handles.containsKey(view)) return
@@ -563,6 +794,13 @@ class GestureHandleHook : BaseHook() {
         main = Handler(Looper.getMainLooper())
         runtimeContext = context.applicationContext ?: context
         receiverInstalled = true
+        if (!prefsListenerInstalled) {
+            prefsListenerInstalled = true
+            HookPrefs.registerListener {
+                configDirty = true
+                dispatch { applyConfig(SystemClock.uptimeMillis()) }
+            }
+        }
         installInputMonitor()
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_USER_PRESENT)
@@ -582,6 +820,7 @@ class GestureHandleHook : BaseHook() {
                             policy.clearTouchReveal()
                             policy.clearSwipeReveal()
                             motion.reset()
+                            upperWindow.close()
                             activeTouchHandle = null
                             main?.removeCallbacks(detachedGestureTimeout)
                             main?.removeCallbacks(hideRunnable)
@@ -614,7 +853,7 @@ class GestureHandleHook : BaseHook() {
     }
 
     private fun installInputMonitor() {
-        if (!enabled() || hasInputMonitor() || loader == null) return
+        if (!enabled() || !touchSource.acceptLegacy || hasInputMonitor() || loader == null) return
         var monitor: Any? = null
         runCatching {
             // 导航栏窗口收不到全部手势输入流：改用与 SystemUI 相同的被动监听包装，不抢占事件
@@ -626,7 +865,7 @@ class GestureHandleHook : BaseHook() {
             )
             val listener = Proxy.newProxyInstance(loader, arrayOf(listenerType)) { _, method, args ->
                 if (method.name == "onInputEvent" && args?.size == 1 && args[0] is MotionEvent) {
-                    runCatching { observeTouch(null, args[0] as MotionEvent) }
+                    runCatching { observeLegacyTouch(null, args[0] as MotionEvent) }
                 }
                 null
             }
@@ -687,6 +926,26 @@ class GestureHandleHook : BaseHook() {
         val fade = GestureHandleFade(hidden)
     }
 
+    private data class MotionGeometry(
+        val pill: RectF,
+        val local: GestureHandleBounds,
+        val extended: GestureHandleBounds,
+    )
+
+    private data class CachedPill(
+        val width: Int,
+        val height: Int,
+        val density: Float,
+        val rect: RectF,
+    )
+
+    private data class PendingTouch(
+        val frame: View?,
+        val action: Int,
+        val rawX: Float,
+        val rawY: Float,
+    )
+
     private data class Config(
         val enabled: Boolean,
         val motion: Boolean,
@@ -706,6 +965,8 @@ class GestureHandleHook : BaseHook() {
         const val HANDLE = "com.android.systemui.navigationbar.gestural.NavigationHandle"
         const val QUICKSWITCH_HANDLE = "com.android.systemui.navigationbar.gestural.QuickswitchOrientedNavHandle"
         const val NAV_BAR_FRAME = "com.android.systemui.navigationbar.views.NavigationBarFrame"
+        const val MIUI_INPUT_RECEIVER =
+            "com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchEventController\$EventReceiver"
         const val TOP_OBSERVER = "com.miui.systemui.functions.MiuiTopActivityObserver"
         const val CONTROLLER = "com.android.systemui.navigationbar.NavigationBarControllerImpl"
 

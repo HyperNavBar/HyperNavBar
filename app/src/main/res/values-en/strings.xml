@@ -310,7 +310,7 @@
     <string name="gesture_motion_scale_title">Follow amount</string>
     <string name="gesture_motion_scale_summary">How far the pill follows relative to your drag</string>
     <string name="gesture_motion_range_title">Follow range</string>
-    <string name="gesture_motion_range_summary">Maximum offset per direction (also limited by the distance to the host edge)</string>
+    <string name="gesture_motion_range_summary">Maximum offset per direction, limited by the available drawing area</string>
     <string name="gesture_motion_return_title">Return speed</string>
     <string name="gesture_motion_return_summary">Speed multiplier of the return animation; higher returns faster</string>
     <string name="gesture_unit_ms"> ms</string>

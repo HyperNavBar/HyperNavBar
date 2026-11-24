@@ -1,0 +1,21 @@
+gradle.beforeProject { project ->
+    project.pluginManager.withPlugin('com.android.application') {
+        project.extensions.getByName('androidComponents').finalizeDsl { android ->
+            android.buildFeatures.resValues = true
+            def debug = android.buildTypes.getByName('debug')
+            debug.applicationIdSuffix = '.gesturetest'
+            debug.versionNameSuffix = '-gesturetest'
+            debug.resValue('string', 'app_name', 'HyperNavBar Gesture Test')
+
+            // Keep the debug build's optimization and signing settings so this
+            // compares ART execution without replacing the installed test app.
+            def gesturePerf = android.buildTypes.create('gesturePerf')
+            gesturePerf.initWith(debug)
+            gesturePerf.matchingFallbacks = ['debug']
+            gesturePerf.debuggable = false
+            gesturePerf.applicationIdSuffix = '.gestureupdiag'
+            gesturePerf.versionNameSuffix = '-gestureupdiag'
+            gesturePerf.resValue('string', 'app_name', 'HyperNavBar Gesture Up Test')
+        }
+    }
+}

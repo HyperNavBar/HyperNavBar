@@ -1,0 +1,71 @@
+name: Gesture Test APK
+
+on:
+  push:
+    branches: [fix/hyperos-gesture-follow]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Check preinstalled Android SDK packages
+        run: |
+          for package in platforms/android-37.0/android.jar platforms/android-37.2/android.jar build-tools/37.0.0/aapt2; do
+            if [[ ! -f "$ANDROID_HOME/$package" ]]; then
+              echo "::error::Missing Android SDK file: $ANDROID_HOME/$package"
+              exit 1
+            fi
+          done
+
+      - name: Run hook unit tests and build test APKs
+        run: ./gradlew --init-script .github/gesture-test.init.gradle :hook:testDebugUnitTest :app:assembleDebug :app:assembleGesturePerf
+
+      - name: Verify test package
+        run: |
+          jq -e '.applicationId == "cn.ianzb.hypernavbar.gesturetest"' app/build/outputs/apk/debug/output-metadata.json
+          cp app/build/outputs/apk/debug/app-arm64-v8a-debug.apk HyperNavBar-Gesture-Test-arm64-v8a.apk
+
+      - name: Verify non-debug performance test package
+        run: |
+          apk_dir=app/build/outputs/apk/gesturePerf
+          metadata="$apk_dir/output-metadata.json"
+          jq -e '.applicationId == "cn.ianzb.hypernavbar.gestureupdiag"' "$metadata"
+          apk=$(jq -er '.elements[] | select(any(.filters[]?; .filterType == "ABI" and .value == "arm64-v8a")) | .outputFile' "$metadata")
+          badging=$("$ANDROID_HOME/build-tools/37.0.0/aapt2" dump badging "$apk_dir/$apk")
+          if grep -q '^application-debuggable' <<< "$badging"; then
+            echo "::error::The performance test APK must not be debuggable"
+            exit 1
+          fi
+          cp "$apk_dir/$apk" HyperNavBar-Gesture-Perf-arm64-v8a.apk
+
+      - name: Upload test APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: HyperNavBar-Gesture-Test-arm64-v8a
+          path: HyperNavBar-Gesture-Test-arm64-v8a.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload performance test APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: HyperNavBar-Gesture-Perf-arm64-v8a
+          path: HyperNavBar-Gesture-Perf-arm64-v8a.apk
+          if-no-files-found: error
+          retention-days: 7

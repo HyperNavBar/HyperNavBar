@@ -17,14 +17,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.captionBar
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -51,6 +49,8 @@ import cn.ianzb.hypernavbar.hook.gesture.GestureVisibility
 import cn.ianzb.hypernavbar.rules.RuleConverter
 import cn.ianzb.hypernavbar.ui.component.AppDialog
 import cn.ianzb.hypernavbar.ui.component.AppDialogButton
+import cn.ianzb.hypernavbar.ui.component.AppPageContentWindowInsets
+import cn.ianzb.hypernavbar.ui.component.AppPageSafeWindowInsets
 import cn.ianzb.hypernavbar.ui.component.AppTopBarAction
 import cn.ianzb.hypernavbar.ui.component.SectionTitle
 import cn.ianzb.hypernavbar.ui.util.LocalPreferenceBackdrop
@@ -408,6 +408,7 @@ fun JsonRuleEditorSheet(
 
     // ── Sheet 1: App list (bottom) ────────────────────────────────────
     GlassBottomSheet(
+        modifier = Modifier.windowInsetsPadding(AppPageContentWindowInsets),
         backdrop = LocalPreferenceBackdrop.current,
         title = stringResource(R.string.editor_title_apps),
         show = showApps,
@@ -619,14 +620,7 @@ fun JsonRuleEditorSheet(
             }
 
             item {
-                Spacer(
-                    Modifier.padding(
-                        bottom = WindowInsets.navigationBars.asPaddingValues()
-                            .calculateBottomPadding() +
-                                WindowInsets.captionBar.asPaddingValues()
-                                    .calculateBottomPadding(),
-                    )
-                )
+                Spacer(Modifier.windowInsetsBottomHeight(AppPageSafeWindowInsets))
             }
         }
     }
@@ -780,6 +774,7 @@ fun JsonRuleEditorSheet(
     }
     // ── Sheet 2: Activity list ────────────────────────────────────────
     GlassBottomSheet(
+        modifier = Modifier.windowInsetsPadding(AppPageContentWindowInsets),
         backdrop = LocalPreferenceBackdrop.current,
         title = stringResource(R.string.editor_title_activities),
         show = showActivities,
@@ -1079,20 +1074,14 @@ fun JsonRuleEditorSheet(
             }
 
             item {
-                Spacer(
-                    Modifier.padding(
-                        bottom = WindowInsets.navigationBars.asPaddingValues()
-                            .calculateBottomPadding() +
-                                WindowInsets.captionBar.asPaddingValues()
-                                    .calculateBottomPadding(),
-                    )
-                )
+                Spacer(Modifier.windowInsetsBottomHeight(AppPageSafeWindowInsets))
             }
         }
     }
 
     // ── Sheet 3: Field editor (top) ────────────────────────────────────
     GlassBottomSheet(
+        modifier = Modifier.windowInsetsPadding(AppPageContentWindowInsets),
         backdrop = LocalPreferenceBackdrop.current,
         title = stringResource(R.string.editor_title_fields),
         show = showFields,
@@ -1518,14 +1507,7 @@ fun JsonRuleEditorSheet(
             }
 
             item {
-                Spacer(
-                    Modifier.padding(
-                        bottom = WindowInsets.navigationBars.asPaddingValues()
-                            .calculateBottomPadding() +
-                                WindowInsets.captionBar.asPaddingValues()
-                                    .calculateBottomPadding(),
-                    )
-                )
+                Spacer(Modifier.windowInsetsBottomHeight(AppPageSafeWindowInsets))
             }
         }
     }

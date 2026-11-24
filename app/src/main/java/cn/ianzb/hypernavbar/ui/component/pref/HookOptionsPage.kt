@@ -8,21 +8,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,15 +38,18 @@ import cn.ianzb.hypernavbar.prefs.ConfigState
 import cn.ianzb.hypernavbar.prefs.OptionRegistry
 import cn.ianzb.hypernavbar.prefs.OptionSpec
 import cn.ianzb.hypernavbar.prefs.OptionType
+import cn.ianzb.hypernavbar.ui.component.AppPageContentWindowInsets
+import cn.ianzb.hypernavbar.ui.component.AppPageSafeWindowInsets
 import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
 import cn.ianzb.hypernavbar.ui.component.AppTopBarAction
 import cn.ianzb.hypernavbar.ui.component.SectionTitle
+import cn.ianzb.hypernavbar.ui.component.appPageHorizontalInsets
+import cn.ianzb.hypernavbar.ui.component.appPageListPadding
 import cn.ianzb.hypernavbar.ui.component.appTopBarSafeInsets
 import cn.ianzb.hypernavbar.ui.component.search.LocalAppSearchState
 import cn.ianzb.hypernavbar.ui.component.sectionCardPadding
 import cn.ianzb.hypernavbar.ui.util.PageBodyBackdrop
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.pageStartInset
 import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
@@ -229,16 +223,18 @@ fun HookOptionsPage(
         val resultsTop = appTopBarSafeInsets().asPaddingValues().calculateTopPadding() +
             GlassSearchOverlayDefaults.BarHeight + GlassSearchOverlayDefaults.VerticalPadding * 2
         val hasResults = results.isNotEmpty()
-        val padding = remember(resultsTop, searchTopPadding, hasResults) {
+        val safeInsets = AppPageSafeWindowInsets.asPaddingValues()
+        val padding = remember(resultsTop, searchTopPadding, hasResults, safeInsets) {
             val base = PaddingValues(horizontal = if (hasResults) 12.dp else 28.dp, vertical = 24.dp)
             object : PaddingValues by base {
                 override fun calculateTopPadding() =
                     resultsTop + searchTopPadding() + if (hasResults) 4.dp else 12.dp
+
+                override fun calculateBottomPadding() =
+                    maxOf(base.calculateBottomPadding(), safeInsets.calculateBottomPadding())
             }
         }
-        val resultInsets = Modifier.windowInsetsPadding(
-            WindowInsets.displayCutout.union(WindowInsets.navigationBars).only(WindowInsetsSides.Horizontal),
-        ).pageStartInset()
+        val resultInsets = Modifier.appPageHorizontalInsets()
         if (!hasResults) {
             MiuixText(
                 text = stringResource(R.string.search_empty),
@@ -322,19 +318,15 @@ fun HookOptionsPage(
                 },
             )
         },
-        contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
+        contentWindowInsets = AppPageContentWindowInsets,
     ) { innerPadding ->
         PageBodyBackdrop(pageBackdrop) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .pageStartInset()
                     .pageScrollModifiers(showTopAppBar = true, topAppBarScrollBehavior = scrollBehavior),
-                contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
-                    bottom = innerPadding.calculateBottomPadding() + extraBottomPadding,
-                ),
+                contentPadding = appPageListPadding(innerPadding, extraBottomPadding),
             ) {
                 if (topContent != null) {
                     item(key = "top_content") { topContent() }

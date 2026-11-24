@@ -23,12 +23,14 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.updateLayoutParams
 import cn.ianzb.hypernavbar.LocaleHelper
 import cn.ianzb.hypernavbar.R
 import java.io.File
@@ -405,6 +407,15 @@ class ScreenColorPickerService : Service() {
         panel.addView(makeBtn(getString(R.string.editor_screen_color_cancel), argb(0xFF, 0x58, 0x58, 0x5A)) { stopSelf() },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8) })
         root.addView(panel, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.BOTTOM })
+        root.setOnApplyWindowInsetsListener { _, insets ->
+            val safe = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+            panel.updateLayoutParams<FrameLayout.LayoutParams> {
+                leftMargin = safe.left
+                rightMargin = safe.right
+                bottomMargin = safe.bottom
+            }
+            insets
+        }
 
         crosshairX = imageW / 2f; crosshairY = imageH / 2f
         updateColor(sbmp, imageW, imageH)

@@ -1,13 +1,8 @@
 package cn.ianzb.hypernavbar.ui.screen.about
 
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
@@ -16,13 +11,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.ui.component.AppArrowPreference
+import cn.ianzb.hypernavbar.ui.component.AppLazyPage
 import cn.ianzb.hypernavbar.ui.component.AppSectionCard
-import cn.ianzb.hypernavbar.ui.component.SectionTitle
-import cn.ianzb.hypernavbar.ui.component.SubPageScaffold
-import cn.ianzb.hypernavbar.ui.util.LocalSubPageScrollBehavior
-import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 /** 单个第三方库 / 参考项目信息。 */
@@ -170,64 +162,46 @@ fun LicensePageContent(
     onBack: () -> Unit,
     isBlurEnabled: Boolean = true,
 ) {
-    SubPageScaffold(
+    AppLazyPage(
         title = stringResource(R.string.third_party_licenses_title),
         isBlurEnabled = isBlurEnabled,
         onBack = onBack,
-    ) { contentPadding ->
-        val uriHandler = LocalUriHandler.current
-        val lazyListState = rememberLazyListState()
-        val scrollBehavior = LocalSubPageScrollBehavior.current
-        LazyColumn(
-            state = lazyListState,
-            modifier = Modifier.fillMaxSize().then(
-                if (scrollBehavior != null) Modifier.pageScrollModifiers(
-                    showTopAppBar = true,
-                    topAppBarScrollBehavior = scrollBehavior,
-                    contentState = lazyListState,
-                ) else Modifier,
-            ),
-            contentPadding = contentPadding,
-        ) {
-            item {
-                MiuixText(
-                    text = stringResource(R.string.licenses_header),
-                    color = colorScheme.onSurfaceVariantSummary,
-                    style = MiuixTheme.textStyles.footnote2,
-                    textAlign = TextAlign.Start,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 28.dp, end = 28.dp, top = 12.dp),
-                )
-            }
+    ) {
+        item {
+            MiuixText(
+                text = stringResource(R.string.licenses_header),
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = MiuixTheme.textStyles.footnote2,
+                textAlign = TextAlign.Start,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp, vertical = 12.dp),
+            )
+        }
 
-            licenseSections.forEach { section ->
-                item(key = "section_${section.titleRes}") {
-                    SectionTitle(text = stringResource(section.titleRes), followsContent = false)
-                }
-                itemsIndexed(
-                    items = section.libraries,
-                    key = { _, library -> "${section.titleRes}_${library.name}" },
-                ) { _, library ->
-                    AppSectionCard {
-                        AppArrowPreference(
-                            title = library.name,
-                            summary = buildString {
-                                if (library.version.isNotBlank() && library.version != "-") {
-                                    append("v").append(library.version).append(" · ")
-                                }
-                                append(library.license)
-                            },
-                            onClick = {
-                                uriHandler.openUri(library.website)
-                            },
-                        )
-                    }
-                }
+        licenseSections.forEach { section ->
+            item(key = "section_${section.titleRes}") {
+                SmallTitle(text = stringResource(section.titleRes))
             }
-
-            item {
-                Spacer(Modifier.height(12.dp))
+            items(
+                items = section.libraries,
+                key = { "${section.titleRes}_${it.name}" },
+            ) { library ->
+                val uriHandler = LocalUriHandler.current
+                AppSectionCard {
+                    AppArrowPreference(
+                        title = library.name,
+                        summary = buildString {
+                            if (library.version.isNotBlank() && library.version != "-") {
+                                append("v").append(library.version).append(" · ")
+                            }
+                            append(library.license)
+                        },
+                        onClick = {
+                            uriHandler.openUri(library.website)
+                        },
+                    )
+                }
             }
         }
     }

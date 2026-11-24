@@ -4,12 +4,8 @@ import android.os.Build
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.captionBar
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -24,7 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
-import cn.ianzb.hypernavbar.ui.util.pageStartInset
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
@@ -107,7 +102,7 @@ fun AppTopAppBar(
     GlassTopAppBar(
         title = title,
         // 背景带固定在 y=0（覆盖状态栏），前景内容自己让出状态栏高度。
-        contentModifier = Modifier.windowInsetsPadding(appTopBarSafeInsets()).pageStartInset(),
+        contentModifier = Modifier.appPageHorizontalInsets().windowInsetsPadding(appTopBarSafeInsets()),
         backdrop = if (glass) backdrop else null,
         // 带区是否模糊完全跟随「背景模糊」开关（backdrop 为 null 即关闭）与着色器可用性。
         progressiveBlur = glass && backdrop != null,
@@ -126,10 +121,7 @@ fun AppTopAppBar(
 
 @Composable
 internal fun appTopBarSafeInsets(): WindowInsets =
-    WindowInsets.systemBars
-        .union(WindowInsets.captionBar)
-        .union(WindowInsets.displayCutout)
-        .only(WindowInsetsSides.Top)
+    AppPageSafeWindowInsets.only(WindowInsetsSides.Top)
 
 /**
  * 二级页面顶栏（带返回按钮），其余与 [AppTopAppBar] 一致。

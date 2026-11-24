@@ -3,6 +3,7 @@ package cn.ianzb.hypernavbar.ui.component
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -31,7 +32,7 @@ fun AppDialog(
         onDismissRequest = onDismissRequest,
         show = show,
         backdrop = backdrop,
-        modifier = modifier,
+        modifier = modifier.windowInsetsPadding(AppPageContentWindowInsets),
         enableWindowDim = enableWindowDim,
         renderInRootScaffold = true,
         title = title,

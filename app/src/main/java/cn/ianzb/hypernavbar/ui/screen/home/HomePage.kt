@@ -11,19 +11,13 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.add
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,8 +39,10 @@ import cn.ianzb.hypernavbar.hook.rule.SystemVersion
 import cn.ianzb.hypernavbar.rules.RulesManager
 import cn.ianzb.hypernavbar.rules.SystemVersionDetector
 import cn.ianzb.hypernavbar.ui.component.AppDialog
+import cn.ianzb.hypernavbar.ui.component.AppPageContentWindowInsets
 import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
 import cn.ianzb.hypernavbar.ui.component.SectionTitle
+import cn.ianzb.hypernavbar.ui.component.appPageListPadding
 import cn.ianzb.hypernavbar.ui.component.sectionCardPadding
 import cn.ianzb.hypernavbar.ui.icons.CheckCircleOutlineIcon
 import cn.ianzb.hypernavbar.ui.icons.ErrorOutlineIcon
@@ -54,7 +50,6 @@ import cn.ianzb.hypernavbar.ui.icons.RemoveCircleOutlineIcon
 import cn.ianzb.hypernavbar.ui.util.PageBodyBackdrop
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.pageStartInset
 import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
 import cn.ianzb.hypernavbar.ui.util.shouldShowSplitPane
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -145,21 +140,17 @@ fun HomePageView(
                 scrollBehavior = scrollBehavior,
             )
         },
-        contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
+        contentWindowInsets = AppPageContentWindowInsets,
     ) { innerPadding ->
         PageBodyBackdrop(pageBackdrop) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pageStartInset()
                     .pageScrollModifiers(
                         showTopAppBar = true,
                         topAppBarScrollBehavior = scrollBehavior,
                     ),
-                contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
-                    bottom = innerPadding.calculateBottomPadding() + extraBottomPadding
-                )
+                contentPadding = appPageListPadding(innerPadding, extraBottomPadding)
             ) {
                 item {
                     val isWideScreen = shouldShowSplitPane()

@@ -10,24 +10,17 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.captionBar
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -73,13 +66,15 @@ import cn.ianzb.hypernavbar.rules.RuleType
 import cn.ianzb.hypernavbar.rules.RulesManager
 import cn.ianzb.hypernavbar.ui.component.AppDialog
 import cn.ianzb.hypernavbar.ui.component.AppDialogButton
+import cn.ianzb.hypernavbar.ui.component.AppPageContentWindowInsets
+import cn.ianzb.hypernavbar.ui.component.AppPageSafeWindowInsets
 import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
 import cn.ianzb.hypernavbar.ui.component.AppTopBarAction
 import cn.ianzb.hypernavbar.ui.component.SectionTitle
+import cn.ianzb.hypernavbar.ui.component.appPageListPadding
 import cn.ianzb.hypernavbar.ui.util.LocalPreferenceBackdrop
 import cn.ianzb.hypernavbar.ui.util.PageBodyBackdrop
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.pageStartInset
 import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
 import cn.ianzb.hypernavbar.xposed.XposedServiceManager
 import kotlinx.coroutines.Dispatchers
@@ -672,11 +667,12 @@ fun RulesPageView(
                 },
             )
         },
-        contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
+        contentWindowInsets = AppPageContentWindowInsets,
     ) { innerPadding ->
 
         // Preset sources sheet
         GlassBottomSheet(
+            modifier = Modifier.windowInsetsPadding(AppPageContentWindowInsets),
             backdrop = popupBackdrop,
             title = stringResource(R.string.rules_preset),
             show = showPresetSheet,
@@ -723,18 +719,14 @@ fun RulesPageView(
                     }
                 }
                 item {
-                    Spacer(
-                        Modifier.padding(
-                            bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-                                    WindowInsets.captionBar.asPaddingValues().calculateBottomPadding(),
-                        )
-                    )
+                    Spacer(Modifier.windowInsetsBottomHeight(AppPageSafeWindowInsets))
                 }
             }
         }
 
         // Add subscription sheet
         GlassBottomSheet(
+            modifier = Modifier.windowInsetsPadding(AppPageContentWindowInsets),
             backdrop = popupBackdrop,
             title = stringResource(R.string.rules_add),
             show = showAddSheet,
@@ -797,6 +789,7 @@ fun RulesPageView(
 
         // Edit subscription sheet
         GlassBottomSheet(
+            modifier = Modifier.windowInsetsPadding(AppPageContentWindowInsets),
             backdrop = popupBackdrop,
             title = stringResource(R.string.rules_edit),
             show = showEditSheet,
@@ -878,6 +871,7 @@ fun RulesPageView(
 
         // Actions sheet (edit/move/delete/refresh)
         GlassBottomSheet(
+            modifier = Modifier.windowInsetsPadding(AppPageContentWindowInsets),
             backdrop = popupBackdrop,
             title = actionsTarget?.name?.ifEmpty { actionsTarget?.url?.ifEmpty { stringResource(R.string.rules_local_rule) } } ?: "",
             show = showActionsSheet,
@@ -944,12 +938,7 @@ fun RulesPageView(
                         }
                     }
                     item {
-                        Spacer(
-                            Modifier.padding(
-                                bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-                                        WindowInsets.captionBar.asPaddingValues().calculateBottomPadding(),
-                            )
-                        )
+                        Spacer(Modifier.windowInsetsBottomHeight(AppPageSafeWindowInsets))
                     }
                 }
             }
@@ -968,12 +957,8 @@ fun RulesPageView(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pageStartInset()
                     .pageScrollModifiers(showTopAppBar = true, topAppBarScrollBehavior = scrollBehavior),
-                contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
-                    bottom = innerPadding.calculateBottomPadding() + extraBottomPadding
-                )
+                contentPadding = appPageListPadding(innerPadding, extraBottomPadding)
             ) {
                 // Apply section - always at top
                 item {
@@ -1340,12 +1325,7 @@ private fun SubscriptionForm(
             }
         }
         item {
-            Spacer(
-                Modifier.padding(
-                    bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-                            WindowInsets.captionBar.asPaddingValues().calculateBottomPadding(),
-                )
-            )
+            Spacer(Modifier.windowInsetsBottomHeight(AppPageSafeWindowInsets))
         }
     }
 }

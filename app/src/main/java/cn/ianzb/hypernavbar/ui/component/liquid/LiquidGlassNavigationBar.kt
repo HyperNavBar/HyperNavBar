@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.captionBar
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -340,7 +341,8 @@ internal fun IosLiquidGlassNavigationBar(
         animationSpec = tween(durationMillis = 300),
         label = "iosLiquidNavigationCaptionBarHeight",
     )
-    val systemBottom = maxOf(navigationBarBottom, animatedCaptionBarHeight)
+    val cutoutBottom = WindowInsets.displayCutout.asPaddingValues().calculateBottomPadding()
+    val systemBottom = maxOf(navigationBarBottom, animatedCaptionBarHeight, cutoutBottom)
     val floatingMargin = when {
         platform() == Platform.IOS -> 22.dp
         systemBottom <= 16.dp -> 18.dp

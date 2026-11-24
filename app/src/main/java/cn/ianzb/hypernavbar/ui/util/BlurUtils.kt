@@ -3,11 +3,7 @@ package cn.ianzb.hypernavbar.ui.util
 import android.os.Build
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.captionBar
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
@@ -39,6 +35,7 @@ import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
 import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -116,34 +113,6 @@ fun Modifier.pageScrollModifiers(
 }
 
 @Composable
-fun pageContentPadding(
-    innerPadding: PaddingValues,
-    outerPadding: PaddingValues,
-    isWideScreen: Boolean,
-    extraTop: Dp = 0.dp,
-    extraStart: Dp = 0.dp,
-    extraEnd: Dp = 0.dp,
-    extraBottom: Dp = 0.dp,
-): PaddingValues {
-    val topPadding = innerPadding.calculateTopPadding() + extraTop
-    val bottomPadding = if (isWideScreen) {
-        outerPadding.calculateBottomPadding() + extraBottom +
-            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-            WindowInsets.captionBar.asPaddingValues().calculateBottomPadding()
-    } else {
-        outerPadding.calculateBottomPadding() + extraBottom
-    }
-    return remember(topPadding, bottomPadding, extraStart, extraEnd) {
-        PaddingValues(
-            top = topPadding,
-            start = extraStart,
-            end = extraEnd,
-            bottom = bottomPadding,
-        )
-    }
-}
-
-@Composable
 fun shouldShowSplitPane(): Boolean {
     val size = LocalAppContainerSize.current ?: LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
@@ -169,6 +138,8 @@ object ColorBlendToken {
 
 val LocalPreferenceBackdrop = staticCompositionLocalOf<LayerBackdrop?> { null }
 
+
+internal val AppExpandedRailWidth = GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth
 
 val LocalAppPageStartInset: ProvidableCompositionLocal<() -> Dp> = staticCompositionLocalOf { { 0.dp } }
 

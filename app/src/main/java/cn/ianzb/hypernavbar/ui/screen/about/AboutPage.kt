@@ -5,18 +5,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.add
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -41,22 +34,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.ui.component.AppArrowPreference
+import cn.ianzb.hypernavbar.ui.component.AppPageContentWindowInsets
 import cn.ianzb.hypernavbar.ui.component.AppTopAppBar
+import cn.ianzb.hypernavbar.ui.component.appPageListPadding
 import cn.ianzb.hypernavbar.ui.component.effect.BgEffectBackground
 import cn.ianzb.hypernavbar.ui.util.ColorBlendToken
 import cn.ianzb.hypernavbar.ui.util.PageBodyBackdrop
 import cn.ianzb.hypernavbar.ui.util.isInDarkTheme
-import cn.ianzb.hypernavbar.ui.util.pageContentPadding
 import cn.ianzb.hypernavbar.ui.util.pageScrollModifiers
-import cn.ianzb.hypernavbar.ui.util.pageStartInset
 import cn.ianzb.hypernavbar.ui.util.rememberBlurBackdrop
-import cn.ianzb.hypernavbar.ui.util.withPageStartInset
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -120,14 +111,12 @@ fun AboutPageContent(
                 titleAlpha = { titleColor.alpha },
             )
         },
-        contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
+        contentWindowInsets = AppPageContentWindowInsets,
     ) { innerPadding ->
         PageBodyBackdrop(pageBackdrop) {
             AboutContent(
-                padding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
-                    bottom = extraBottomPadding,
-                ),
+                padding = innerPadding,
+                extraBottomPadding = extraBottomPadding,
                 topAppBarScrollBehavior = topAppBarScrollBehavior,
                 lazyListState = lazyListState,
                 isBlurEnabled = isBlurEnabled,
@@ -142,6 +131,7 @@ fun AboutPageContent(
 private fun AboutContent(
     isBlurEnabled: Boolean,
     padding: PaddingValues,
+    extraBottomPadding: Dp,
     topAppBarScrollBehavior: ScrollBehavior,
     lazyListState: LazyListState,
     scrollProgressProvider: () -> Float,
@@ -156,21 +146,13 @@ private fun AboutContent(
     var contrast by remember { mutableFloatStateOf(1f) }
     var saturation by remember { mutableFloatStateOf(1f) }
 
-    val scrollPadding = pageContentPadding(
-        padding,
-        padding,
-        false,
-        extraStart = WindowInsets.displayCutout.asPaddingValues().calculateLeftPadding(LayoutDirection.Ltr),
-        extraEnd = WindowInsets.displayCutout.asPaddingValues().calculateRightPadding(LayoutDirection.Ltr),
-    )
-    val logoPadding = pageContentPadding(
-        padding,
-        padding,
-        false,
-        extraTop = 40.dp,
-        extraStart = WindowInsets.displayCutout.asPaddingValues().calculateLeftPadding(LayoutDirection.Ltr),
-        extraEnd = WindowInsets.displayCutout.asPaddingValues().calculateRightPadding(LayoutDirection.Ltr),
-    )
+    val scrollPadding = appPageListPadding(padding, extraBottomPadding)
+    val logoPadding = remember(scrollPadding) {
+        object : PaddingValues by scrollPadding {
+            override fun calculateTopPadding() = scrollPadding.calculateTopPadding() + 40.dp
+            override fun calculateBottomPadding() = 0.dp
+        }
+    }
 
     val isInDark = isInDarkTheme()
 
@@ -217,7 +199,7 @@ private fun AboutContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(logoPadding.withPageStartInset())
+                .padding(logoPadding)
                 .padding(top = 52.dp)
                 .onSizeChanged { size ->
                     with(density) { logoHeightDp = size.height.toDp() }
@@ -309,16 +291,11 @@ private fun AboutContent(
             state = lazyListState,
             modifier = Modifier
                 .fillMaxSize()
-                .pageStartInset()
                 .pageScrollModifiers(
                     showTopAppBar = true,
                     topAppBarScrollBehavior = topAppBarScrollBehavior,
                 ),
-            contentPadding = remember(scrollPadding) {
-                object : PaddingValues by scrollPadding {
-                    override fun calculateBottomPadding() = 0.dp
-                }
-            },
+            contentPadding = scrollPadding,
         ) {
             item(key = "logoSpacer") {
                 Box(
@@ -331,11 +308,7 @@ private fun AboutContent(
             }
 
             item(key = "about") {
-                Column(
-                    modifier = Modifier
-                        .fillParentMaxHeight()
-                        .padding(bottom = scrollPadding.calculateBottomPadding()),
-                ) {
+                Column {
                     Card(
                         modifier = Modifier
                             .padding(horizontal = 12.dp)

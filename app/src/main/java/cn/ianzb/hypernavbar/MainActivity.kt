@@ -14,16 +14,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -49,6 +45,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.rules.RulesManager
+import cn.ianzb.hypernavbar.ui.component.AppPageContentWindowInsets
 import cn.ianzb.hypernavbar.ui.component.LocalAppTopBarCenterObstructionStart
 import cn.ianzb.hypernavbar.ui.component.LocalAppTopBarCompact
 import cn.ianzb.hypernavbar.ui.component.LocalAppTopBarTitleAlpha
@@ -69,6 +66,7 @@ import cn.ianzb.hypernavbar.ui.screen.subpage.LocalOpenAppSubPage
 import cn.ianzb.hypernavbar.ui.screen.subpage.rememberAppPageBackStack
 import cn.ianzb.hypernavbar.ui.screen.subpage.rememberOpenAppSubPage
 import cn.ianzb.hypernavbar.ui.theme.AppTheme
+import cn.ianzb.hypernavbar.ui.util.AppExpandedRailWidth
 import cn.ianzb.hypernavbar.ui.util.LocalAppContainerSize
 import cn.ianzb.hypernavbar.ui.util.LocalAppPageStartInset
 import cn.ianzb.hypernavbar.ui.util.LocalPreferenceBackdrop
@@ -359,10 +357,9 @@ private fun MainScreen(
     LaunchedEffect(expandSidebar) {
         sidebarState.expanded = expandSidebar
     }
-    val sidebarWidth = GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth
     // 进度由页面的测量和绘制阶段读取，避免形变时逐帧重新组合整个导航宿主。
-    val sidebarInset: () -> Dp = remember(useRail, sidebarState, sidebarWidth) {
-        { if (useRail) sidebarWidth * sidebarState.progress else 0.dp }
+    val sidebarInset: () -> Dp = remember(useRail, sidebarState) {
+        { if (useRail) AppExpandedRailWidth * sidebarState.progress else 0.dp }
     }
     val searchTopPadding: () -> Dp = remember(useRail, sidebarState) {
         {
@@ -437,8 +434,8 @@ private fun MainScreen(
                 }
                 progress
             }
-            val pageInset: () -> Dp = remember(useRail, sidebarWidth, pageProgress) {
-                { if (useRail) sidebarWidth * pageProgress() else 0.dp }
+            val pageInset: () -> Dp = remember(useRail, pageProgress) {
+                { if (useRail) AppExpandedRailWidth * pageProgress() else 0.dp }
             }
             CompositionLocalProvider(
                 LocalAppPageStartInset provides pageInset,
@@ -659,6 +656,7 @@ private fun BottomNavigationBar(
                         }
                     },
                     modifier = Modifier
+                        .windowInsetsPadding(AppPageContentWindowInsets)
                         .padding(horizontal = 24.dp)
                         .glassNavigationBarWidth(items.size),
                 )
@@ -679,10 +677,7 @@ private fun BottomNavigationBar(
                     backdrop = backdrop,
                     isBlurActive = blurActive,
                     modifier = Modifier
-                        .windowInsetsPadding(
-                            WindowInsets.displayCutout.union(WindowInsets.navigationBars)
-                                .only(WindowInsetsSides.Horizontal),
-                        )
+                        .windowInsetsPadding(AppPageContentWindowInsets)
                         .padding(horizontal = 24.dp)
                         .glassNavigationBarWidth(items.size, trailingActionWidth = 0.dp),
                 )

@@ -1,13 +1,18 @@
 package cn.ianzb.hypernavbar.ui.component
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.TextUnitType
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cn.ianzb.hypernavbar.ui.util.LocalPreferenceBackdrop
 import top.yukonga.miuix.kmp.glass.GlassDialog
@@ -40,6 +45,15 @@ fun AppDialog(
     ) {
         Column(modifier = Modifier.fillMaxWidth(), content = content)
     }
+}
+
+@Composable
+internal fun AppDialogButtonRow(content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        content = content,
+    )
 }
 
 /**

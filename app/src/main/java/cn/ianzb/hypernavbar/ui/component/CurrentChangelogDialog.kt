@@ -1,18 +1,19 @@
 package cn.ianzb.hypernavbar.ui.component
 
 import android.content.pm.ApplicationInfo
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import cn.ianzb.hypernavbar.R
 import cn.ianzb.hypernavbar.UpdateChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 更新日志正文的资产文件名。 */
 private const val CHANGELOG_ASSET = "changelog.md"
@@ -23,15 +24,12 @@ private const val UNRELEASED_HEADING = "未发布"
 /** 小节标题里出现的版本号，如 `## 3.2.1` / `## [3.2.1] - 2026-11-08` / `## v3.2.1`。 */
 private val VERSION_PATTERN = Regex("""\d+(?:\.\d+)*""")
 
-/** 正文最多占用的高度，超出部分在对话框内滚动，避免长日志把弹层撑出屏幕。 */
-private val CONTENT_MAX_HEIGHT = 320.dp
-
 @Composable
 fun CurrentChangelogDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val changelogText by produceState<String?>(initialValue = null, key1 = context) {
+    val version = remember(context) { UpdateChecker.currentVersion(context) }
+    val changelogText by produceState<String?>(initialValue = null, key1 = context, key2 = version) {
         value = withContext(Dispatchers.IO) {
-            val version = UpdateChecker.currentVersion(context)
             val debug = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
             runCatching {
                 val markdown = context.assets.open(CHANGELOG_ASSET).bufferedReader().use { it.readText() }
@@ -43,17 +41,27 @@ fun CurrentChangelogDialog(onDismiss: () -> Unit) {
     AppDialog(
         show = true,
         title = stringResource(R.string.current_changelog),
+        summary = stringResource(R.string.check_update_summary, version),
         onDismissRequest = onDismiss,
     ) {
         changelogText?.let { text ->
-            UpdateMarkdown(text.ifBlank { stringResource(R.string.current_changelog_unavailable) }, CONTENT_MAX_HEIGHT)
+            if (text.isBlank()) {
+                BasicText(
+                    text = stringResource(R.string.current_changelog_unavailable),
+                    style = MiuixTheme.textStyles.body2.copy(color = MiuixTheme.colorScheme.onSurfaceVariantSummary),
+                )
+            } else {
+                UpdateMarkdown(text)
+            }
         }
-        AppDialogButton(
-            text = stringResource(R.string.action_cancel),
-            onClick = onDismiss,
-            modifier = Modifier.fillMaxWidth(),
-            primary = true,
-        )
+        AppDialogButtonRow {
+            AppDialogButton(
+                text = stringResource(R.string.action_confirm),
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f),
+                primary = true,
+            )
+        }
     }
 }
 
